@@ -1,12 +1,12 @@
 # rw-node-go
 
-`rw-node-go` is a Go implementation scaffold for a Remnawave Node-compatible service. The goal is to follow the official `remnawave/node` 2.7.x Panel-facing API while keeping the runtime small and maintainable.
+`rw-node-go` 是一个用 Go 编写的 Remnawave Node 兼容实现骨架。目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API，同时保持运行时轻量、结构清晰、便于后续持续跟随上游。
 
-This repository is currently in the framework stage. Routes, contracts, project layout, CI/CD, Docker, and documentation are in place; real Xray process control, Xray gRPC, user management, stats, torrent blocker, and nftables behavior are intentionally not implemented yet.
+当前仓库处于框架阶段：路由、contract 类型、项目结构、CI/CD、Docker 和基础文档已经落地；真实 Xray 进程控制、Xray gRPC、用户管理、统计、torrent blocker、nftables 等内部行为暂未实现。
 
-The HTTP layer uses Gin. `tmp/remnawave-node-go` is only a behavioral reference; this project does not follow that repository's framework layout.
+HTTP 层使用 Gin。`tmp/remnawave-node-go` 只作为行为参考，不沿用该社区实现的框架结构。
 
-## Quick Start
+## 快速开始
 
 ```sh
 mise install
@@ -14,17 +14,17 @@ mise run test
 mise run build
 ```
 
-Run the local stub server:
+启动本地 stub 服务：
 
 ```sh
 NODE_PORT=2222 mise exec -- go run ./cmd/rw-node-go
 ```
 
-The scaffold returns compatible JSON envelopes for planned API routes. `/node/xray/start` returns `isStarted=false` with `not implemented` until the M1 lifecycle work is implemented.
+框架会为计划内 API 返回兼容的 JSON envelope。`/node/xray/start` 当前会明确返回 `isStarted=false` 和 `not implemented`，直到 M1 的 Xray 生命周期实现完成。
 
-## Environment
+## 环境变量
 
-Common variables:
+框架阶段只保留少量必要配置：
 
 ```env
 NODE_PORT=2222
@@ -32,36 +32,37 @@ SECRET_KEY=
 XTLS_API_PORT=61000
 LOG_LEVEL=info
 RW_NODE_DIR=/opt/rw-node-go
-INTERNAL_SOCKET_PATH=/tmp/remnawave-node.sock
-INTERNAL_REST_TOKEN=
-DISABLE_HASHED_SET_CHECK=false
 XRAY_BIN=/usr/local/bin/xray
-XRAY_CONFIG_PATH=/opt/rw-node-go/xray/config.json
-XRAY_ASSET_DIR=/usr/local/share/xray
-INTERNAL_REST_PORT=61001
-ENABLE_UNIX_SOCKET_INTERNAL=true
-ENABLE_PLUGIN_STUBS=true
 ```
 
-`SECRET_KEY` parsing is scaffolded, but strict mTLS/JWT enforcement is deferred to M1.
+说明：
 
-## Images
+- `NODE_PORT`：Panel 访问节点 API 的端口。
+- `SECRET_KEY`：官方 Node 使用的 base64 JSON 密钥包，后续 M1 会用于 mTLS 和 JWT。
+- `XTLS_API_PORT`：本机 Xray gRPC API 端口，只允许本机访问。
+- `LOG_LEVEL`：日志级别，当前主要保留接口。
+- `RW_NODE_DIR`：节点运行目录；Xray 配置默认派生为 `$RW_NODE_DIR/xray/config.json`。
+- `XRAY_BIN`：外部 Xray 二进制路径。
 
-The Docker workflow validates multi-arch builds on `main` and publishes tagged releases to:
+内部 REST、Unix socket、插件开关、hash 跳过等选项先不公开，等对应功能实现后再加入文档。
+
+## 镜像
+
+Docker workflow 在 `main` 分支验证多架构构建，在 `v*` tag 发布时推送镜像：
 
 ```text
 ghcr.io/x-dora/rw-node-go
 ```
 
-The current Docker image contains the `rw-node-go` binary only. It reserves the expected Xray paths but does not download or embed Xray yet.
+当前镜像只包含 `rw-node-go` 二进制，并预留 Xray 运行目录；暂不下载或内置 Xray。
 
-## References
+## 参考仓库
 
-Clone reference repositories into `tmp/`:
+参考仓库放在 `tmp/`，只用于对照 contract 和行为：
 
 ```sh
 git clone --depth 1 --branch 2.7.0 https://github.com/remnawave/node.git tmp/remnawave-node
 git clone --depth 1 --branch master https://github.com/hteppl/remnawave-node-go.git tmp/remnawave-node-go
 ```
 
-`tmp/` is ignored by git and Docker.
+`tmp/` 已被 git 和 Docker 忽略。

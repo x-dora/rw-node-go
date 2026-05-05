@@ -1,33 +1,33 @@
-# Contracts
+# Contract 说明
 
-The compatibility source of truth is the official `remnawave/node` 2.7.x contract:
+兼容性来源以官方 `remnawave/node` 2.7.x contract 为准：
 
 ```text
 tmp/remnawave-node/libs/contract
 ```
 
-Current Go structs live in:
+Go 侧公开类型放在：
 
 ```text
 internal/contracts
 ```
 
-## Golden Tests
+## Golden 测试
 
-Golden files will be stored in:
+Golden fixture 预留目录：
 
 ```text
 testdata/contracts/official-2.7.0
 ```
 
-The scaffold does not copy official TypeScript contracts into this repository. Future M0 work should extract representative request and response JSON from the official contract package and compare:
+不要把官方 TypeScript contract 包整体复制进仓库。后续 M0 应从官方 contract 中提取小型请求/响应 JSON fixture，并比较：
 
-- HTTP method and path
-- JSON field names
-- envelope shape
-- null, empty array, and empty object behavior
-- date/time string formats
+- HTTP method 和 path
+- JSON 字段名
+- response envelope
+- `null`、空数组、空对象行为
+- 时间字符串格式
 
-## Stub Policy
+## Stub 策略
 
-All planned external routes are registered now so the service does not return 404 for known Remnawave calls. Stubs must be explicit: return compatible placeholder data and keep unimplemented behavior visible in code and tests.
+计划内外部路由已经全部注册，避免已知 Remnawave 调用得到 404。stub 必须显式返回兼容占位数据，并在代码和测试中保留“未实现”的可见边界。

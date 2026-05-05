@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -15,11 +16,7 @@ const (
 	DefaultXTLSAPIPort           = 61000
 	DefaultLogLevel              = "info"
 	DefaultRWNodeDir             = "/opt/rw-node-go"
-	DefaultInternalSocketPath    = "/tmp/remnawave-node.sock"
-	DefaultInternalRESTPort      = 61001
 	DefaultXrayBin               = "/usr/local/bin/xray"
-	DefaultXrayConfigPath        = "/opt/rw-node-go/xray/config.json"
-	DefaultXrayAssetDir          = "/usr/local/share/xray"
 	DefaultRequestBodyLimitBytes = int64(1 << 30)
 )
 
@@ -29,15 +26,8 @@ type Config struct {
 	XTLSAPIPort             int
 	LogLevel                string
 	RWNodeDir               string
-	InternalSocketPath      string
-	InternalRESTToken       string
-	DisableHashedSetCheck   bool
 	XrayBin                 string
 	XrayConfigPath          string
-	XrayAssetDir            string
-	InternalRESTPort        int
-	EnableUnixSocket        bool
-	EnablePluginStubs       bool
 	RequestBodyLimitBytes   int64
 	RequireSecretKey        bool
 	AllowInsecureHTTPTarget bool
@@ -50,15 +40,7 @@ func Load() (Config, error) {
 		XTLSAPIPort:           envInt("XTLS_API_PORT", DefaultXTLSAPIPort),
 		LogLevel:              envString("LOG_LEVEL", DefaultLogLevel),
 		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
-		InternalSocketPath:    envString("INTERNAL_SOCKET_PATH", DefaultInternalSocketPath),
-		InternalRESTToken:     os.Getenv("INTERNAL_REST_TOKEN"),
-		DisableHashedSetCheck: envBool("DISABLE_HASHED_SET_CHECK", false),
 		XrayBin:               envString("XRAY_BIN", DefaultXrayBin),
-		XrayConfigPath:        envString("XRAY_CONFIG_PATH", DefaultXrayConfigPath),
-		XrayAssetDir:          envString("XRAY_ASSET_DIR", DefaultXrayAssetDir),
-		InternalRESTPort:      envInt("INTERNAL_REST_PORT", DefaultInternalRESTPort),
-		EnableUnixSocket:      envBool("ENABLE_UNIX_SOCKET_INTERNAL", true),
-		EnablePluginStubs:     envBool("ENABLE_PLUGIN_STUBS", true),
 		RequestBodyLimitBytes: envInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes),
 		RequireSecretKey:      envBool("REQUIRE_SECRET_KEY", false),
 		AllowInsecureHTTPTarget: envBool(
@@ -66,6 +48,7 @@ func Load() (Config, error) {
 			true,
 		),
 	}
+	cfg.XrayConfigPath = filepath.Join(cfg.RWNodeDir, "xray", "config.json")
 
 	if cfg.RequireSecretKey && cfg.SecretKey == "" {
 		return Config{}, fmt.Errorf("SECRET_KEY is required")

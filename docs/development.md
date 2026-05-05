@@ -1,17 +1,15 @@
-# Development
+# 开发说明
 
-## Setup
-
-Initialize references:
+## 初始化参考仓库
 
 ```sh
 git clone --depth 1 --branch 2.7.0 https://github.com/remnawave/node.git tmp/remnawave-node
 git clone --depth 1 --branch master https://github.com/hteppl/remnawave-node-go.git tmp/remnawave-node-go
 ```
 
-Do not edit `tmp/`; refresh it from upstream when needed.
+`tmp/` 只做本地参考，不要修改或提交。
 
-## Commands
+## 常用命令
 
 ```sh
 mise run fmt
@@ -20,15 +18,15 @@ mise run build
 mise run docker-build
 ```
 
-`mise run lint` expects `golangci-lint` to be installed locally.
+`mise run lint` 需要本地已安装 `golangci-lint`。
 
-## Local Server
+## 本地运行
 
 ```sh
 NODE_PORT=2222 mise exec -- go run ./cmd/rw-node-go
 ```
 
-The framework starts an HTTP stub server. mTLS/JWT enforcement is not active until M1.
+当前启动的是 HTTP stub 服务。mTLS/JWT 强校验会在 M1 实现。
 
 ## Docker
 
@@ -36,4 +34,4 @@ The framework starts an HTTP stub server. mTLS/JWT enforcement is not active unt
 docker build -t ghcr.io/x-dora/rw-node-go:local .
 ```
 
-The first Docker stage compiles Go. The runtime stage is Alpine and reserves Xray paths for future lifecycle work.
+Dockerfile 会编译 Go 程序并生成 Alpine 运行镜像。当前镜像不包含 Xray 二进制。

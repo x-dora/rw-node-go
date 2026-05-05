@@ -1,25 +1,25 @@
-# Architecture
+# 架构说明
 
-The scaffold keeps Remnawave-facing API compatibility separate from runtime implementation details.
+本项目把 Remnawave Panel-facing API 兼容层和运行时实现层分开，便于后续跟随官方 Node contract 变化。
 
-## Layers
+## 分层
 
-- `cmd/rw-node-go`: process entrypoint, configuration loading, runtime state creation, and HTTP server startup.
-- `internal/httpapi`: Gin HTTP server, route registration, response envelope helpers, and future TLS/JWT/zstd middleware.
-- `internal/contracts`: public request and response structs for the Panel-facing API.
-- `internal/controller`: route handlers. Current handlers are compatible stubs.
-- `internal/state`: in-memory runtime state for Xray status, hashes, inbound users, and plugin state.
-- `internal/xray`: future external Xray process and gRPC control abstraction.
-- `internal/system`: future system stats, network capability, conntrack, and nftables integration.
-- `internal/plugin`: future torrent blocker and nftables plugin behavior.
+- `cmd/rw-node-go`：进程入口，负责加载配置、初始化运行状态并启动 HTTP 服务。
+- `internal/httpapi`：Gin HTTP 服务、路由注册、response envelope，以及后续 TLS/JWT/zstd 中间件。
+- `internal/contracts`：Panel-facing API 的请求和响应类型。
+- `internal/controller`：路由处理器。当前大部分处理器是兼容 stub。
+- `internal/state`：内存运行状态，包括 Xray 状态、hash、inbound 用户和插件状态。
+- `internal/xray`：后续外部 Xray 进程和 gRPC 控制抽象。
+- `internal/system`：后续系统统计、网络能力检测、conntrack 和 nftables 集成。
+- `internal/plugin`：后续 torrent blocker 和 nftables 插件逻辑。
 
-## Runtime Direction
+## 运行时方向
 
-M1 will keep Xray as an external process. The `xray.Core` interface is the boundary that later allows an embedded core experiment without changing public API handlers.
+M1 先采用外部 Xray 进程模式。`xray.Core` interface 是 HTTP contract 层和 Xray 实现层的边界，后续如需实验内嵌 Xray，不应影响公开 API。
 
-## API Envelope
+## 响应格式
 
-External Remnawave routes return:
+外部 Remnawave API 统一返回：
 
 ```json
 {
@@ -27,4 +27,4 @@ External Remnawave routes return:
 }
 ```
 
-Internal debug routes may return direct JSON objects because they are not Panel-facing contracts.
+内部调试接口可以直接返回 JSON 对象，因为它们不是 Panel contract 的一部分。

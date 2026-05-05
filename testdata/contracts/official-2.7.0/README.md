@@ -1,9 +1,9 @@
-# Official 2.7.0 Contract Golden Files
+# 官方 2.7.0 Contract Golden 文件
 
-This directory is reserved for JSON golden files extracted from:
+本目录用于存放从以下位置提取的小型 JSON golden fixture：
 
 ```text
 tmp/remnawave-node/libs/contract
 ```
 
-Do not vendor the official TypeScript contract package here. Store only small request and response fixtures needed for Go contract tests.
+不要把官方 TypeScript contract 包整体复制进仓库。这里只保存 Go contract 测试需要的少量请求和响应样例。
