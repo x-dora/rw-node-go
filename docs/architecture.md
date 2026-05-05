@@ -8,7 +8,7 @@
 - `internal/config`：环境变量、`SECRET_KEY` 解码、PEM normalize 和运行路径配置。
 - `internal/httpapi`：Gin router、response envelope、body limit、panic recovery、zstd request body、mTLS 和 JWT RS256 middleware。
 - `internal/contracts`：Panel-facing API 的请求和响应类型。
-- `internal/controller`：路由处理器。Xray controller 已接入外部进程控制；handler、stats、plugin、vision 仍主要是兼容 stub。
+- `internal/controller`：路由处理器。Xray controller 已接入外部进程控制；handler 已接入 Xray HandlerService；stats、plugin、vision 仍主要是兼容 stub。
 - `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash、inbound 用户集合和 plugin 状态。
 - `internal/xray`：Xray config builder、内部 mTLS 证书、外部进程 core 和 Xray gRPC client 抽象。
 - `internal/system`：系统统计、网络能力检测、conntrack 和 nftables 集成入口。
@@ -46,8 +46,8 @@ Xray TLS gRPC API on 127.0.0.1:XTLS_API_PORT
 
 ## 未完成边界
 
-- Xray gRPC client 已具备基础连接和 StatsService health check；HandlerService、StatsService、RoutingService 的业务方法尚未接入 controller。
-- 用户动态管理接口当前返回兼容成功或空集合，不会真实修改 Xray inbound 用户。
+- Xray gRPC client 已具备基础连接、StatsService health check 和 HandlerService 用户管理方法；StatsService、RoutingService 的业务方法尚未接入 controller。
+- 用户动态管理接口已通过 Xray HandlerService 增删和查询 inbound 用户；真实 Panel + Xray 验收仍未完成。
 - stats 接口当前返回基础快照、空流量或 false，不会从 Xray StatsService 读取真实数据。
 - plugin、nftables、conntrack、Vision block/unblock 当前是占位行为。
 - 内部接口当前用于调试和 webhook 占位，后续需要补本机访问保护和插件逻辑。

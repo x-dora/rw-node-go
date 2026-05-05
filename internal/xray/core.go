@@ -20,6 +20,10 @@ type Core interface {
 }
 
 type HandlerClient interface {
+	AddUser(ctx context.Context, spec UserSpec) error
+	RemoveUser(ctx context.Context, tag string, username string) error
+	GetInboundUsers(ctx context.Context, tag string) ([]InboundUser, error)
+	GetInboundUsersCount(ctx context.Context, tag string) (int, error)
 	Raw() handlercommand.HandlerServiceClient
 }
 

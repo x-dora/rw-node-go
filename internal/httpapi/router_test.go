@@ -15,6 +15,7 @@ import (
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/testkit"
 	"github.com/x-dora/rw-node-go/internal/xray"
+	handlercommand "github.com/xtls/xray-core/app/proxyman/command"
 )
 
 func TestOfficialPanelRoutesAreRegistered(t *testing.T) {
@@ -142,7 +143,7 @@ func (f *routerFakeCore) Stop(ctx context.Context) error {
 }
 
 func (f *routerFakeCore) IsRunning() bool {
-	return false
+	return true
 }
 
 func (f *routerFakeCore) Health(ctx context.Context) error {
@@ -154,7 +155,7 @@ func (f *routerFakeCore) Version(ctx context.Context) (string, error) {
 }
 
 func (f *routerFakeCore) Handler() xray.HandlerClient {
-	return nil
+	return routerFakeHandler{}
 }
 
 func (f *routerFakeCore) Stats() xray.StatsClient {
@@ -162,5 +163,27 @@ func (f *routerFakeCore) Stats() xray.StatsClient {
 }
 
 func (f *routerFakeCore) Routing() xray.RoutingClient {
+	return nil
+}
+
+type routerFakeHandler struct{}
+
+func (routerFakeHandler) AddUser(ctx context.Context, spec xray.UserSpec) error {
+	return nil
+}
+
+func (routerFakeHandler) RemoveUser(ctx context.Context, tag string, username string) error {
+	return nil
+}
+
+func (routerFakeHandler) GetInboundUsers(ctx context.Context, tag string) ([]xray.InboundUser, error) {
+	return []xray.InboundUser{}, nil
+}
+
+func (routerFakeHandler) GetInboundUsersCount(ctx context.Context, tag string) (int, error) {
+	return 0, nil
+}
+
+func (routerFakeHandler) Raw() handlercommand.HandlerServiceClient {
 	return nil
 }

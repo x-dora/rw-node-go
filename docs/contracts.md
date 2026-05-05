@@ -29,7 +29,8 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `POST /node/xray/start` | partial | 已接入 config 注入和外部进程启动；gRPC 验收仍未完成。 |
 | Xray | `GET /node/xray/stop` | partial | 已接入外部进程停止。 |
 | Xray | `GET /node/xray/healthcheck` | partial | 当前基于进程状态和缓存版本返回。 |
-| Handler | `/node/handler/*` | stub | 返回成功、空用户或 count 0；不调用 HandlerService。 |
+| Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入 Xray HandlerService 和内存 inbound/user hash 状态；真实 Panel + Xray 验收仍未完成。 |
+| Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | stub | 返回成功；不操作 conntrack 或 nftables。 |
 | Stats | `/node/stats/*` | stub/partial | system stats 有基础快照，其余多为空数据；不调用 StatsService；inbound/outbound/combined stub 响应形状已按官方 2.7.0 修正为数组或 tag 回显。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | stub | 返回成功；不操作 conntrack 或 nftables。 |
 | Plugin | `/node/plugin/*` | stub | 返回 accepted 或空 reports；不执行真实插件逻辑。 |

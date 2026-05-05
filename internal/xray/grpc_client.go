@@ -10,6 +10,7 @@ import (
 	handlercommand "github.com/xtls/xray-core/app/proxyman/command"
 	routercommand "github.com/xtls/xray-core/app/router/command"
 	statscommand "github.com/xtls/xray-core/app/stats/command"
+	"github.com/xtls/xray-core/common/serial"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -139,6 +140,64 @@ func (c *statsClient) Raw() statscommand.StatsServiceClient {
 
 type handlerClient struct {
 	raw handlercommand.HandlerServiceClient
+}
+
+func (c *handlerClient) AddUser(ctx context.Context, spec UserSpec) error {
+	user, err := BuildProtocolUser(spec)
+	if err != nil {
+		return err
+	}
+	_, err = c.raw.AlterInbound(ctx, &handlercommand.AlterInboundRequest{
+		Tag: spec.Tag,
+		Operation: serial.ToTypedMessage(&handlercommand.AddUserOperation{
+			User: user,
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("xray handler add user to inbound %q: %w", spec.Tag, err)
+	}
+	return nil
+}
+
+func (c *handlerClient) RemoveUser(ctx context.Context, tag string, username string) error {
+	_, err := c.raw.AlterInbound(ctx, &handlercommand.AlterInboundRequest{
+		Tag: tag,
+		Operation: serial.ToTypedMessage(&handlercommand.RemoveUserOperation{
+			Email: username,
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("xray handler remove user from inbound %q: %w", tag, err)
+	}
+	return nil
+}
+
+func (c *handlerClient) GetInboundUsers(ctx context.Context, tag string) ([]InboundUser, error) {
+	response, err := c.raw.GetInboundUsers(ctx, &handlercommand.GetInboundUserRequest{Tag: tag})
+	if err != nil {
+		return nil, fmt.Errorf("xray handler get inbound users %q: %w", tag, err)
+	}
+	users := make([]InboundUser, 0, len(response.GetUsers()))
+	for _, user := range response.GetUsers() {
+		if user == nil {
+			continue
+		}
+		email := user.GetEmail()
+		users = append(users, InboundUser{
+			Username: email,
+			Email:    email,
+			Level:    int(user.GetLevel()),
+		})
+	}
+	return users, nil
+}
+
+func (c *handlerClient) GetInboundUsersCount(ctx context.Context, tag string) (int, error) {
+	response, err := c.raw.GetInboundUsersCount(ctx, &handlercommand.GetInboundUserRequest{Tag: tag})
+	if err != nil {
+		return 0, fmt.Errorf("xray handler get inbound users count %q: %w", tag, err)
+	}
+	return int(response.GetCount()), nil
 }
 
 func (c *handlerClient) Raw() handlercommand.HandlerServiceClient {

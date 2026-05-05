@@ -19,16 +19,16 @@
 - [x] Xray config 注入 API inbound、API service、routing、policy stats 和内部 mTLS 证书。
 - [x] 外部 Xray 进程启动、停止、配置写入和 StatsService gRPC ready 检查。
 - [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存语义接入基础流程。
-- [~] Xray gRPC client 已建立基础连接和 StatsService health check；Handler/Stats/Routing 业务方法和真实 Panel + Xray 验收仍未完成。
+- [~] Xray gRPC client 已建立基础连接、StatsService health check 和 HandlerService 用户管理方法；Stats/Routing 业务方法和真实 Panel + Xray 验收仍未完成。
 
 ## M2: 用户动态管理
 
-- [ ] HandlerService client。
-- [ ] `add-user`、`add-users`。
-- [ ] `remove-user`、`remove-users`。
-- [ ] `get-inbound-users`、`get-inbound-users-count`。
-- [ ] VLESS、Trojan、Shadowsocks、Shadowsocks2022、Hysteria user builder。
-- [ ] inbound/user hash 状态管理和残留用户清理。
+- [x] HandlerService client。
+- [x] `add-user`、`add-users`。
+- [x] `remove-user`、`remove-users`。
+- [x] `get-inbound-users`、`get-inbound-users-count`。
+- [x] VLESS、Trojan、Shadowsocks、Shadowsocks2022、Hysteria user builder。
+- [~] inbound/user hash 状态管理和残留用户清理已接入内存态；真实 Panel + Xray 验收仍未完成。
 
 ## M3: 基础统计
 
