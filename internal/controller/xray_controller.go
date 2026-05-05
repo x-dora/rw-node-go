@@ -70,7 +70,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 	builder.TorrentBlocker = xray.TorrentBlockerInjection{
 		Enabled:         torrent.Enabled,
 		IncludeRuleTags: torrent.IncludeRuleTags,
-		WebhookURL:      "/internal/webhook",
+		WebhookURL:      builder.InternalWebhookURL(),
 	}
 	fullConfig, err := builder.Build(request.XrayConfig)
 	if err != nil {
@@ -130,6 +130,7 @@ func (ctrl XrayController) Healthcheck(c *gin.Context) {
 
 func (ctrl XrayController) writeStartError(c *gin.Context, err error) {
 	errMsg := err.Error()
+	ctrl.state.SetXrayInternalStatusCached(false)
 	snapshot := ctrl.state.Snapshot()
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
 		IsStarted:       false,

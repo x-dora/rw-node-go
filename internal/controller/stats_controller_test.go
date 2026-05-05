@@ -193,50 +193,14 @@ func TestStatsControllerDegradesWhenCoreUnavailable(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}, snapshot: fixedSystemSnapshotter()}
 
-	systemRec := runStatsRequest(t, ctrl.GetSystemStats, http.MethodGet, nil)
-	var systemBody struct {
-		Response struct {
-			XrayInfo *json.RawMessage `json:"xrayInfo"`
-			System   struct {
-				Stats struct {
-					Interface *struct {
-						Interface string `json:"interface"`
-					} `json:"interface"`
-				} `json:"stats"`
-			} `json:"system"`
-		} `json:"response"`
-	}
-	decodeResponse(t, systemRec, &systemBody)
-	if systemBody.Response.XrayInfo != nil {
-		t.Fatalf("xrayInfo = %v, want nil", systemBody.Response.XrayInfo)
-	}
-	if systemBody.Response.System.Stats.Interface == nil || systemBody.Response.System.Stats.Interface.Interface != "eth0" {
-		t.Fatalf("system body = %s", systemRec.Body.String())
-	}
+	systemRec := runStatsRequestStatus(t, ctrl.GetSystemStats, http.MethodGet, nil, http.StatusInternalServerError)
+	assertOfficialError(t, systemRec, "A010", "Failed to get system stats")
 
-	usersRec := runStatsRequest(t, ctrl.GetUsersStats, http.MethodPost, `{"reset":true}`)
-	var usersBody struct {
-		Response struct {
-			Users []any `json:"users"`
-		} `json:"response"`
-	}
-	decodeResponse(t, usersRec, &usersBody)
-	if len(usersBody.Response.Users) != 0 {
-		t.Fatalf("users body = %s", usersRec.Body.String())
-	}
+	usersRec := runStatsRequestStatus(t, ctrl.GetUsersStats, http.MethodPost, `{"reset":true}`, http.StatusInternalServerError)
+	assertOfficialError(t, usersRec, "A011", "Failed to get users stats")
 
-	inboundRec := runStatsRequest(t, ctrl.GetInboundStats, http.MethodPost, `{"tag":"VLESS_INBOUND","reset":true}`)
-	var inboundBody struct {
-		Response struct {
-			Inbound  string `json:"inbound"`
-			Uplink   int64  `json:"uplink"`
-			Downlink int64  `json:"downlink"`
-		} `json:"response"`
-	}
-	decodeResponse(t, inboundRec, &inboundBody)
-	if inboundBody.Response.Inbound != "VLESS_INBOUND" || inboundBody.Response.Uplink != 0 || inboundBody.Response.Downlink != 0 {
-		t.Fatalf("inbound body = %s", inboundRec.Body.String())
-	}
+	inboundRec := runStatsRequestStatus(t, ctrl.GetInboundStats, http.MethodPost, `{"tag":"VLESS_INBOUND","reset":true}`, http.StatusInternalServerError)
+	assertOfficialError(t, inboundRec, "A012", "Failed to get inbound stats")
 }
 
 func TestStatsControllerDegradesOnBindAndClientErrors(t *testing.T) {
@@ -247,27 +211,11 @@ func TestStatsControllerDegradesOnBindAndClientErrors(t *testing.T) {
 		core:   &fakeCore{started: true, stats: &recordingStatsClient{err: errors.New("boom")}},
 	}
 
-	badRec := runStatsRequest(t, ctrl.GetUsersStats, http.MethodPost, `{`)
-	var usersBody struct {
-		Response struct {
-			Users []any `json:"users"`
-		} `json:"response"`
-	}
-	decodeResponse(t, badRec, &usersBody)
-	if badRec.Code != http.StatusOK || len(usersBody.Response.Users) != 0 {
-		t.Fatalf("bad request response = %s", badRec.Body.String())
-	}
+	badRec := runStatsRequestStatus(t, ctrl.GetUsersStats, http.MethodPost, `{`, http.StatusInternalServerError)
+	assertOfficialError(t, badRec, "A011", "Failed to get users stats")
 
-	allRec := runStatsRequest(t, ctrl.GetAllInboundsStats, http.MethodPost, `{"reset":true}`)
-	var allBody struct {
-		Response struct {
-			Inbounds []any `json:"inbounds"`
-		} `json:"response"`
-	}
-	decodeResponse(t, allRec, &allBody)
-	if len(allBody.Response.Inbounds) != 0 {
-		t.Fatalf("all inbounds body = %s", allRec.Body.String())
-	}
+	allRec := runStatsRequestStatus(t, ctrl.GetAllInboundsStats, http.MethodPost, `{"reset":true}`, http.StatusInternalServerError)
+	assertOfficialError(t, allRec, "A015", "Failed to get inbounds stats")
 }
 
 func TestStatsControllerOnlineAndIPDegradeWhenUnavailable(t *testing.T) {
@@ -309,6 +257,10 @@ func TestStatsControllerOnlineAndIPDegradeWhenUnavailable(t *testing.T) {
 }
 
 func runStatsRequest(t *testing.T, handler gin.HandlerFunc, method string, body any) *httptest.ResponseRecorder {
+	return runStatsRequestStatus(t, handler, method, body, http.StatusOK)
+}
+
+func runStatsRequestStatus(t *testing.T, handler gin.HandlerFunc, method string, body any, wantStatus int) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -323,10 +275,26 @@ func runStatsRequest(t *testing.T, handler gin.HandlerFunc, method string, body 
 		ctx.Request.Header.Set("Content-Type", "application/json")
 	}
 	handler(ctx)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	if rec.Code != wantStatus {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, wantStatus, rec.Body.String())
 	}
 	return rec
+}
+
+func assertOfficialError(t *testing.T, rec *httptest.ResponseRecorder, wantCode string, wantMessage string) {
+	t.Helper()
+	var body struct {
+		Timestamp string `json:"timestamp"`
+		Path      string `json:"path"`
+		Message   string `json:"message"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal error: %v; body=%s", err, rec.Body.String())
+	}
+	if body.Timestamp == "" || body.Path != "/node/stats/test" || body.Message != wantMessage || body.ErrorCode != wantCode {
+		t.Fatalf("error body = %#v; raw=%s", body, rec.Body.String())
+	}
 }
 
 func decodeResponse(t *testing.T, rec *httptest.ResponseRecorder, target any) {

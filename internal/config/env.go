@@ -17,6 +17,7 @@ const (
 	DefaultLogLevel              = "info"
 	DefaultRWNodeDir             = "/opt/rw-node-go"
 	DefaultXrayBin               = "/usr/local/bin/xray"
+	DefaultInternalSocketPath    = "/tmp/remnawave-node.sock"
 	DefaultRequestBodyLimitBytes = int64(1 << 30)
 )
 
@@ -28,6 +29,8 @@ type Config struct {
 	RWNodeDir               string
 	XrayBin                 string
 	XrayConfigPath          string
+	InternalSocketPath      string
+	InternalRESTToken       string
 	RequestBodyLimitBytes   int64
 	RequireSecretKey        bool
 	AllowInsecureHTTPTarget bool
@@ -41,6 +44,8 @@ func Load() (Config, error) {
 		LogLevel:              envString("LOG_LEVEL", DefaultLogLevel),
 		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
 		XrayBin:               envString("XRAY_BIN", DefaultXrayBin),
+		InternalSocketPath:    envString("INTERNAL_SOCKET_PATH", DefaultInternalSocketPath),
+		InternalRESTToken:     strings.TrimSpace(os.Getenv("INTERNAL_REST_TOKEN")),
 		RequestBodyLimitBytes: envInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes),
 		RequireSecretKey:      envBool("REQUIRE_SECRET_KEY", false),
 		AllowInsecureHTTPTarget: envBool(

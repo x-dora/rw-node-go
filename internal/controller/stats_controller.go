@@ -35,7 +35,7 @@ func (ctrl StatsController) GetSystemStats(c *gin.Context) {
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, response)
+		writeOfficialStatsError(c, "Failed to get system stats", contracts.ErrFailedToGetSystemStats)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (ctrl StatsController) GetSystemStats(c *gin.Context) {
 	sysStats, err := client.SysStats(ctx)
 	if err != nil {
 		ctrl.logger.Warn("get xray system stats", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, response)
+		writeOfficialStatsError(c, "Failed to get system stats", contracts.ErrFailedToGetSystemStats)
 		return
 	}
 	response.XrayInfo = contractXraySysStats(sysStats)
@@ -54,13 +54,13 @@ func (ctrl StatsController) GetSystemStats(c *gin.Context) {
 func (ctrl StatsController) GetUsersStats(c *gin.Context) {
 	var request contracts.ResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersStatsResponse{Users: []contracts.UserTrafficStats{}})
+		writeOfficialStatsError(c, "Failed to get users stats", contracts.ErrFailedToGetUsersStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersStatsResponse{Users: []contracts.UserTrafficStats{}})
+		writeOfficialStatsError(c, "Failed to get users stats", contracts.ErrFailedToGetUsersStats)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (ctrl StatsController) GetUsersStats(c *gin.Context) {
 	users, err := client.UsersStats(ctx, request.Reset)
 	if err != nil {
 		ctrl.logger.Warn("get xray users stats", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersStatsResponse{Users: []contracts.UserTrafficStats{}})
+		writeOfficialStatsError(c, "Failed to get users stats", contracts.ErrFailedToGetUsersStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersStatsResponse{Users: contractUserTrafficStats(users)})
@@ -145,13 +145,13 @@ func (ctrl StatsController) GetUsersIPList(c *gin.Context) {
 func (ctrl StatsController) GetInboundStats(c *gin.Context) {
 	var request contracts.TaggedStatsRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundTrafficStatsResponse{})
+		writeOfficialStatsError(c, "Failed to get inbound stats", contracts.ErrFailedToGetInboundStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundTrafficStatsResponse{Inbound: request.Tag})
+		writeOfficialStatsError(c, "Failed to get inbound stats", contracts.ErrFailedToGetInboundStats)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (ctrl StatsController) GetInboundStats(c *gin.Context) {
 	stats, err := client.InboundStats(ctx, request.Tag, request.Reset)
 	if err != nil {
 		ctrl.logger.Warn("get xray inbound stats", "tag", request.Tag, "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundTrafficStatsResponse{Inbound: request.Tag})
+		writeOfficialStatsError(c, "Failed to get inbound stats", contracts.ErrFailedToGetInboundStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contractInboundTrafficStats(stats))
@@ -169,13 +169,13 @@ func (ctrl StatsController) GetInboundStats(c *gin.Context) {
 func (ctrl StatsController) GetOutboundStats(c *gin.Context) {
 	var request contracts.TaggedStatsRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.OutboundTrafficStatsResponse{})
+		writeOfficialStatsError(c, "Failed to get outbound stats", contracts.ErrFailedToGetOutboundStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.OutboundTrafficStatsResponse{Outbound: request.Tag})
+		writeOfficialStatsError(c, "Failed to get outbound stats", contracts.ErrFailedToGetOutboundStats)
 		return
 	}
 
@@ -184,7 +184,7 @@ func (ctrl StatsController) GetOutboundStats(c *gin.Context) {
 	stats, err := client.OutboundStats(ctx, request.Tag, request.Reset)
 	if err != nil {
 		ctrl.logger.Warn("get xray outbound stats", "tag", request.Tag, "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.OutboundTrafficStatsResponse{Outbound: request.Tag})
+		writeOfficialStatsError(c, "Failed to get outbound stats", contracts.ErrFailedToGetOutboundStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contractOutboundTrafficStats(stats))
@@ -193,17 +193,13 @@ func (ctrl StatsController) GetOutboundStats(c *gin.Context) {
 func (ctrl StatsController) GetAllInboundsStats(c *gin.Context) {
 	var request contracts.ResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllInboundsStatsResponse{
-			Inbounds: []contracts.InboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get inbounds stats", contracts.ErrFailedToGetInboundsStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllInboundsStatsResponse{
-			Inbounds: []contracts.InboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get inbounds stats", contracts.ErrFailedToGetInboundsStats)
 		return
 	}
 
@@ -212,9 +208,7 @@ func (ctrl StatsController) GetAllInboundsStats(c *gin.Context) {
 	inbounds, err := client.AllInboundStats(ctx, request.Reset)
 	if err != nil {
 		ctrl.logger.Warn("get all xray inbound stats", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllInboundsStatsResponse{
-			Inbounds: []contracts.InboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get inbounds stats", contracts.ErrFailedToGetInboundsStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllInboundsStatsResponse{
@@ -225,17 +219,13 @@ func (ctrl StatsController) GetAllInboundsStats(c *gin.Context) {
 func (ctrl StatsController) GetAllOutboundsStats(c *gin.Context) {
 	var request contracts.ResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllOutboundsStatsResponse{
-			Outbounds: []contracts.OutboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get outbounds stats", contracts.ErrFailedToGetOutboundsStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllOutboundsStatsResponse{
-			Outbounds: []contracts.OutboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get outbounds stats", contracts.ErrFailedToGetOutboundsStats)
 		return
 	}
 
@@ -244,9 +234,7 @@ func (ctrl StatsController) GetAllOutboundsStats(c *gin.Context) {
 	outbounds, err := client.AllOutboundStats(ctx, request.Reset)
 	if err != nil {
 		ctrl.logger.Warn("get all xray outbound stats", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllOutboundsStatsResponse{
-			Outbounds: []contracts.OutboundTrafficStatsResponse{},
-		})
+		writeOfficialStatsError(c, "Failed to get outbounds stats", contracts.ErrFailedToGetOutboundsStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllOutboundsStatsResponse{
@@ -257,13 +245,13 @@ func (ctrl StatsController) GetAllOutboundsStats(c *gin.Context) {
 func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 	var request contracts.ResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, emptyCombinedStatsResponse())
+		writeOfficialStatsError(c, "Failed to get combined stats", contracts.ErrFailedToGetCombinedStats)
 		return
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
 		ctrl.logger.Debug("xray stats client unavailable", "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, emptyCombinedStatsResponse())
+		writeOfficialStatsError(c, "Failed to get combined stats", contracts.ErrFailedToGetCombinedStats)
 		return
 	}
 
@@ -273,7 +261,7 @@ func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 	outbounds, outboundErr := client.AllOutboundStats(ctx, request.Reset)
 	if inboundErr != nil || outboundErr != nil {
 		ctrl.logger.Warn("get combined xray stats", "inboundError", inboundErr, "outboundError", outboundErr)
-		httpapi.WriteEnvelope(c, http.StatusOK, emptyCombinedStatsResponse())
+		writeOfficialStatsError(c, "Failed to get combined stats", contracts.ErrFailedToGetCombinedStats)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.CombinedStatsResponse{
@@ -300,6 +288,10 @@ func emptyCombinedStatsResponse() contracts.CombinedStatsResponse {
 		Inbounds:  []contracts.InboundTrafficStatsResponse{},
 		Outbounds: []contracts.OutboundTrafficStatsResponse{},
 	}
+}
+
+func writeOfficialStatsError(c *gin.Context, message string, code string) {
+	httpapi.WriteOfficialError(c, http.StatusInternalServerError, message, code)
 }
 
 func (ctrl StatsController) statsClient() (xray.StatsClient, error) {

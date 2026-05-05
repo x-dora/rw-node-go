@@ -154,6 +154,46 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	if body.Response.System.Stats.Interface == nil || body.Response.System.Stats.Interface.Interface != "eth0" {
 		t.Fatalf("system = %#v; body=%s", body.Response.System, rec.Body.String())
 	}
+	if runtimeState.Snapshot().XrayInternalStatusCached {
+		t.Fatalf("XrayInternalStatusCached = true, want false after start failure")
+	}
+}
+
+func TestStopXrayClearsHealthcheckInternalStatus(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	versionValue := "25.1.1"
+	runtimeState.SetXrayStarted(&versionValue, map[string]any{}, state.Hashes{EmptyConfig: "h1"})
+	core := &fakeCore{started: true}
+	controller := XrayController{
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     core,
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
+	}
+
+	stopRec := httptest.NewRecorder()
+	stopCtx, _ := gin.CreateTestContext(stopRec)
+	stopCtx.Request = httptest.NewRequest(http.MethodGet, "/node/xray/stop", nil)
+	controller.Stop(stopCtx)
+
+	healthRec := httptest.NewRecorder()
+	healthCtx, _ := gin.CreateTestContext(healthRec)
+	healthCtx.Request = httptest.NewRequest(http.MethodGet, "/node/xray/healthcheck", nil)
+	controller.Healthcheck(healthCtx)
+
+	var body struct {
+		Response struct {
+			XrayInternalStatusCached bool `json:"xrayInternalStatusCached"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(healthRec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal healthcheck: %v; body=%s", err, healthRec.Body.String())
+	}
+	if body.Response.XrayInternalStatusCached {
+		t.Fatalf("XrayInternalStatusCached = true, want false")
+	}
 }
 
 func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {

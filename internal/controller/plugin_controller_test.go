@@ -15,7 +15,8 @@ import (
 func TestPluginSyncNullCleansActivePlugin(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	runtimeState := state.NewRuntimeState()
-	ctrl := PluginController{state: runtimeState, logger: slog.Default()}
+	core := &fakeCore{started: true}
+	ctrl := PluginController{state: runtimeState, logger: slog.Default(), core: core}
 
 	rec := runPluginRequest(t, ctrl.Sync, `{"plugin":null}`)
 	assertAccepted(t, rec.Body.String(), false)
@@ -30,6 +31,9 @@ func TestPluginSyncNullCleansActivePlugin(t *testing.T) {
 	assertAccepted(t, rec.Body.String(), true)
 	if runtimeState.HasActivePlugin() {
 		t.Fatalf("active plugin was not cleaned")
+	}
+	if core.started || runtimeState.Snapshot().XrayInternalStatusCached {
+		t.Fatalf("xray was not stopped after plugin cleanup")
 	}
 }
 
@@ -56,7 +60,8 @@ func TestPluginSyncStoresTorrentBlockerState(t *testing.T) {
 func TestPluginSyncInvalidConfigResetsState(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	runtimeState := state.NewRuntimeState()
-	ctrl := PluginController{state: runtimeState, logger: slog.Default()}
+	core := &fakeCore{started: true}
+	ctrl := PluginController{state: runtimeState, logger: slog.Default(), core: core}
 
 	assertAccepted(t, runPluginRequest(t, ctrl.Sync, enabledTorrentPluginJSON()).Body.String(), true)
 	assertAccepted(t, runPluginRequest(t, ctrl.Sync, `{
@@ -69,6 +74,27 @@ func TestPluginSyncInvalidConfigResetsState(t *testing.T) {
 
 	if runtimeState.HasActivePlugin() || runtimeState.TorrentBlockerSnapshot().Enabled {
 		t.Fatalf("invalid sync did not reset plugin state")
+	}
+	if core.started {
+		t.Fatalf("xray was not stopped after invalid plugin sync")
+	}
+}
+
+func TestPluginSyncTorrentBlockerModeChangeStopsXray(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	core := &fakeCore{started: true}
+	ctrl := PluginController{state: runtimeState, logger: slog.Default(), core: core}
+
+	assertAccepted(t, runPluginRequest(t, ctrl.Sync, enabledTorrentPluginJSON()).Body.String(), true)
+	if core.started {
+		t.Fatalf("xray was not stopped after enabling torrent blocker")
+	}
+
+	core.started = true
+	assertAccepted(t, runPluginRequest(t, ctrl.Sync, disabledTorrentPluginJSON()).Body.String(), true)
+	if core.started {
+		t.Fatalf("xray was not stopped after disabling torrent blocker")
 	}
 }
 
@@ -167,6 +193,19 @@ func enabledTorrentPluginJSON() string {
 					"ignoreLists":{"ip":["ext:trusted","203.0.113.10"],"userId":["user-ignored"]},
 					"includeRuleTags":["DIRECT_RULE"]
 				}
+			}
+		}
+	}`
+}
+
+func disabledTorrentPluginJSON() string {
+	return `{
+		"plugin":{
+			"uuid":"44444444-4444-4444-8444-444444444444",
+			"name":"torrent-blocker",
+			"config":{
+				"sharedLists":[],
+				"torrentBlocker":{"enabled":false}
 			}
 		}
 	}`

@@ -1,5 +1,16 @@
 package contracts
 
+const (
+	ErrFailedToGetSystemStats    = "A010"
+	ErrFailedToGetUsersStats     = "A011"
+	ErrFailedToGetInboundStats   = "A012"
+	ErrFailedToGetOutboundStats  = "A013"
+	ErrFailedToGetInboundUsers   = "A014"
+	ErrFailedToGetInboundsStats  = "A015"
+	ErrFailedToGetOutboundsStats = "A016"
+	ErrFailedToGetCombinedStats  = "A017"
+)
+
 type GenericResponse struct {
 	Success bool    `json:"success"`
 	Error   *string `json:"error"`

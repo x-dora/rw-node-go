@@ -85,12 +85,13 @@ func TestConfigBuilderInjectsTorrentBlockerWhenEnabled(t *testing.T) {
 		t.Fatalf("NewInternalMTLSBundle() error = %v", err)
 	}
 	builder := ConfigBuilder{
-		XTLSAPIPort:  61000,
-		InternalMTLS: mtls,
+		XTLSAPIPort:        61000,
+		InternalMTLS:       mtls,
+		InternalSocketPath: "/tmp/remnawave-node.sock",
+		InternalRESTToken:  "internal-token",
 		TorrentBlocker: TorrentBlockerInjection{
 			Enabled:         true,
 			IncludeRuleTags: []string{"DIRECT_RULE"},
-			WebhookURL:      "/internal/webhook",
 		},
 	}
 	config, err := builder.Build(map[string]any{
@@ -124,14 +125,27 @@ func TestConfigBuilderInjectsTorrentBlockerWhenEnabled(t *testing.T) {
 		t.Fatalf("torrent rule protocol = %#v", protocols)
 	}
 	webhook := torrentRule["webhook"].(map[string]any)
-	if webhook["url"] != "/internal/webhook" || webhook["deduplication"] != 5 {
+	wantWebhookURL := "/tmp/remnawave-node.sock:/internal/webhook?token=internal-token"
+	if webhook["url"] != wantWebhookURL || webhook["deduplication"] != 5 {
 		t.Fatalf("torrent webhook = %#v", webhook)
 	}
 
 	includeRule := rules[2].(map[string]any)
 	includeWebhook := includeRule["webhook"].(map[string]any)
-	if includeWebhook["url"] != "/internal/webhook" || includeWebhook["deduplication"] != 5 {
+	if includeWebhook["url"] != wantWebhookURL || includeWebhook["deduplication"] != 5 {
 		t.Fatalf("include rule webhook = %#v", includeWebhook)
+	}
+}
+
+func TestConfigBuilderBuildsOfficialInternalWebhookURL(t *testing.T) {
+	builder := ConfigBuilder{
+		InternalSocketPath: "/tmp/remnawave-node.sock",
+		InternalRESTToken:  "token-1",
+	}
+	got := builder.InternalWebhookURL()
+	want := "/tmp/remnawave-node.sock:/internal/webhook?token=token-1"
+	if got != want {
+		t.Fatalf("InternalWebhookURL() = %q, want %q", got, want)
 	}
 }
 

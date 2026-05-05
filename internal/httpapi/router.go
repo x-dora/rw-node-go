@@ -69,6 +69,9 @@ func NewRouter(cfg config.Config, handlers Handlers, logger *slog.Logger) http.H
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(ginRecovery(logger), ginBodyLimit(cfg.RequestBodyLimitBytes))
+	router.NoRoute(func(c *gin.Context) {
+		closeRequestConnection(c.Writer, http.StatusNotFound)
+	})
 	registerRoutes(router, handlers)
 
 	return router

@@ -14,9 +14,11 @@ const (
 )
 
 type ConfigBuilder struct {
-	XTLSAPIPort    int
-	InternalMTLS   InternalMTLSBundle
-	TorrentBlocker TorrentBlockerInjection
+	XTLSAPIPort        int
+	InternalMTLS       InternalMTLSBundle
+	InternalSocketPath string
+	InternalRESTToken  string
+	TorrentBlocker     TorrentBlockerInjection
 }
 
 type TorrentBlockerInjection struct {
@@ -52,6 +54,9 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	config["routing"] = routing
 
 	if b.TorrentBlocker.Enabled {
+		if b.TorrentBlocker.WebhookURL == "" {
+			b.TorrentBlocker.WebhookURL = b.InternalWebhookURL()
+		}
 		injectTorrentBlocker(config, b.TorrentBlocker)
 	}
 
@@ -132,6 +137,18 @@ func webhookConfig(url string) map[string]any {
 		"url":           url,
 		"deduplication": 5,
 	}
+}
+
+func (b ConfigBuilder) InternalWebhookURL() string {
+	socketPath := b.InternalSocketPath
+	if socketPath == "" {
+		socketPath = "/tmp/remnawave-node.sock"
+	}
+	url := "/" + strings.TrimPrefix(socketPath, "/") + ":/internal/webhook"
+	if b.InternalRESTToken != "" {
+		url += "?token=" + b.InternalRESTToken
+	}
+	return url
 }
 
 func (b ConfigBuilder) apiInbound() map[string]any {

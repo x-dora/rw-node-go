@@ -25,6 +25,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.RWNodeDir != DefaultRWNodeDir {
 		t.Fatalf("RWNodeDir = %q, want %q", cfg.RWNodeDir, DefaultRWNodeDir)
 	}
+	if cfg.InternalSocketPath != DefaultInternalSocketPath {
+		t.Fatalf("InternalSocketPath = %q, want %q", cfg.InternalSocketPath, DefaultInternalSocketPath)
+	}
 }
 
 func TestNormalizePEM(t *testing.T) {

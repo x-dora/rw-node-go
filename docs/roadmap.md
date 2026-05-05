@@ -18,7 +18,7 @@
 - [x] zstd request body。
 - [x] Xray config 注入 API inbound、API service、routing、policy stats 和内部 mTLS 证书。
 - [x] 外部 Xray 进程启动、停止、配置写入和 StatsService gRPC ready 检查。
-- [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存语义接入基础流程。
+- [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存在线状态语义接入基础流程。
 - [~] Xray gRPC client 已建立基础连接、StatsService health check、基础流量统计和 HandlerService 用户管理方法；Routing 业务方法和真实 Panel + Xray 验收仍未完成。
 
 ## M2: 用户动态管理
@@ -33,7 +33,7 @@
 ## M3: 基础统计
 
 - [x] system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load average、network interface 列表、默认网卡速率、插件计数占位和 Xray sys stats。
-- [~] StatsService client 已用于内部 health check，并已接入 users、inbound、outbound、combined 流量统计和在线状态/IP 查询。
+- [~] StatsService client 已用于内部 health check，并已接入 users、inbound、outbound、combined 流量统计、在线状态/IP 查询和官方错误 envelope。
 - [~] users stats、inbound stats、outbound stats、combined stats、user online status、user IP list 和 users IP list 已接入 Xray StatsService；真实 Panel + Xray 验收仍未完成。
 - [x] reset 语义已透传给 Xray `GetStats`/`QueryStats`。
 - [x] 官方 contract 已暴露的 system CPU、memory、uptime、load average、network、interface stats。
@@ -50,8 +50,8 @@
 ## M5: 插件兼容
 
 - [~] plugin routes 已注册；torrent blocker 和 nftables route 均保持 Panel-facing 兼容。
-- [~] plugin sync 运行时状态管理已接入内存态；尚未持久化。
-- [~] torrent blocker config injection、internal webhook、report collect 已接入报告链路；真实 nftables 封禁未实现，报告 `blocked=false`。
+- [~] plugin sync 运行时状态管理已接入内存态；配置变化会停止 Xray 等待 Panel 重新下发 start；尚未持久化。
+- [~] torrent blocker config injection、Unix socket internal webhook、report collect 已接入报告链路；真实 nftables 封禁未实现，报告 `blocked=false`。
 - [ ] nftables block、unblock、recreate tables。
 - [ ] 权限不足时的稳定降级和测试。
 

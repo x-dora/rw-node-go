@@ -22,7 +22,7 @@ func JWTMiddlewareWithExemptPaths(publicKey *rsa.PublicKey, exemptPaths map[stri
 			}
 			tokenValue, ok := bearerToken(r.Header.Get("Authorization"))
 			if !ok {
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				closeRequestConnection(w, http.StatusUnauthorized)
 				return
 			}
 
@@ -33,7 +33,7 @@ func JWTMiddlewareWithExemptPaths(publicKey *rsa.PublicKey, exemptPaths map[stri
 				return publicKey, nil
 			})
 			if err != nil || token == nil || !token.Valid {
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				closeRequestConnection(w, http.StatusUnauthorized)
 				return
 			}
 

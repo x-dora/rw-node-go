@@ -184,7 +184,7 @@ func (ctrl HandlerController) GetInboundUsers(c *gin.Context) {
 	}
 	client, err := ctrl.handlerClient()
 	if err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersResponse{Users: []contracts.InboundUser{}})
+		writeOfficialStatsError(c, "Failed to get inbound users", contracts.ErrFailedToGetInboundUsers)
 		return
 	}
 	ctx, cancel := handlerContext(c)
@@ -192,7 +192,7 @@ func (ctrl HandlerController) GetInboundUsers(c *gin.Context) {
 	users, err := client.GetInboundUsers(ctx, request.Tag)
 	if err != nil {
 		ctrl.logger.Warn("get xray inbound users", "tag", request.Tag, "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersResponse{Users: []contracts.InboundUser{}})
+		writeOfficialStatsError(c, "Failed to get inbound users", contracts.ErrFailedToGetInboundUsers)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersResponse{Users: contractInboundUsers(users)})
@@ -206,7 +206,7 @@ func (ctrl HandlerController) GetInboundUsersCount(c *gin.Context) {
 	}
 	client, err := ctrl.handlerClient()
 	if err != nil {
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersCountResponse{Count: 0})
+		writeOfficialStatsError(c, "Failed to get inbound users", contracts.ErrFailedToGetInboundUsers)
 		return
 	}
 	ctx, cancel := handlerContext(c)
@@ -214,7 +214,7 @@ func (ctrl HandlerController) GetInboundUsersCount(c *gin.Context) {
 	count, err := client.GetInboundUsersCount(ctx, request.Tag)
 	if err != nil {
 		ctrl.logger.Warn("get xray inbound users count", "tag", request.Tag, "error", err)
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersCountResponse{Count: 0})
+		writeOfficialStatsError(c, "Failed to get inbound users", contracts.ErrFailedToGetInboundUsers)
 		return
 	}
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersCountResponse{Count: count})

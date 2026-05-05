@@ -5,15 +5,19 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/x-dora/rw-node-go/internal/config"
 )
 
 type Server struct {
-	httpServer *http.Server
-	useTLS     bool
+	httpServer         *http.Server
+	internalServer     *http.Server
+	internalSocketPath string
+	useTLS             bool
 }
 
 func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Server, error) {
@@ -39,11 +43,10 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		}
 		handler = JWTMiddlewareWithExemptPaths(publicKey, map[string]struct{}{
 			"/internal/get-config": {},
-			"/internal/webhook":    {},
 		})(handler)
 	}
 
-	return &Server{
+	server := &Server{
 		httpServer: &http.Server{
 			Addr:              cfg.ListenAddress(),
 			Handler:           handler,
@@ -54,10 +57,30 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			IdleTimeout:       60 * time.Second,
 		},
 		useTLS: useTLS,
-	}, nil
+	}
+	if cfg.InternalSocketPath != "" {
+		server.internalSocketPath = cfg.InternalSocketPath
+		server.internalServer = &http.Server{
+			Handler:           InternalTokenMiddleware(NewRouter(cfg, handlers, logger), cfg.InternalRESTToken),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       60 * time.Second,
+		}
+	}
+	return server, nil
 }
 
 func (s *Server) ListenAndServe() error {
+	if s.internalServer != nil && s.internalSocketPath != "" {
+		listener, err := internalUnixListener(s.internalSocketPath)
+		if err != nil {
+			return err
+		}
+		go func() {
+			_ = s.internalServer.Serve(listener)
+		}()
+	}
 	if s.useTLS {
 		if s.httpServer.TLSConfig == nil {
 			return fmt.Errorf("TLS enabled without TLS config")
@@ -67,6 +90,39 @@ func (s *Server) ListenAndServe() error {
 	return s.httpServer.ListenAndServe()
 }
 
+func (s *Server) ListenAndServeInternal(socketPath string) error {
+	if s.internalServer == nil {
+		return nil
+	}
+	if socketPath != "" {
+		s.internalSocketPath = socketPath
+	}
+	listener, err := internalUnixListener(s.internalSocketPath)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(s.internalSocketPath)
+	return s.internalServer.Serve(listener)
+}
+
+func internalUnixListener(socketPath string) (net.Listener, error) {
+	if socketPath == "" {
+		return nil, fmt.Errorf("internal socket path is empty")
+	}
+	_ = os.Remove(socketPath)
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("listen internal socket: %w", err)
+	}
+	return listener, nil
+}
+
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.internalServer != nil {
+		_ = s.internalServer.Shutdown(ctx)
+		if s.internalSocketPath != "" {
+			_ = os.Remove(s.internalSocketPath)
+		}
+	}
 	return s.httpServer.Shutdown(ctx)
 }

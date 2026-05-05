@@ -33,7 +33,12 @@ func NewRegistry(cfg config.Config, runtimeState *state.RuntimeState, logger *sl
 		apiAddress,
 		internalMTLS,
 	)
-	builder := xray.ConfigBuilder{XTLSAPIPort: cfg.XTLSAPIPort, InternalMTLS: internalMTLS}
+	builder := xray.ConfigBuilder{
+		XTLSAPIPort:        cfg.XTLSAPIPort,
+		InternalMTLS:       internalMTLS,
+		InternalSocketPath: cfg.InternalSocketPath,
+		InternalRESTToken:  cfg.InternalRESTToken,
+	}
 	return NewRegistryWithXrayAndSnapshotter(runtimeState, logger, core, builder, system.NewSnapshotter())
 }
 
@@ -47,7 +52,7 @@ func NewRegistryWithXrayAndSnapshotter(runtimeState *state.RuntimeState, logger 
 		Handler:  HandlerController{state: runtimeState, logger: logger, core: core},
 		Stats:    StatsController{state: runtimeState, logger: logger, core: core, snapshot: snapshotter},
 		Vision:   VisionController{state: runtimeState, logger: logger},
-		Plugin:   PluginController{state: runtimeState, logger: logger},
+		Plugin:   PluginController{state: runtimeState, logger: logger, core: core},
 		Internal: InternalController{state: runtimeState, logger: logger},
 		Snapshot: snapshotter,
 	}

@@ -51,6 +51,12 @@ func (s *RuntimeState) HasActivePlugin() bool {
 	return s.Plugins.ActivePlugin != nil
 }
 
+func (s *RuntimeState) IsPluginConfigChanged(config map[string]any) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.Plugins.LastConfigHash != HashPluginConfig(config)
+}
+
 func (s *RuntimeState) ResetPlugins() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
