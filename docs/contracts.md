@@ -4,6 +4,14 @@
 
 `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时应参考其 contract、controller、service、plugin、Xray 配置生成和错误处理实现。如果 `REMNAWAVE_NODE_GO_PLAN.md`、`docs/roadmap.md` 或当前实现假设与官方仓库冲突，以官方仓库为准。
 
+当前已从官方 2.7.0 contract 手工整理小型 golden manifest：
+
+```text
+testdata/contracts/official-2.7.0/panel-api.json
+```
+
+该 manifest 覆盖官方 Panel-facing route、代表性请求和响应 envelope，用于 Go contract struct 的 strict decode、响应 JSON 形状和路由注册测试。它不包含内部 `/internal/...` 调试接口，也不复制官方 TypeScript contract 包。
+
 ## 覆盖原则
 
 - 保持公开路由路径、HTTP method、JSON 字段名和 response envelope 稳定。
@@ -22,26 +30,31 @@
 | Xray | `GET /node/xray/stop` | partial | 已接入外部进程停止。 |
 | Xray | `GET /node/xray/healthcheck` | partial | 当前基于进程状态和缓存版本返回。 |
 | Handler | `/node/handler/*` | stub | 返回成功、空用户或 count 0；不调用 HandlerService。 |
-| Stats | `/node/stats/*` | stub/partial | system stats 有基础快照，其余多为空数据；不调用 StatsService。 |
+| Stats | `/node/stats/*` | stub/partial | system stats 有基础快照，其余多为空数据；不调用 StatsService；inbound/outbound/combined stub 响应形状已按官方 2.7.0 修正为数组或 tag 回显。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | stub | 返回成功；不操作 conntrack 或 nftables。 |
 | Plugin | `/node/plugin/*` | stub | 返回 accepted 或空 reports；不执行真实插件逻辑。 |
 | Internal | `/internal/get-config`, `/internal/webhook` | partial | 调试和 webhook 占位，不属于 Panel-facing contract。 |
 
 ## Golden 测试
 
-Golden fixture 预留目录：
+Golden fixture 目录：
 
 ```text
 testdata/contracts/official-2.7.0
 ```
 
-后续 contract 测试应覆盖：
+当前 contract 测试已覆盖：
 
 - HTTP method 和 path。
 - JSON 字段名和可选字段。
 - response envelope。
 - `null`、空数组、空对象行为。
-- 时间字符串格式。
-- 错误响应形状。
+- 代表性错误或降级响应形状。
+
+后续仍需补充：
+
+- 官方 release contract diff 提醒。
+- 更完整的 golden fixture 变体，特别是非空 stats、torrent blocker report 和真实 HandlerService 返回。
+- 真实 Panel + Xray integration test 的端到端响应对照。
 
 不要把官方 TypeScript contract 包整体复制进仓库。只固化必要的小型请求/响应 JSON fixture，并在 contract 变化时对照官方实现更新。

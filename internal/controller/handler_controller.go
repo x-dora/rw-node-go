@@ -40,9 +40,9 @@ func (ctrl HandlerController) GetInboundUsersCount(c *gin.Context) {
 }
 
 func (ctrl HandlerController) DropUsersConnections(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SuccessResponse())
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccess())
 }
 
 func (ctrl HandlerController) DropIPs(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SuccessResponse())
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccess())
 }

@@ -1,0 +1,582 @@
+{
+  "version": "official-2.7.0",
+  "routes": [
+    {
+      "name": "xray.start",
+      "method": "POST",
+      "path": "/node/xray/start",
+      "status": "partial",
+      "request": {
+        "internals": {
+          "forceRestart": false,
+          "hashes": {
+            "emptyConfig": "empty-config-hash",
+            "inbounds": [
+              {
+                "usersCount": 1,
+                "hash": "vless-inbound-hash",
+                "tag": "VLESS_INBOUND"
+              }
+            ]
+          }
+        },
+        "xrayConfig": {
+          "inbounds": [
+            {
+              "tag": "VLESS_INBOUND",
+              "protocol": "vless"
+            }
+          ],
+          "outbounds": [
+            {
+              "tag": "DIRECT",
+              "protocol": "freedom"
+            }
+          ]
+        }
+      },
+      "response": {
+        "response": {
+          "isStarted": true,
+          "version": "25.1.1",
+          "error": null,
+          "nodeInformation": {
+            "version": "0.1.0-dev"
+          },
+          "system": {
+            "info": {
+              "arch": "amd64",
+              "cpus": 2,
+              "cpuModel": "fixture-cpu",
+              "memoryTotal": 1024,
+              "hostname": "fixture-node",
+              "platform": "linux",
+              "release": "6.0.0",
+              "type": "Linux",
+              "version": "fixture-version",
+              "networkInterfaces": [
+                "eth0"
+              ]
+            },
+            "stats": {
+              "memoryFree": 512,
+              "memoryUsed": 512,
+              "uptime": 60,
+              "loadAvg": [
+                0,
+                0,
+                0
+              ],
+              "interface": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "xray.stop",
+      "method": "GET",
+      "path": "/node/xray/stop",
+      "status": "partial",
+      "response": {
+        "response": {
+          "isStopped": true
+        }
+      }
+    },
+    {
+      "name": "xray.healthcheck",
+      "method": "GET",
+      "path": "/node/xray/healthcheck",
+      "status": "partial",
+      "response": {
+        "response": {
+          "isAlive": true,
+          "xrayInternalStatusCached": false,
+          "xrayVersion": null,
+          "nodeVersion": "0.1.0-dev"
+        }
+      }
+    },
+    {
+      "name": "handler.add-user",
+      "method": "POST",
+      "path": "/node/handler/add-user",
+      "status": "stub",
+      "request": {
+        "data": [
+          {
+            "type": "vless",
+            "tag": "VLESS_INBOUND",
+            "username": "user-1",
+            "uuid": "11111111-1111-4111-8111-111111111111",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "type": "trojan",
+            "tag": "TROJAN_INBOUND",
+            "username": "user-1",
+            "password": "trojan-password"
+          },
+          {
+            "type": "shadowsocks",
+            "tag": "SS_INBOUND",
+            "username": "user-1",
+            "password": "ss-password",
+            "cipherType": 7,
+            "ivCheck": false
+          },
+          {
+            "type": "shadowsocks22",
+            "tag": "SS2022_INBOUND",
+            "username": "user-1",
+            "password": "ss2022-password"
+          },
+          {
+            "type": "hysteria",
+            "tag": "HYSTERIA_INBOUND",
+            "username": "user-1",
+            "password": "11111111-1111-4111-8111-111111111111"
+          }
+        ],
+        "hashData": {
+          "vlessUuid": "11111111-1111-4111-8111-111111111111",
+          "prevVlessUuid": "22222222-2222-4222-8222-222222222222"
+        }
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "handler.add-users",
+      "method": "POST",
+      "path": "/node/handler/add-users",
+      "status": "stub",
+      "request": {
+        "affectedInboundTags": [
+          "VLESS_INBOUND",
+          "TROJAN_INBOUND",
+          "SS_INBOUND",
+          "SS2022_INBOUND",
+          "HYSTERIA_INBOUND"
+        ],
+        "users": [
+          {
+            "inboundData": [
+              {
+                "type": "vless",
+                "tag": "VLESS_INBOUND",
+                "flow": ""
+              },
+              {
+                "type": "trojan",
+                "tag": "TROJAN_INBOUND"
+              },
+              {
+                "type": "shadowsocks",
+                "tag": "SS_INBOUND"
+              },
+              {
+                "type": "shadowsocks22",
+                "tag": "SS2022_INBOUND"
+              },
+              {
+                "type": "hysteria",
+                "tag": "HYSTERIA_INBOUND"
+              }
+            ],
+            "userData": {
+              "userId": "user-1",
+              "hashUuid": "33333333-3333-4333-8333-333333333333",
+              "vlessUuid": "11111111-1111-4111-8111-111111111111",
+              "trojanPassword": "trojan-password",
+              "ssPassword": "ss-password"
+            }
+          }
+        ]
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "handler.remove-user",
+      "method": "POST",
+      "path": "/node/handler/remove-user",
+      "status": "stub",
+      "request": {
+        "username": "user-1",
+        "hashData": {
+          "vlessUuid": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "handler.remove-users",
+      "method": "POST",
+      "path": "/node/handler/remove-users",
+      "status": "stub",
+      "request": {
+        "users": [
+          {
+            "userId": "user-1",
+            "hashUuid": "33333333-3333-4333-8333-333333333333"
+          }
+        ]
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "handler.get-inbound-users",
+      "method": "POST",
+      "path": "/node/handler/get-inbound-users",
+      "status": "stub",
+      "request": {
+        "tag": "VLESS_INBOUND"
+      },
+      "response": {
+        "response": {
+          "users": []
+        }
+      }
+    },
+    {
+      "name": "handler.get-inbound-users-count",
+      "method": "POST",
+      "path": "/node/handler/get-inbound-users-count",
+      "status": "stub",
+      "request": {
+        "tag": "VLESS_INBOUND"
+      },
+      "response": {
+        "response": {
+          "count": 0
+        }
+      }
+    },
+    {
+      "name": "handler.drop-users-connections",
+      "method": "POST",
+      "path": "/node/handler/drop-users-connections",
+      "status": "stub",
+      "request": {
+        "userIds": [
+          "user-1"
+        ]
+      },
+      "response": {
+        "response": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "handler.drop-ips",
+      "method": "POST",
+      "path": "/node/handler/drop-ips",
+      "status": "stub",
+      "request": {
+        "ips": [
+          "203.0.113.1"
+        ]
+      },
+      "response": {
+        "response": {
+          "success": true
+        }
+      }
+    },
+    {
+      "name": "stats.get-system-stats",
+      "method": "GET",
+      "path": "/node/stats/get-system-stats",
+      "status": "partial",
+      "response": {
+        "response": {
+          "system": {
+            "info": {
+              "arch": "amd64",
+              "cpus": 2,
+              "cpuModel": "fixture-cpu",
+              "memoryTotal": 1024,
+              "hostname": "fixture-node",
+              "platform": "linux",
+              "release": "6.0.0",
+              "type": "Linux",
+              "version": "fixture-version",
+              "networkInterfaces": [
+                "eth0"
+              ]
+            },
+            "stats": {
+              "memoryFree": 512,
+              "memoryUsed": 512,
+              "uptime": 60,
+              "loadAvg": [
+                0,
+                0,
+                0
+              ],
+              "interface": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "stats.get-users-stats",
+      "method": "POST",
+      "path": "/node/stats/get-users-stats",
+      "status": "stub",
+      "request": {
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "users": []
+        }
+      }
+    },
+    {
+      "name": "stats.get-user-online-status",
+      "method": "POST",
+      "path": "/node/stats/get-user-online-status",
+      "status": "stub",
+      "request": {
+        "username": "user-1"
+      },
+      "response": {
+        "response": {
+          "isOnline": false
+        }
+      }
+    },
+    {
+      "name": "stats.get-user-ip-list",
+      "method": "POST",
+      "path": "/node/stats/get-user-ip-list",
+      "status": "stub",
+      "request": {
+        "userId": "user-1"
+      },
+      "response": {
+        "response": {
+          "ips": []
+        }
+      }
+    },
+    {
+      "name": "stats.get-users-ip-list",
+      "method": "GET",
+      "path": "/node/stats/get-users-ip-list",
+      "status": "stub",
+      "response": {
+        "response": {
+          "users": []
+        }
+      }
+    },
+    {
+      "name": "stats.get-inbound-stats",
+      "method": "POST",
+      "path": "/node/stats/get-inbound-stats",
+      "status": "stub",
+      "request": {
+        "tag": "VLESS_INBOUND",
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "inbound": "VLESS_INBOUND",
+          "downlink": 0,
+          "uplink": 0
+        }
+      }
+    },
+    {
+      "name": "stats.get-outbound-stats",
+      "method": "POST",
+      "path": "/node/stats/get-outbound-stats",
+      "status": "stub",
+      "request": {
+        "tag": "DIRECT",
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "outbound": "DIRECT",
+          "downlink": 0,
+          "uplink": 0
+        }
+      }
+    },
+    {
+      "name": "stats.get-all-inbounds-stats",
+      "method": "POST",
+      "path": "/node/stats/get-all-inbounds-stats",
+      "status": "stub",
+      "request": {
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "inbounds": []
+        }
+      }
+    },
+    {
+      "name": "stats.get-all-outbounds-stats",
+      "method": "POST",
+      "path": "/node/stats/get-all-outbounds-stats",
+      "status": "stub",
+      "request": {
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "outbounds": []
+        }
+      }
+    },
+    {
+      "name": "stats.get-combined-stats",
+      "method": "POST",
+      "path": "/node/stats/get-combined-stats",
+      "status": "stub",
+      "request": {
+        "reset": true
+      },
+      "response": {
+        "response": {
+          "inbounds": [],
+          "outbounds": []
+        }
+      }
+    },
+    {
+      "name": "vision.block-ip",
+      "method": "POST",
+      "path": "/vision/block-ip",
+      "status": "stub",
+      "request": {
+        "ip": "203.0.113.1",
+        "username": "user-1"
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "vision.unblock-ip",
+      "method": "POST",
+      "path": "/vision/unblock-ip",
+      "status": "stub",
+      "request": {
+        "ip": "203.0.113.1",
+        "username": "user-1"
+      },
+      "response": {
+        "response": {
+          "success": true,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "plugin.sync",
+      "method": "POST",
+      "path": "/node/plugin/sync",
+      "status": "stub",
+      "request": {
+        "plugin": {
+          "config": {},
+          "uuid": "44444444-4444-4444-8444-444444444444",
+          "name": "torrent-blocker"
+        }
+      },
+      "response": {
+        "response": {
+          "accepted": true
+        }
+      }
+    },
+    {
+      "name": "plugin.torrent-blocker.collect",
+      "method": "POST",
+      "path": "/node/plugin/torrent-blocker/collect",
+      "status": "stub",
+      "response": {
+        "response": {
+          "reports": []
+        }
+      }
+    },
+    {
+      "name": "plugin.nftables.block-ips",
+      "method": "POST",
+      "path": "/node/plugin/nftables/block-ips",
+      "status": "stub",
+      "request": {
+        "ips": [
+          {
+            "ip": "203.0.113.1",
+            "timeout": 60
+          }
+        ]
+      },
+      "response": {
+        "response": {
+          "accepted": true
+        }
+      }
+    },
+    {
+      "name": "plugin.nftables.unblock-ips",
+      "method": "POST",
+      "path": "/node/plugin/nftables/unblock-ips",
+      "status": "stub",
+      "request": {
+        "ips": [
+          "203.0.113.1"
+        ]
+      },
+      "response": {
+        "response": {
+          "accepted": true
+        }
+      }
+    },
+    {
+      "name": "plugin.nftables.recreate-tables",
+      "method": "POST",
+      "path": "/node/plugin/nftables/recreate-tables",
+      "status": "stub",
+      "response": {
+        "response": {
+          "accepted": true
+        }
+      }
+    }
+  ]
+}

@@ -5,8 +5,16 @@ type GenericResponse struct {
 	Error   *string `json:"error"`
 }
 
+type SimpleSuccessResponse struct {
+	Success bool `json:"success"`
+}
+
 func SuccessResponse() GenericResponse {
 	return GenericResponse{Success: true, Error: nil}
+}
+
+func SimpleSuccess() SimpleSuccessResponse {
+	return SimpleSuccessResponse{Success: true}
 }
 
 func ErrorResponse(message string) GenericResponse {

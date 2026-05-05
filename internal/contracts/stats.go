@@ -38,6 +38,23 @@ type SystemStatsResponse struct {
 	System SystemStatsPayload `json:"system"`
 }
 
+type ResetRequest struct {
+	Reset bool `json:"reset"`
+}
+
+type TaggedStatsRequest struct {
+	Tag   string `json:"tag"`
+	Reset bool   `json:"reset"`
+}
+
+type UserOnlineStatusRequest struct {
+	Username string `json:"username"`
+}
+
+type UserIPListRequest struct {
+	UserID string `json:"userId"`
+}
+
 type UsersStatsResponse struct {
 	Users []UserTrafficStats `json:"users"`
 }
@@ -75,17 +92,27 @@ type TrafficStatsResponse struct {
 	Uplink   int64 `json:"uplink"`
 }
 
+type InboundTrafficStatsResponse struct {
+	Inbound  string `json:"inbound"`
+	Downlink int64  `json:"downlink"`
+	Uplink   int64  `json:"uplink"`
+}
+
+type OutboundTrafficStatsResponse struct {
+	Outbound string `json:"outbound"`
+	Downlink int64  `json:"downlink"`
+	Uplink   int64  `json:"uplink"`
+}
+
 type AllInboundsStatsResponse struct {
-	Inbounds map[string]TrafficStatsResponse `json:"inbounds"`
+	Inbounds []InboundTrafficStatsResponse `json:"inbounds"`
 }
 
 type AllOutboundsStatsResponse struct {
-	Outbounds map[string]TrafficStatsResponse `json:"outbounds"`
+	Outbounds []OutboundTrafficStatsResponse `json:"outbounds"`
 }
 
 type CombinedStatsResponse struct {
-	Users     []UserTrafficStats              `json:"users"`
-	Inbounds  map[string]TrafficStatsResponse `json:"inbounds"`
-	Outbounds map[string]TrafficStatsResponse `json:"outbounds"`
-	System    SystemStatsPayload              `json:"system"`
+	Inbounds  []InboundTrafficStatsResponse  `json:"inbounds"`
+	Outbounds []OutboundTrafficStatsResponse `json:"outbounds"`
 }

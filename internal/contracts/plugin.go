@@ -14,13 +14,44 @@ type AcceptedResponse struct {
 	Accepted bool `json:"accepted"`
 }
 
+type BlockIPsRequest struct {
+	IPs []BlockIPRequest `json:"ips"`
+}
+
+type BlockIPRequest struct {
+	IP      string `json:"ip"`
+	Timeout int    `json:"timeout"`
+}
+
+type UnblockIPsRequest struct {
+	IPs []string `json:"ips"`
+}
+
 type TorrentBlockerReportsResponse struct {
 	Reports []TorrentBlockerReport `json:"reports"`
 }
 
 type TorrentBlockerReport struct {
-	Username string `json:"username,omitempty"`
-	IP       string `json:"ip,omitempty"`
-	Rule     string `json:"rule,omitempty"`
-	At       string `json:"at,omitempty"`
+	ActionReport TorrentBlockerActionReport `json:"actionReport"`
+	XrayReport   XrayWebhookReport          `json:"xrayReport"`
+}
+
+type TorrentBlockerActionReport struct {
+	Blocked       bool   `json:"blocked"`
+	IP            string `json:"ip"`
+	BlockDuration int    `json:"blockDuration"`
+	WillUnblockAt string `json:"willUnblockAt"`
+	UserID        string `json:"userId"`
+	ProcessedAt   string `json:"processedAt"`
+}
+
+type XrayWebhookReport struct {
+	Type        string         `json:"type"`
+	RuleTag     string         `json:"ruleTag"`
+	InboundTag  string         `json:"inboundTag"`
+	Protocol    string         `json:"protocol"`
+	User        string         `json:"user"`
+	IP          string         `json:"ip"`
+	Destination string         `json:"destination"`
+	Raw         map[string]any `json:"raw,omitempty"`
 }

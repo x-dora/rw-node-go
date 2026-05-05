@@ -37,31 +37,33 @@ func (ctrl StatsController) GetUsersIPList(c *gin.Context) {
 }
 
 func (ctrl StatsController) GetInboundStats(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.TrafficStatsResponse{})
+	var request contracts.TaggedStatsRequest
+	_ = c.ShouldBindJSON(&request)
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundTrafficStatsResponse{Inbound: request.Tag})
 }
 
 func (ctrl StatsController) GetOutboundStats(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.TrafficStatsResponse{})
+	var request contracts.TaggedStatsRequest
+	_ = c.ShouldBindJSON(&request)
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.OutboundTrafficStatsResponse{Outbound: request.Tag})
 }
 
 func (ctrl StatsController) GetAllInboundsStats(c *gin.Context) {
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllInboundsStatsResponse{
-		Inbounds: map[string]contracts.TrafficStatsResponse{},
+		Inbounds: []contracts.InboundTrafficStatsResponse{},
 	})
 }
 
 func (ctrl StatsController) GetAllOutboundsStats(c *gin.Context) {
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.AllOutboundsStatsResponse{
-		Outbounds: map[string]contracts.TrafficStatsResponse{},
+		Outbounds: []contracts.OutboundTrafficStatsResponse{},
 	})
 }
 
 func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.CombinedStatsResponse{
-		Users:     []contracts.UserTrafficStats{},
-		Inbounds:  map[string]contracts.TrafficStatsResponse{},
-		Outbounds: map[string]contracts.TrafficStatsResponse{},
-		System:    emptySystemStats(),
+		Inbounds:  []contracts.InboundTrafficStatsResponse{},
+		Outbounds: []contracts.OutboundTrafficStatsResponse{},
 	})
 }
 

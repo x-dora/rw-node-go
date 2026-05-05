@@ -8,7 +8,7 @@
 - [x] 注册官方 2.7.x 计划内 Panel-facing routes。
 - [x] 建立 `internal/contracts` 请求和响应类型。
 - [x] 统一 response envelope。
-- [~] contract golden fixture 和官方 contract diff 流程仍未完成。
+- [~] 已建立官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试；官方 release contract diff 流程仍未完成。
 
 ## M1: 节点握手与 Xray 生命周期
 
@@ -34,7 +34,7 @@
 
 - [~] system stats 已有基础快照返回。
 - [~] StatsService client 已用于内部 health check，流量查询方法仍未接入 controller。
-- [ ] users stats、inbound stats、outbound stats、combined stats。
+- [ ] users stats、inbound stats、outbound stats、combined stats；当前 stub 响应形状已按官方 2.7.0 contract 修正为空数组或 tag 回显。
 - [ ] reset 语义。
 - [ ] 完整 system CPU、memory、disk、network、interface stats。
 
@@ -59,7 +59,7 @@
 
 - [x] CI test/build。
 - [x] Dockerfile 和 Docker multi-arch workflow。
-- [ ] contract golden 回归矩阵。
+- [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture；仍需接入官方 release diff 提醒。
 - [ ] 官方 `remnawave/node` release contract diff 提醒。
 - [ ] 真实 Panel + Xray integration test。
 - [ ] 镜像发布前的兼容性验收清单。
