@@ -28,8 +28,8 @@ func main() {
 	}
 
 	runtimeState := state.NewRuntimeState()
-	controllers := controller.NewRegistry(runtimeState, logger)
-	server := httpapi.NewServer(cfg, httpapi.Handlers{
+	controllers := controller.NewRegistry(cfg, runtimeState, logger)
+	server, err := httpapi.NewServer(cfg, httpapi.Handlers{
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,
 		Stats:    controllers.Stats,
@@ -37,6 +37,10 @@ func main() {
 		Plugin:   controllers.Plugin,
 		Internal: controllers.Internal,
 	}, logger)
+	if err != nil {
+		logger.Error("create server", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

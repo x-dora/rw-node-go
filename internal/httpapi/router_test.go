@@ -51,7 +51,12 @@ func TestPlannedRoutesAreRegistered(t *testing.T) {
 
 	runtimeState := state.NewRuntimeState()
 	logger := slog.New(slog.NewTextHandler(testWriter{t: t}, nil))
-	controllers := controller.NewRegistry(runtimeState, logger)
+	controllers := controller.NewRegistry(config.Config{
+		XrayBin:               "xray",
+		XrayConfigPath:        t.TempDir() + "/config.json",
+		XTLSAPIPort:           61000,
+		RequestBodyLimitBytes: 1 << 20,
+	}, runtimeState, logger)
 	router := httpapi.NewRouter(config.Config{RequestBodyLimitBytes: 1 << 20}, httpapi.Handlers{
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,

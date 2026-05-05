@@ -8,6 +8,7 @@ import (
 	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
 	"github.com/x-dora/rw-node-go/internal/state"
+	"github.com/x-dora/rw-node-go/internal/system"
 )
 
 type StatsController struct {
@@ -65,9 +66,5 @@ func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 }
 
 func emptySystemStats() contracts.SystemStatsPayload {
-	return contracts.SystemStatsPayload{
-		Info:      map[string]any{},
-		Stats:     map[string]any{},
-		Interface: map[string]any{},
-	}
+	return system.SnapshotStats()
 }

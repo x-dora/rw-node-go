@@ -2,7 +2,11 @@ module github.com/x-dora/rw-node-go
 
 go 1.26
 
-require github.com/gin-gonic/gin v1.12.0
+require (
+	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/klauspost/compress v1.18.6
+)
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect

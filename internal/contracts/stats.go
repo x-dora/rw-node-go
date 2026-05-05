@@ -1,9 +1,37 @@
 package contracts
 
 type SystemStatsPayload struct {
-	Info      map[string]any `json:"info"`
-	Stats     map[string]any `json:"stats"`
-	Interface map[string]any `json:"interface"`
+	Info  NodeSystemInfo  `json:"info"`
+	Stats NodeSystemStats `json:"stats"`
+}
+
+type NodeSystemInfo struct {
+	Arch              string   `json:"arch"`
+	CPUs              int      `json:"cpus"`
+	CPUModel          string   `json:"cpuModel"`
+	MemoryTotal       uint64   `json:"memoryTotal"`
+	Hostname          string   `json:"hostname"`
+	Platform          string   `json:"platform"`
+	Release           string   `json:"release"`
+	Type              string   `json:"type"`
+	Version           string   `json:"version"`
+	NetworkInterfaces []string `json:"networkInterfaces"`
+}
+
+type NodeSystemStats struct {
+	MemoryFree uint64            `json:"memoryFree"`
+	MemoryUsed uint64            `json:"memoryUsed"`
+	Uptime     uint64            `json:"uptime"`
+	LoadAvg    []float64         `json:"loadAvg"`
+	Interface  *NetworkInterface `json:"interface"`
+}
+
+type NetworkInterface struct {
+	Interface     string `json:"interface"`
+	RxBytesPerSec uint64 `json:"rxBytesPerSec"`
+	TxBytesPerSec uint64 `json:"txBytesPerSec"`
+	RxTotal       uint64 `json:"rxTotal"`
+	TxTotal       uint64 `json:"txTotal"`
 }
 
 type SystemStatsResponse struct {

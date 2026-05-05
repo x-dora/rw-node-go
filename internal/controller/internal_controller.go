@@ -16,7 +16,7 @@ type InternalController struct {
 
 func (ctrl InternalController) GetConfig(c *gin.Context) {
 	httpapi.WriteJSON(c, http.StatusOK, map[string]any{
-		"xrayConfig": ctrl.state.CurrentConfig,
+		"xrayConfig": ctrl.state.Snapshot().CurrentConfig,
 	})
 }
 

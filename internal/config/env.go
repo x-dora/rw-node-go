@@ -84,6 +84,19 @@ func DecodeSecretKey(secretKey string) (NodePayload, error) {
 	payload.NodeCertPEM = NormalizePEM(payload.NodeCertPEM)
 	payload.NodeKeyPEM = NormalizePEM(payload.NodeKeyPEM)
 
+	if payload.CACertPEM == "" {
+		return NodePayload{}, fmt.Errorf("SECRET_KEY payload missing caCertPem")
+	}
+	if payload.JWTPublicKey == "" {
+		return NodePayload{}, fmt.Errorf("SECRET_KEY payload missing jwtPublicKey")
+	}
+	if payload.NodeCertPEM == "" {
+		return NodePayload{}, fmt.Errorf("SECRET_KEY payload missing nodeCertPem")
+	}
+	if payload.NodeKeyPEM == "" {
+		return NodePayload{}, fmt.Errorf("SECRET_KEY payload missing nodeKeyPem")
+	}
+
 	return payload, nil
 }
 

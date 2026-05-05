@@ -23,7 +23,7 @@ type InboundHash struct {
 
 type StartXrayResponse struct {
 	IsStarted       bool               `json:"isStarted"`
-	Version         string             `json:"version"`
+	Version         *string            `json:"version"`
 	Error           *string            `json:"error"`
 	NodeInformation NodeInformation    `json:"nodeInformation"`
 	System          SystemStatsPayload `json:"system"`
@@ -34,12 +34,12 @@ type StopXrayResponse struct {
 }
 
 type HealthcheckResponse struct {
-	IsAlive                  bool   `json:"isAlive"`
-	XrayInternalStatusCached bool   `json:"xrayInternalStatusCached"`
-	XrayVersion              string `json:"xrayVersion"`
-	NodeVersion              string `json:"nodeVersion"`
+	IsAlive                  bool    `json:"isAlive"`
+	XrayInternalStatusCached bool    `json:"xrayInternalStatusCached"`
+	XrayVersion              *string `json:"xrayVersion"`
+	NodeVersion              string  `json:"nodeVersion"`
 }
 
 type NodeInformation struct {
-	Version string `json:"version"`
+	Version *string `json:"version"`
 }
