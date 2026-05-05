@@ -51,10 +51,54 @@ testdata/contracts/official-2.7.0
 - `null`、空数组、空对象行为。
 - 代表性错误或降级响应形状。
 
+## 官方 Contract Drift 检查
+
+本仓库保存官方 `remnawave/node 2.7.0` 的 contract hash baseline：
+
+```text
+testdata/contracts/official-2.7.0/upstream-contract.sha256.json
+```
+
+该 baseline 只保存 `libs/contract` 中 Panel-facing contract 相关 TypeScript 文件的路径和 SHA-256，不保存官方源码正文。检查范围包括：
+
+- `libs/contract/api`
+- `libs/contract/commands`
+- `libs/contract/constants/errors`
+- `libs/contract/constants/xray`
+- `libs/contract/models`
+
+`index.ts`、`package.json`、`tsconfig.json` 和非 `.ts` 文件不会进入比较。若官方目录结构变化导致上述路径不存在，检查会失败并要求人工确认上游 contract 结构。
+
+本地检查当前基线：
+
+```sh
+mise run contract-diff
+```
+
+检查其他官方 tag：
+
+```sh
+CONTRACT_TAG=2.7.1 mise run contract-diff
+```
+
+也可以在 GitHub Actions 的 `Contract Diff` 手动 workflow 中输入 tag 触发检查。该 workflow 不在普通 `push` 或 `pull_request` 中运行，避免外部网络和 GitHub 限流影响常规 CI。
+
+如果检查失败，先查看新增、删除或 hash 变化的文件列表，再对照官方仓库更新 Go contract、route 注册和 golden fixture。确认兼容调整后，再重新生成对应版本的 baseline：
+
+```sh
+go run ./cmd/contract-diff -tag X.Y.Z -source-dir tmp/remnawave-node -baseline testdata/contracts/official-X.Y.Z/upstream-contract.sha256.json -write-baseline
+```
+
+生成 baseline 后运行：
+
+```sh
+mise run test
+```
+
 后续仍需补充：
 
-- 官方 release contract diff 提醒。
 - 更完整的 golden fixture 变体，特别是非空 stats、torrent blocker report 和真实 HandlerService 返回。
+- 自动监听官方 release 的提醒机制。
 - 真实 Panel + Xray integration test 的端到端响应对照。
 
 不要把官方 TypeScript contract 包整体复制进仓库。只固化必要的小型请求/响应 JSON fixture，并在 contract 变化时对照官方实现更新。

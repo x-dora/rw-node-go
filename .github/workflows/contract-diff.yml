@@ -1,0 +1,29 @@
+name: Contract Diff
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Official remnawave/node tag to check
+        required: true
+        default: "2.7.0"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+
+      - name: Check official contract drift
+        env:
+          CONTRACT_TAG: ${{ inputs.tag }}
+        run: mise run contract-diff

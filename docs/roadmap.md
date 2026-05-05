@@ -59,7 +59,7 @@
 
 - [x] CI test/build。
 - [x] Dockerfile 和 Docker multi-arch workflow。
-- [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture；仍需接入官方 release diff 提醒。
-- [ ] 官方 `remnawave/node` release contract diff 提醒。
+- [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture；已补官方 contract hash baseline，仍需扩展更多 fixture 变体。
+- [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow 和本地 `mise run contract-diff`；尚未接入自动 release 监控。
 - [ ] 真实 Panel + Xray integration test。
 - [ ] 镜像发布前的兼容性验收清单。
