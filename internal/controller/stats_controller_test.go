@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/xray"
 	statscommand "github.com/xtls/xray-core/app/stats/command"
@@ -32,7 +33,7 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 			{Outbound: "DIRECT", Uplink: 90, Downlink: 100},
 		},
 	}
-	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{started: true, stats: stats}}
+	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{started: true, stats: stats}, snapshot: fixedSystemSnapshotter()}
 
 	systemRec := runStatsRequest(t, ctrl.GetSystemStats, http.MethodGet, nil)
 	var systemBody struct {
@@ -49,7 +50,14 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 			} `json:"plugins"`
 			System struct {
 				Stats struct {
-					LoadAvg []float64 `json:"loadAvg"`
+					LoadAvg   []float64 `json:"loadAvg"`
+					Interface *struct {
+						Interface     string `json:"interface"`
+						RxBytesPerSec uint64 `json:"rxBytesPerSec"`
+						TxBytesPerSec uint64 `json:"txBytesPerSec"`
+						RxTotal       uint64 `json:"rxTotal"`
+						TxTotal       uint64 `json:"txTotal"`
+					} `json:"interface"`
 				} `json:"stats"`
 			} `json:"system"`
 		} `json:"response"`
@@ -59,6 +67,9 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 		t.Fatalf("system body = %s", systemRec.Body.String())
 	}
 	if systemBody.Response.Plugins.TorrentBlocker.ReportsCount != 0 || len(systemBody.Response.System.Stats.LoadAvg) != 3 {
+		t.Fatalf("system body = %s", systemRec.Body.String())
+	}
+	if systemBody.Response.System.Stats.Interface == nil || systemBody.Response.System.Stats.Interface.Interface != "eth0" || systemBody.Response.System.Stats.Interface.RxBytesPerSec != 12 {
 		t.Fatalf("system body = %s", systemRec.Body.String())
 	}
 
@@ -121,17 +132,27 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 
 func TestStatsControllerDegradesWhenCoreUnavailable(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
-	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}}
+	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}, snapshot: fixedSystemSnapshotter()}
 
 	systemRec := runStatsRequest(t, ctrl.GetSystemStats, http.MethodGet, nil)
 	var systemBody struct {
 		Response struct {
 			XrayInfo *json.RawMessage `json:"xrayInfo"`
+			System   struct {
+				Stats struct {
+					Interface *struct {
+						Interface string `json:"interface"`
+					} `json:"interface"`
+				} `json:"stats"`
+			} `json:"system"`
 		} `json:"response"`
 	}
 	decodeResponse(t, systemRec, &systemBody)
 	if systemBody.Response.XrayInfo != nil {
 		t.Fatalf("xrayInfo = %v, want nil", systemBody.Response.XrayInfo)
+	}
+	if systemBody.Response.System.Stats.Interface == nil || systemBody.Response.System.Stats.Interface.Interface != "eth0" {
+		t.Fatalf("system body = %s", systemRec.Body.String())
 	}
 
 	usersRec := runStatsRequest(t, ctrl.GetUsersStats, http.MethodPost, `{"reset":true}`)
@@ -268,6 +289,48 @@ type recordingStatsClient struct {
 	outboundReset    bool
 	allInboundReset  bool
 	allOutboundReset bool
+}
+
+type staticSnapshotter struct {
+	payload contracts.SystemStatsPayload
+}
+
+func fixedSystemSnapshotter() staticSnapshotter {
+	return staticSnapshotter{payload: contracts.SystemStatsPayload{
+		Info: contracts.NodeSystemInfo{
+			Arch:              "amd64",
+			CPUs:              2,
+			CPUModel:          "fixture-cpu",
+			MemoryTotal:       1024,
+			Hostname:          "fixture-node",
+			Platform:          "linux",
+			Release:           "6.8.0",
+			Type:              "linux",
+			Version:           "fixture-version",
+			NetworkInterfaces: []string{"eth0"},
+		},
+		Stats: contracts.NodeSystemStats{
+			MemoryFree: 512,
+			MemoryUsed: 512,
+			Uptime:     60,
+			LoadAvg:    []float64{1, 2, 3},
+			Interface: &contracts.NetworkInterface{
+				Interface:     "eth0",
+				RxBytesPerSec: 12,
+				TxBytesPerSec: 34,
+				RxTotal:       56,
+				TxTotal:       78,
+			},
+		},
+	}}
+}
+
+func (s staticSnapshotter) SnapshotStats(ctx context.Context) contracts.SystemStatsPayload {
+	return s.payload
+}
+
+func (s staticSnapshotter) Close() error {
+	return nil
 }
 
 func (c *recordingStatsClient) Ping(ctx context.Context) error {

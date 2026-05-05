@@ -32,11 +32,11 @@
 
 ## M3: 基础统计
 
-- [~] system stats 已按官方 2.7.0 响应形状返回基础快照、插件计数占位和 Xray sys stats。
+- [x] system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load average、network interface 列表、默认网卡速率、插件计数占位和 Xray sys stats。
 - [~] StatsService client 已用于内部 health check，并已接入 users、inbound、outbound、combined 流量统计。
 - [~] users stats、inbound stats、outbound stats、combined stats 已接入 Xray StatsService；真实 Panel + Xray 验收仍未完成。
 - [x] reset 语义已透传给 Xray `GetStats`/`QueryStats`。
-- [ ] 完整 system CPU、memory、disk、network、interface stats。
+- [x] 官方 contract 已暴露的 system CPU、memory、uptime、load average、network、interface stats。
 
 ## M4: 在线 IP 与连接处理
 

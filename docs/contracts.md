@@ -31,7 +31,7 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `GET /node/xray/healthcheck` | partial | 当前基于进程状态和缓存版本返回。 |
 | Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入 Xray HandlerService 和内存 inbound/user hash 状态；真实 Panel + Xray 验收仍未完成。 |
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | stub | 返回成功；不操作 conntrack 或 nftables。 |
-| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 形状返回基础快照和 Xray sys stats；users、inbound、outbound、combined 已接入 Xray StatsService；online/IP 仍为 M4 降级 stub。 |
+| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 已接入 Xray StatsService；online/IP 仍为 M4 降级 stub。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | stub | 返回成功；不操作 conntrack 或 nftables。 |
 | Plugin | `/node/plugin/*` | stub | 返回 accepted 或空 reports；不执行真实插件逻辑。 |
 | Internal | `/internal/get-config`, `/internal/webhook` | partial | 调试和 webhook 占位，不属于 Panel-facing contract。 |

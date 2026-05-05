@@ -16,16 +16,18 @@ import (
 )
 
 type StatsController struct {
-	state  *state.RuntimeState
-	logger *slog.Logger
-	core   xray.Core
+	state    *state.RuntimeState
+	logger   *slog.Logger
+	core     xray.Core
+	snapshot system.Snapshotter
 }
 
 func (ctrl StatsController) GetSystemStats(c *gin.Context) {
+	systemStats := ctrl.systemStats(c.Request.Context())
 	response := contracts.SystemStatsResponse{
 		XrayInfo: nil,
 		Plugins:  emptyPluginStats(),
-		System:   contracts.SystemStats{Stats: emptySystemStats().Stats},
+		System:   contracts.SystemStats{Stats: systemStats.Stats},
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
@@ -222,8 +224,11 @@ func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 	})
 }
 
-func emptySystemStats() contracts.SystemStatsPayload {
-	return system.SnapshotStats()
+func (ctrl StatsController) systemStats(ctx context.Context) contracts.SystemStatsPayload {
+	if ctrl.snapshot == nil {
+		return system.SnapshotStats()
+	}
+	return ctrl.snapshot.SnapshotStats(ctx)
 }
 
 func emptyPluginStats() contracts.PluginStats {

@@ -21,10 +21,11 @@ func TestHealthcheckReturnsCachedStatusAndNodeVersion(t *testing.T) {
 	runtimeState := state.NewRuntimeState()
 	core := &fakeCore{}
 	controller := XrayController{
-		state:   runtimeState,
-		logger:  slog.Default(),
-		core:    core,
-		builder: xray.ConfigBuilder{XTLSAPIPort: 61000},
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     core,
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -59,10 +60,11 @@ func TestStartXrayStartsCore(t *testing.T) {
 	runtimeState := state.NewRuntimeState()
 	core := &fakeCore{version: "25.1.1"}
 	controller := XrayController{
-		state:   runtimeState,
-		logger:  slog.Default(),
-		core:    core,
-		builder: xray.ConfigBuilder{XTLSAPIPort: 61000},
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     core,
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -77,6 +79,13 @@ func TestStartXrayStartsCore(t *testing.T) {
 		Response struct {
 			IsStarted bool    `json:"isStarted"`
 			Error     *string `json:"error"`
+			System    struct {
+				Stats struct {
+					Interface *struct {
+						Interface string `json:"interface"`
+					} `json:"interface"`
+				} `json:"stats"`
+			} `json:"system"`
 		} `json:"response"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -88,6 +97,9 @@ func TestStartXrayStartsCore(t *testing.T) {
 	}
 	if body.Response.Error != nil {
 		t.Fatalf("Error = %v, want nil", *body.Response.Error)
+	}
+	if body.Response.System.Stats.Interface == nil || body.Response.System.Stats.Interface.Interface != "eth0" {
+		t.Fatalf("system = %#v; body=%s", body.Response.System, rec.Body.String())
 	}
 	if !core.started {
 		t.Fatalf("core was not started")
@@ -102,10 +114,11 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	runtimeState := state.NewRuntimeState()
 	controller := XrayController{
-		state:   runtimeState,
-		logger:  slog.Default(),
-		core:    &fakeCore{startErr: errors.New("boom")},
-		builder: xray.ConfigBuilder{XTLSAPIPort: 61000},
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     &fakeCore{startErr: errors.New("boom")},
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -120,6 +133,13 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 		Response struct {
 			IsStarted bool    `json:"isStarted"`
 			Error     *string `json:"error"`
+			System    struct {
+				Stats struct {
+					Interface *struct {
+						Interface string `json:"interface"`
+					} `json:"interface"`
+				} `json:"stats"`
+			} `json:"system"`
 		} `json:"response"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -131,6 +151,9 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	if body.Response.Error == nil || *body.Response.Error != "boom" {
 		t.Fatalf("Error = %v, want boom", body.Response.Error)
 	}
+	if body.Response.System.Stats.Interface == nil || body.Response.System.Stats.Interface.Interface != "eth0" {
+		t.Fatalf("system = %#v; body=%s", body.Response.System, rec.Body.String())
+	}
 }
 
 func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
@@ -141,10 +164,11 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 	runtimeState.SetXrayStarted(&versionValue, map[string]any{}, hashes)
 	core := &fakeCore{started: true, version: "25.1.1"}
 	controller := XrayController{
-		state:   runtimeState,
-		logger:  slog.Default(),
-		core:    core,
-		builder: xray.ConfigBuilder{XTLSAPIPort: 61000},
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     core,
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -159,6 +183,13 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 		Response struct {
 			IsStarted bool    `json:"isStarted"`
 			Error     *string `json:"error"`
+			System    struct {
+				Stats struct {
+					Interface *struct {
+						Interface string `json:"interface"`
+					} `json:"interface"`
+				} `json:"stats"`
+			} `json:"system"`
 		} `json:"response"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -166,6 +197,9 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 	}
 	if !body.Response.IsStarted || body.Response.Error != nil {
 		t.Fatalf("response = %s", rec.Body.String())
+	}
+	if body.Response.System.Stats.Interface == nil || body.Response.System.Stats.Interface.Interface != "eth0" {
+		t.Fatalf("system = %#v; body=%s", body.Response.System, rec.Body.String())
 	}
 }
 
@@ -177,10 +211,11 @@ func TestStartXrayRestartsWhenHashesUnchangedButHealthFails(t *testing.T) {
 	runtimeState.SetXrayStarted(&versionValue, map[string]any{}, hashes)
 	core := &fakeCore{started: true, version: "25.1.1", healthErr: errors.New("not healthy")}
 	controller := XrayController{
-		state:   runtimeState,
-		logger:  slog.Default(),
-		core:    core,
-		builder: xray.ConfigBuilder{XTLSAPIPort: 61000},
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     core,
+		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)

@@ -29,6 +29,13 @@ func main() {
 
 	runtimeState := state.NewRuntimeState()
 	controllers := controller.NewRegistry(cfg, runtimeState, logger)
+	defer func() {
+		if controllers.Snapshot != nil {
+			if err := controllers.Snapshot.Close(); err != nil {
+				logger.Warn("close system snapshotter", "error", err)
+			}
+		}
+	}()
 	server, err := httpapi.NewServer(cfg, httpapi.Handlers{
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,

@@ -11,14 +11,16 @@ import (
 	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
 	"github.com/x-dora/rw-node-go/internal/state"
+	"github.com/x-dora/rw-node-go/internal/system"
 	"github.com/x-dora/rw-node-go/internal/xray"
 )
 
 type XrayController struct {
-	state   *state.RuntimeState
-	logger  *slog.Logger
-	core    xray.Core
-	builder xray.ConfigBuilder
+	state    *state.RuntimeState
+	logger   *slog.Logger
+	core     xray.Core
+	builder  xray.ConfigBuilder
+	snapshot system.Snapshotter
 }
 
 func (ctrl XrayController) Start(c *gin.Context) {
@@ -30,7 +32,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 			Version:         ctrl.state.Snapshot().XrayVersion,
 			Error:           &errMsg,
 			NodeInformation: contracts.NodeInformation{Version: ptr(ctrl.state.NodeVersion)},
-			System:          emptySystemStats(),
+			System:          ctrl.systemStats(c.Request.Context()),
 		})
 		return
 	}
@@ -53,7 +55,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 				Version:         snapshot.XrayVersion,
 				Error:           nil,
 				NodeInformation: contracts.NodeInformation{Version: ptr(snapshot.NodeVersion)},
-				System:          emptySystemStats(),
+				System:          ctrl.systemStats(c.Request.Context()),
 			})
 			return
 		}
@@ -95,7 +97,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 		Version:         versionPtr,
 		Error:           nil,
 		NodeInformation: contracts.NodeInformation{Version: ptr(ctrl.state.NodeVersion)},
-		System:          emptySystemStats(),
+		System:          ctrl.systemStats(c.Request.Context()),
 	})
 }
 
@@ -127,10 +129,17 @@ func (ctrl XrayController) writeStartError(c *gin.Context, err error) {
 		Version:         snapshot.XrayVersion,
 		Error:           &errMsg,
 		NodeInformation: contracts.NodeInformation{Version: ptr(snapshot.NodeVersion)},
-		System:          emptySystemStats(),
+		System:          ctrl.systemStats(c.Request.Context()),
 	})
 }
 
 func ptr(value string) *string {
 	return &value
+}
+
+func (ctrl XrayController) systemStats(ctx context.Context) contracts.SystemStatsPayload {
+	if ctrl.snapshot == nil {
+		return system.SnapshotStats()
+	}
+	return ctrl.snapshot.SnapshotStats(ctx)
 }
