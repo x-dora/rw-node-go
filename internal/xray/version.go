@@ -1,0 +1,3 @@
+package xray
+
+const UnknownVersion = ""

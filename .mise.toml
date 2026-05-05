@@ -1,0 +1,29 @@
+[tools]
+go = "1.26.2"
+
+[env]
+GOPROXY = "https://goproxy.cn,direct"
+
+[tasks.fmt]
+description = "Format Go source files"
+run = "go fmt ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+
+[tasks.test]
+description = "Run Go tests"
+run = "mise exec -- go test ./..."
+
+[tasks.build]
+description = "Build rw-node-go"
+run = "go build -o bin/rw-node-go ./cmd/rw-node-go"
+
+[tasks.docker-build]
+description = "Build the local Docker image"
+run = "powershell -NoProfile -Command \"$version = if ($env:VERSION) { $env:VERSION } else { '0.1.0-dev' }; $commit = if ($env:COMMIT) { $env:COMMIT } else { 'unknown' }; $buildDate = if ($env:BUILD_DATE) { $env:BUILD_DATE } else { 'unknown' }; docker build --build-arg VERSION=$version --build-arg COMMIT=$commit --build-arg BUILD_DATE=$buildDate -t ghcr.io/x-dora/rw-node-go:local .\""
+
+[tasks.clean]
+description = "Remove local build artifacts"
+run = "powershell -NoProfile -Command \"Remove-Item -Recurse -Force bin,dist,build,coverage -ErrorAction SilentlyContinue\""

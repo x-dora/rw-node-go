@@ -1,0 +1,16 @@
+.git
+.github
+tmp
+bin
+dist
+build
+coverage
+*.test
+*.out
+.env
+.env.*
+.idea
+.vscode
+README.md
+docs
+REMNAWAVE_NODE_GO_PLAN.md
