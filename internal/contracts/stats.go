@@ -35,7 +35,34 @@ type NetworkInterface struct {
 }
 
 type SystemStatsResponse struct {
-	System SystemStatsPayload `json:"system"`
+	XrayInfo *XraySysStats `json:"xrayInfo"`
+	Plugins  PluginStats   `json:"plugins"`
+	System   SystemStats   `json:"system"`
+}
+
+type XraySysStats struct {
+	NumGoroutine uint32 `json:"numGoroutine"`
+	NumGC        uint32 `json:"numGC"`
+	Alloc        uint64 `json:"alloc"`
+	TotalAlloc   uint64 `json:"totalAlloc"`
+	Sys          uint64 `json:"sys"`
+	Mallocs      uint64 `json:"mallocs"`
+	Frees        uint64 `json:"frees"`
+	LiveObjects  uint64 `json:"liveObjects"`
+	PauseTotalNs uint64 `json:"pauseTotalNs"`
+	Uptime       uint32 `json:"uptime"`
+}
+
+type PluginStats struct {
+	TorrentBlocker TorrentBlockerPluginStats `json:"torrentBlocker"`
+}
+
+type TorrentBlockerPluginStats struct {
+	ReportsCount int `json:"reportsCount"`
+}
+
+type SystemStats struct {
+	Stats NodeSystemStats `json:"stats"`
 }
 
 type ResetRequest struct {

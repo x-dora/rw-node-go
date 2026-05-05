@@ -19,7 +19,7 @@
 - [x] Xray config 注入 API inbound、API service、routing、policy stats 和内部 mTLS 证书。
 - [x] 外部 Xray 进程启动、停止、配置写入和 StatsService gRPC ready 检查。
 - [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存语义接入基础流程。
-- [~] Xray gRPC client 已建立基础连接、StatsService health check 和 HandlerService 用户管理方法；Stats/Routing 业务方法和真实 Panel + Xray 验收仍未完成。
+- [~] Xray gRPC client 已建立基础连接、StatsService health check、基础流量统计和 HandlerService 用户管理方法；Routing 业务方法和真实 Panel + Xray 验收仍未完成。
 
 ## M2: 用户动态管理
 
@@ -32,10 +32,10 @@
 
 ## M3: 基础统计
 
-- [~] system stats 已有基础快照返回。
-- [~] StatsService client 已用于内部 health check，流量查询方法仍未接入 controller。
-- [ ] users stats、inbound stats、outbound stats、combined stats；当前 stub 响应形状已按官方 2.7.0 contract 修正为空数组或 tag 回显。
-- [ ] reset 语义。
+- [~] system stats 已按官方 2.7.0 响应形状返回基础快照、插件计数占位和 Xray sys stats。
+- [~] StatsService client 已用于内部 health check，并已接入 users、inbound、outbound、combined 流量统计。
+- [~] users stats、inbound stats、outbound stats、combined stats 已接入 Xray StatsService；真实 Panel + Xray 验收仍未完成。
+- [x] reset 语义已透传给 Xray `GetStats`/`QueryStats`。
 - [ ] 完整 system CPU、memory、disk、network、interface stats。
 
 ## M4: 在线 IP 与连接处理

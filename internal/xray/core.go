@@ -29,6 +29,12 @@ type HandlerClient interface {
 
 type StatsClient interface {
 	Ping(ctx context.Context) error
+	SysStats(ctx context.Context) (SysStats, error)
+	UsersStats(ctx context.Context, reset bool) ([]UserTrafficStats, error)
+	InboundStats(ctx context.Context, tag string, reset bool) (InboundTrafficStats, error)
+	OutboundStats(ctx context.Context, tag string, reset bool) (OutboundTrafficStats, error)
+	AllInboundStats(ctx context.Context, reset bool) ([]InboundTrafficStats, error)
+	AllOutboundStats(ctx context.Context, reset bool) ([]OutboundTrafficStats, error)
 	Raw() statscommand.StatsServiceClient
 }
 

@@ -39,7 +39,7 @@ func NewRegistryWithXray(runtimeState *state.RuntimeState, logger *slog.Logger, 
 	return Registry{
 		Xray:     XrayController{state: runtimeState, logger: logger, core: core, builder: builder},
 		Handler:  HandlerController{state: runtimeState, logger: logger, core: core},
-		Stats:    StatsController{state: runtimeState, logger: logger},
+		Stats:    StatsController{state: runtimeState, logger: logger, core: core},
 		Vision:   VisionController{state: runtimeState, logger: logger},
 		Plugin:   PluginController{state: runtimeState, logger: logger},
 		Internal: InternalController{state: runtimeState, logger: logger},

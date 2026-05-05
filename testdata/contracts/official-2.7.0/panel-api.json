@@ -311,21 +311,24 @@
       "status": "partial",
       "response": {
         "response": {
+          "xrayInfo": {
+            "numGoroutine": 1,
+            "numGC": 2,
+            "alloc": 3,
+            "totalAlloc": 4,
+            "sys": 5,
+            "mallocs": 6,
+            "frees": 7,
+            "liveObjects": 8,
+            "pauseTotalNs": 9,
+            "uptime": 10
+          },
+          "plugins": {
+            "torrentBlocker": {
+              "reportsCount": 0
+            }
+          },
           "system": {
-            "info": {
-              "arch": "amd64",
-              "cpus": 2,
-              "cpuModel": "fixture-cpu",
-              "memoryTotal": 1024,
-              "hostname": "fixture-node",
-              "platform": "linux",
-              "release": "6.0.0",
-              "type": "Linux",
-              "version": "fixture-version",
-              "networkInterfaces": [
-                "eth0"
-              ]
-            },
             "stats": {
               "memoryFree": 512,
               "memoryUsed": 512,
@@ -345,7 +348,7 @@
       "name": "stats.get-users-stats",
       "method": "POST",
       "path": "/node/stats/get-users-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "reset": true
       },
@@ -398,7 +401,7 @@
       "name": "stats.get-inbound-stats",
       "method": "POST",
       "path": "/node/stats/get-inbound-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "tag": "VLESS_INBOUND",
         "reset": true
@@ -415,7 +418,7 @@
       "name": "stats.get-outbound-stats",
       "method": "POST",
       "path": "/node/stats/get-outbound-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "tag": "DIRECT",
         "reset": true
@@ -432,7 +435,7 @@
       "name": "stats.get-all-inbounds-stats",
       "method": "POST",
       "path": "/node/stats/get-all-inbounds-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "reset": true
       },
@@ -446,7 +449,7 @@
       "name": "stats.get-all-outbounds-stats",
       "method": "POST",
       "path": "/node/stats/get-all-outbounds-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "reset": true
       },
@@ -460,7 +463,7 @@
       "name": "stats.get-combined-stats",
       "method": "POST",
       "path": "/node/stats/get-combined-stats",
-      "status": "stub",
+      "status": "partial",
       "request": {
         "reset": true
       },

@@ -16,6 +16,7 @@ import (
 	"github.com/x-dora/rw-node-go/internal/testkit"
 	"github.com/x-dora/rw-node-go/internal/xray"
 	handlercommand "github.com/xtls/xray-core/app/proxyman/command"
+	statscommand "github.com/xtls/xray-core/app/stats/command"
 )
 
 func TestOfficialPanelRoutesAreRegistered(t *testing.T) {
@@ -71,7 +72,7 @@ func TestStubResponsesMatchOfficialEmptyShape(t *testing.T) {
 	router := newTestRouter(t)
 
 	for _, route := range fixture.Routes {
-		if route.Status == "implemented" || route.Name == "xray.start" || route.Name == "stats.get-system-stats" {
+		if route.Status == "implemented" || route.Name == "xray.start" || isPartialStatsRoute(route.Name) {
 			continue
 		}
 		t.Run(route.Name, func(t *testing.T) {
@@ -94,6 +95,21 @@ func TestStubResponsesMatchOfficialEmptyShape(t *testing.T) {
 			}
 			assertFixtureResponseShape(t, rec.Body.Bytes(), route.Response)
 		})
+	}
+}
+
+func isPartialStatsRoute(name string) bool {
+	switch name {
+	case "stats.get-system-stats",
+		"stats.get-users-stats",
+		"stats.get-inbound-stats",
+		"stats.get-outbound-stats",
+		"stats.get-all-inbounds-stats",
+		"stats.get-all-outbounds-stats",
+		"stats.get-combined-stats":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -159,7 +175,7 @@ func (f *routerFakeCore) Handler() xray.HandlerClient {
 }
 
 func (f *routerFakeCore) Stats() xray.StatsClient {
-	return nil
+	return routerFakeStats{}
 }
 
 func (f *routerFakeCore) Routing() xray.RoutingClient {
@@ -185,5 +201,39 @@ func (routerFakeHandler) GetInboundUsersCount(ctx context.Context, tag string) (
 }
 
 func (routerFakeHandler) Raw() handlercommand.HandlerServiceClient {
+	return nil
+}
+
+type routerFakeStats struct{}
+
+func (routerFakeStats) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (routerFakeStats) SysStats(ctx context.Context) (xray.SysStats, error) {
+	return xray.SysStats{}, nil
+}
+
+func (routerFakeStats) UsersStats(ctx context.Context, reset bool) ([]xray.UserTrafficStats, error) {
+	return []xray.UserTrafficStats{}, nil
+}
+
+func (routerFakeStats) InboundStats(ctx context.Context, tag string, reset bool) (xray.InboundTrafficStats, error) {
+	return xray.InboundTrafficStats{Inbound: tag}, nil
+}
+
+func (routerFakeStats) OutboundStats(ctx context.Context, tag string, reset bool) (xray.OutboundTrafficStats, error) {
+	return xray.OutboundTrafficStats{Outbound: tag}, nil
+}
+
+func (routerFakeStats) AllInboundStats(ctx context.Context, reset bool) ([]xray.InboundTrafficStats, error) {
+	return []xray.InboundTrafficStats{}, nil
+}
+
+func (routerFakeStats) AllOutboundStats(ctx context.Context, reset bool) ([]xray.OutboundTrafficStats, error) {
+	return []xray.OutboundTrafficStats{}, nil
+}
+
+func (routerFakeStats) Raw() statscommand.StatsServiceClient {
 	return nil
 }

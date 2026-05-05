@@ -104,7 +104,24 @@ func officialResponseValue(t *testing.T, name string) any {
 	case "handler.drop-users-connections", "handler.drop-ips":
 		return httpapi.Envelope{Response: contracts.SimpleSuccess()}
 	case "stats.get-system-stats":
-		return httpapi.Envelope{Response: contracts.SystemStatsResponse{System: fixtureSystemStats()}}
+		return httpapi.Envelope{Response: contracts.SystemStatsResponse{
+			XrayInfo: &contracts.XraySysStats{
+				NumGoroutine: 1,
+				NumGC:        2,
+				Alloc:        3,
+				TotalAlloc:   4,
+				Sys:          5,
+				Mallocs:      6,
+				Frees:        7,
+				LiveObjects:  8,
+				PauseTotalNs: 9,
+				Uptime:       10,
+			},
+			Plugins: contracts.PluginStats{
+				TorrentBlocker: contracts.TorrentBlockerPluginStats{ReportsCount: 0},
+			},
+			System: contracts.SystemStats{Stats: fixtureSystemStats().Stats},
+		}}
 	case "stats.get-users-stats":
 		return httpapi.Envelope{Response: contracts.UsersStatsResponse{Users: []contracts.UserTrafficStats{}}}
 	case "stats.get-user-online-status":

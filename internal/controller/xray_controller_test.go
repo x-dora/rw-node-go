@@ -219,6 +219,7 @@ type fakeCore struct {
 	healthErr  error
 	startCalls int
 	handler    xray.HandlerClient
+	stats      xray.StatsClient
 }
 
 func (f *fakeCore) Start(ctx context.Context, config []byte) error {
@@ -253,7 +254,7 @@ func (f *fakeCore) Handler() xray.HandlerClient {
 }
 
 func (f *fakeCore) Stats() xray.StatsClient {
-	return nil
+	return f.stats
 }
 
 func (f *fakeCore) Routing() xray.RoutingClient {
