@@ -1,12 +1,33 @@
 # rw-node-go
 
-`rw-node-go` 是一个用 Go 编写的 Remnawave Node 兼容实现骨架。目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API，同时保持运行时轻量、结构清晰、便于后续持续跟随上游。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现。项目目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract，同时保持运行时轻量、结构清晰、便于测试和长期跟随上游。
 
-当前仓库处于框架阶段：路由、contract 类型、项目结构、CI/CD、Docker 和基础文档已经落地；真实 Xray 进程控制、Xray gRPC、用户管理、统计、torrent blocker、nftables 等内部行为暂未实现。
+当前项目处于框架完成并进入部分 M1 实现的阶段：公开路由、contract 类型、Gin HTTP 层、response envelope、CI、Docker 构建、mTLS/JWT/zstd 以及 Xray 外部进程生命周期基础能力已经落地；HandlerService、StatsService、在线 IP、连接踢出、torrent blocker、nftables 等真实运行时能力仍在后续阶段实现。
 
-HTTP 层使用 Gin。`tmp/remnawave-node-go` 只作为行为参考，不沿用该社区实现的框架结构。
+stub 和占位响应只用于保持 Panel-facing API 不返回 404，不能视为真实能力。
+
+## 功能进度
+
+状态说明：`[x]` 已完成，`[~]` 部分完成，`[ ]` 未完成。
+
+- [x] Go 项目骨架、Gin HTTP 层、公开路由注册、response envelope、contract struct。
+- [x] CI、Dockerfile、GitHub Actions 多架构 Docker 构建流程。
+- [x] `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256、zstd request body。
+- [x] Xray config 注入 Remnawave API inbound、API service、routing、policy stats 配置。
+- [x] 外部 Xray 进程启动、停止、配置写入和基础 ready 检查。
+- [~] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入进程控制；Xray gRPC client、真实 Handler/Stats/Routing 健康检查仍未完成。
+- [~] system stats 已有基础快照返回；完整官方字段、运行时验收和 integration test 仍未完成。
+- [ ] Xray HandlerService 用户动态管理：add/remove/bulk、inbound users、inbound users count。
+- [ ] Xray StatsService 统计：users、inbound、outbound、combined、reset 语义。
+- [ ] 在线 IP、drop users connections、drop IPs、Vision block/unblock 的真实实现。
+- [ ] torrent blocker、nftables 插件真实实现。
+- [ ] contract golden tests、真实 Panel + Xray integration tests。
+
+完整阶段规划见 [docs/roadmap.md](docs/roadmap.md)，详细实现方案见 [REMNAWAVE_NODE_GO_PLAN.md](REMNAWAVE_NODE_GO_PLAN.md)。
 
 ## 快速开始
+
+安装工具链并运行测试：
 
 ```sh
 mise install
@@ -14,55 +35,48 @@ mise run test
 mise run build
 ```
 
-启动本地 stub 服务：
+启动本地服务：
 
 ```sh
 NODE_PORT=2222 mise exec -- go run ./cmd/rw-node-go
 ```
 
-框架会为计划内 API 返回兼容的 JSON envelope。`/node/xray/start` 当前会明确返回 `isStarted=false` 和 `not implemented`，直到 M1 的 Xray 生命周期实现完成。
+不设置 `SECRET_KEY` 时，服务会以本地 HTTP 模式启动，便于开发和 contract 测试。设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT 校验。
 
-## 环境变量
+## 运行配置
 
-框架阶段只保留少量必要配置：
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `NODE_PORT` | `2222` | Panel 访问节点 API 的端口。 |
+| `SECRET_KEY` | 空 | 官方 Node 使用的 base64 JSON 密钥包；设置后启用 mTLS/JWT。 |
+| `XTLS_API_PORT` | `61000` | 本机 Xray gRPC API 端口，只用于 Go 进程控制 Xray。 |
+| `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录，当前用于派生 Xray 配置路径。 |
+| `XRAY_BIN` | `/usr/local/bin/xray` | 外部 Xray 二进制路径。 |
+| `XRAY_CONFIG_PATH` | `$RW_NODE_DIR/xray/config.json` | Xray 配置文件路径；当前由 `RW_NODE_DIR` 派生，后续会接入显式覆盖。 |
+| `LOG_LEVEL` | `info` | 日志级别配置入口。 |
+| `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |
 
-```env
-NODE_PORT=2222
-SECRET_KEY=
-XTLS_API_PORT=61000
-LOG_LEVEL=info
-RW_NODE_DIR=/opt/rw-node-go
-XRAY_BIN=/usr/local/bin/xray
-```
+`XTLS_API_PORT` 和内部控制接口必须只监听本机，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
-说明：
+## Docker
 
-- `NODE_PORT`：Panel 访问节点 API 的端口。
-- `SECRET_KEY`：官方 Node 使用的 base64 JSON 密钥包，后续 M1 会用于 mTLS 和 JWT。
-- `XTLS_API_PORT`：本机 Xray gRPC API 端口，只允许本机访问。
-- `LOG_LEVEL`：日志级别，当前主要保留接口。
-- `RW_NODE_DIR`：节点运行目录；Xray 配置默认派生为 `$RW_NODE_DIR/xray/config.json`。
-- `XRAY_BIN`：外部 Xray 二进制路径。
-
-内部 REST、Unix socket、插件开关、hash 跳过等选项先不公开，等对应功能实现后再加入文档。
-
-## 镜像
-
-Docker workflow 在 `main` 分支验证多架构构建，在 `v*` tag 发布时推送镜像：
-
-```text
-ghcr.io/x-dora/rw-node-go
-```
-
-当前镜像只包含 `rw-node-go` 二进制，并预留 Xray 运行目录；暂不下载或内置 Xray。
-
-## 参考仓库
-
-参考仓库放在 `tmp/`，只用于对照 contract 和行为：
+本地构建镜像：
 
 ```sh
-git clone --depth 1 --branch 2.7.0 https://github.com/remnawave/node.git tmp/remnawave-node
-git clone --depth 1 --branch master https://github.com/hteppl/remnawave-node-go.git tmp/remnawave-node-go
+mise run docker-build
 ```
 
-`tmp/` 已被 git 和 Docker 忽略。
+手动构建：
+
+```sh
+docker build -t ghcr.io/x-dora/rw-node-go:local .
+```
+
+当前镜像包含 `rw-node-go` 二进制和运行目录，不内置 Xray 二进制。运行真实 Xray 生命周期前，需要在镜像或宿主环境中提供 `XRAY_BIN` 指向的可执行文件。
+
+## 文档
+
+- [docs/architecture.md](docs/architecture.md)：当前架构和运行时边界。
+- [docs/contracts.md](docs/contracts.md)：Panel-facing contract 对齐、路由覆盖和 stub 策略。
+- [docs/development.md](docs/development.md)：本地开发、测试和文档维护规则。
+- [docs/roadmap.md](docs/roadmap.md)：M0-M6 功能路线图和当前进度。

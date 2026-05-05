@@ -1,25 +1,58 @@
 # 架构说明
 
-本项目把 Remnawave Panel-facing API 兼容层和运行时实现层分开，便于后续跟随官方 Node contract 变化。
+`rw-node-go` 把 Remnawave Panel-facing API 兼容层和 Xray 运行时控制层分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以按 M0-M6 逐步替换 stub。
 
 ## 分层
 
-- `cmd/rw-node-go`：进程入口，负责加载配置、初始化运行状态并启动 HTTP 服务。
-- `internal/httpapi`：Gin HTTP 服务、路由注册、response envelope，以及后续 TLS/JWT/zstd 中间件。
+- `cmd/rw-node-go`：进程入口，负责加载配置、初始化运行状态、注册 controller 并启动 HTTP 服务。
+- `internal/config`：环境变量、`SECRET_KEY` 解码、PEM normalize 和运行路径配置。
+- `internal/httpapi`：Gin router、response envelope、body limit、panic recovery、zstd request body、mTLS 和 JWT RS256 middleware。
 - `internal/contracts`：Panel-facing API 的请求和响应类型。
-- `internal/controller`：路由处理器。当前大部分处理器是兼容 stub。
-- `internal/state`：内存运行状态，包括 Xray 状态、hash、inbound 用户和插件状态。
-- `internal/xray`：后续外部 Xray 进程和 gRPC 控制抽象。
-- `internal/system`：后续系统统计、网络能力检测、conntrack 和 nftables 集成。
-- `internal/plugin`：后续 torrent blocker 和 nftables 插件逻辑。
+- `internal/controller`：路由处理器。Xray controller 已接入外部进程控制；handler、stats、plugin、vision 仍主要是兼容 stub。
+- `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash、inbound 用户集合和 plugin 状态。
+- `internal/xray`：Xray config builder、外部进程 core 和后续 gRPC client 抽象。
+- `internal/system`：系统统计、网络能力检测、conntrack 和 nftables 集成入口。
+- `internal/plugin`：torrent blocker、nftables 插件状态和报告处理入口。
+- `internal/testkit`：证书、JWT、golden 和 Panel client 测试辅助。
 
-## 运行时方向
+## 当前运行路径
 
-M1 先采用外部 Xray 进程模式。`xray.Core` interface 是 HTTP contract 层和 Xray 实现层的边界，后续如需实验内嵌 Xray，不应影响公开 API。
+```text
+Remnawave Panel
+    |
+    | HTTPS + mTLS + Bearer JWT
+    v
+Gin HTTP API
+    |
+    | controller + runtime state
+    v
+Xray Core abstraction
+    |
+    | external xray process + generated config
+    v
+Xray gRPC API on 127.0.0.1:XTLS_API_PORT
+```
+
+当前已实现的运行路径包括：
+
+- `SECRET_KEY` 解码后生成 TLS server config 和 JWT public key。
+- request body 支持 zstd 解压和大小限制。
+- `/node/xray/start` 会构建完整 Xray config，写入配置文件，停止旧进程并启动新 Xray 进程。
+- config builder 会注入 Remnawave API inbound、API service、routing rule 和 policy stats 配置。
+- `/node/xray/stop` 会停止当前外部 Xray 进程。
+- `/node/xray/healthcheck` 当前基于进程状态和缓存版本返回。
+
+## 未完成边界
+
+- Xray gRPC HandlerService、StatsService、RoutingService client 尚未实现。
+- 用户动态管理接口当前返回兼容成功或空集合，不会真实修改 Xray inbound 用户。
+- stats 接口当前返回基础快照、空流量或 false，不会从 Xray StatsService 读取真实数据。
+- plugin、nftables、conntrack、Vision block/unblock 当前是占位行为。
+- 内部接口当前用于调试和 webhook 占位，后续需要补本机访问保护和插件逻辑。
 
 ## 响应格式
 
-外部 Remnawave API 统一返回：
+Panel-facing API 统一返回：
 
 ```json
 {
