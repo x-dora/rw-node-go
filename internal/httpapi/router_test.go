@@ -218,6 +218,18 @@ func (routerFakeStats) UsersStats(ctx context.Context, reset bool) ([]xray.UserT
 	return []xray.UserTrafficStats{}, nil
 }
 
+func (routerFakeStats) UserOnlineStatus(ctx context.Context, username string) (bool, error) {
+	return false, nil
+}
+
+func (routerFakeStats) UserIPList(ctx context.Context, username string, reset bool) ([]xray.IPLastSeen, error) {
+	return []xray.IPLastSeen{}, nil
+}
+
+func (routerFakeStats) UsersIPList(ctx context.Context, reset bool) ([]xray.UserIPList, error) {
+	return []xray.UserIPList{}, nil
+}
+
 func (routerFakeStats) InboundStats(ctx context.Context, tag string, reset bool) (xray.InboundTrafficStats, error) {
 	return xray.InboundTrafficStats{Inbound: tag}, nil
 }

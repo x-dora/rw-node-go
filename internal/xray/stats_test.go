@@ -69,6 +69,69 @@ func TestStatsClientUsersStatsAggregatesAndFilters(t *testing.T) {
 	}
 }
 
+func TestStatsClientUserOnlineAndIPList(t *testing.T) {
+	server := &recordingStatsServer{
+		onlineStats: map[string]int64{
+			"user>>>user-1>>>online": 1,
+		},
+		onlineIPs: map[string]map[string]int64{
+			"user>>>user-1>>>online": {
+				"203.0.113.2": 1710000000,
+				"203.0.113.1": 1710000100,
+			},
+		},
+		onlineUsers: []string{
+			"user>>>user-2>>>online",
+			"user>>>ignored>>>traffic>>>uplink",
+			"user>>>user-1>>>online",
+			"user>>>user-1>>>online",
+		},
+	}
+	client, stop := startStatsServer(t, server)
+	defer stop()
+	stats := &statsClient{raw: client}
+
+	online, err := stats.UserOnlineStatus(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("UserOnlineStatus() error = %v", err)
+	}
+	if !online {
+		t.Fatalf("online = false")
+	}
+
+	ips, err := stats.UserIPList(context.Background(), "user-1", true)
+	if err != nil {
+		t.Fatalf("UserIPList() error = %v", err)
+	}
+	wantIPs := []IPLastSeen{
+		{IP: "203.0.113.1", LastSeen: 1710000100},
+		{IP: "203.0.113.2", LastSeen: 1710000000},
+	}
+	if !reflect.DeepEqual(ips, wantIPs) {
+		t.Fatalf("ips = %#v, want %#v", ips, wantIPs)
+	}
+
+	users, err := stats.UsersIPList(context.Background(), true)
+	if err != nil {
+		t.Fatalf("UsersIPList() error = %v", err)
+	}
+	wantUsers := []UserIPList{
+		{Username: "user-1", IPs: wantIPs},
+	}
+	if !reflect.DeepEqual(users, wantUsers) {
+		t.Fatalf("users = %#v, want %#v", users, wantUsers)
+	}
+	if len(server.getOnlineRequests) != 1 || server.getOnlineRequests[0].GetName() != "user>>>user-1>>>online" {
+		t.Fatalf("getOnlineRequests = %#v", server.getOnlineRequests)
+	}
+	if len(server.getOnlineIPRequests) != 3 || !server.getOnlineIPRequests[0].GetReset_() || !server.getOnlineIPRequests[1].GetReset_() {
+		t.Fatalf("getOnlineIPRequests = %#v", server.getOnlineIPRequests)
+	}
+	if server.allOnlineRequests != 1 {
+		t.Fatalf("allOnlineRequests = %d", server.allOnlineRequests)
+	}
+}
+
 func TestStatsClientSingleTagStatsUseExpectedNamesAndReset(t *testing.T) {
 	server := &recordingStatsServer{
 		getStats: map[string]int64{
@@ -181,11 +244,17 @@ func startStatsServer(t *testing.T, server *recordingStatsServer) (statscommand.
 
 type recordingStatsServer struct {
 	statscommand.UnimplementedStatsServiceServer
-	sysStats      *statscommand.SysStatsResponse
-	getStats      map[string]int64
-	queryStats    []*statscommand.Stat
-	getRequests   []*statscommand.GetStatsRequest
-	queryRequests []*statscommand.QueryStatsRequest
+	sysStats            *statscommand.SysStatsResponse
+	getStats            map[string]int64
+	onlineStats         map[string]int64
+	onlineIPs           map[string]map[string]int64
+	onlineUsers         []string
+	queryStats          []*statscommand.Stat
+	getRequests         []*statscommand.GetStatsRequest
+	getOnlineRequests   []*statscommand.GetStatsRequest
+	getOnlineIPRequests []*statscommand.GetStatsRequest
+	queryRequests       []*statscommand.QueryStatsRequest
+	allOnlineRequests   int
 }
 
 func (s *recordingStatsServer) GetSysStats(context.Context, *statscommand.SysStatsRequest) (*statscommand.SysStatsResponse, error) {
@@ -201,6 +270,25 @@ func (s *recordingStatsServer) GetStats(ctx context.Context, request *statscomma
 		return &statscommand.GetStatsResponse{}, nil
 	}
 	return &statscommand.GetStatsResponse{Stat: &statscommand.Stat{Name: request.GetName(), Value: s.getStats[request.GetName()]}}, nil
+}
+
+func (s *recordingStatsServer) GetStatsOnline(ctx context.Context, request *statscommand.GetStatsRequest) (*statscommand.GetStatsResponse, error) {
+	s.getOnlineRequests = append(s.getOnlineRequests, request)
+	return &statscommand.GetStatsResponse{Stat: &statscommand.Stat{Name: request.GetName(), Value: s.onlineStats[request.GetName()]}}, nil
+}
+
+func (s *recordingStatsServer) GetStatsOnlineIpList(ctx context.Context, request *statscommand.GetStatsRequest) (*statscommand.GetStatsOnlineIpListResponse, error) {
+	s.getOnlineIPRequests = append(s.getOnlineIPRequests, request)
+	ips := s.onlineIPs[request.GetName()]
+	if ips == nil {
+		ips = map[string]int64{}
+	}
+	return &statscommand.GetStatsOnlineIpListResponse{Name: request.GetName(), Ips: ips}, nil
+}
+
+func (s *recordingStatsServer) GetAllOnlineUsers(ctx context.Context, request *statscommand.GetAllOnlineUsersRequest) (*statscommand.GetAllOnlineUsersResponse, error) {
+	s.allOnlineRequests++
+	return &statscommand.GetAllOnlineUsersResponse{Users: s.onlineUsers}, nil
 }
 
 func (s *recordingStatsServer) QueryStats(ctx context.Context, request *statscommand.QueryStatsRequest) (*statscommand.QueryStatsResponse, error) {

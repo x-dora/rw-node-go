@@ -31,6 +31,9 @@ type StatsClient interface {
 	Ping(ctx context.Context) error
 	SysStats(ctx context.Context) (SysStats, error)
 	UsersStats(ctx context.Context, reset bool) ([]UserTrafficStats, error)
+	UserOnlineStatus(ctx context.Context, username string) (bool, error)
+	UserIPList(ctx context.Context, username string, reset bool) ([]IPLastSeen, error)
+	UsersIPList(ctx context.Context, reset bool) ([]UserIPList, error)
 	InboundStats(ctx context.Context, tag string, reset bool) (InboundTrafficStats, error)
 	OutboundStats(ctx context.Context, tag string, reset bool) (OutboundTrafficStats, error)
 	AllInboundStats(ctx context.Context, reset bool) ([]InboundTrafficStats, error)

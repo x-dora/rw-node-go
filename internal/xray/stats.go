@@ -44,6 +44,16 @@ type UserTrafficStats struct {
 	Uplink   int64
 }
 
+type UserIPList struct {
+	Username string
+	IPs      []IPLastSeen
+}
+
+type IPLastSeen struct {
+	IP       string
+	LastSeen int64
+}
+
 type InboundTrafficStats struct {
 	Inbound  string
 	Downlink int64
@@ -106,6 +116,56 @@ func (c *statsClient) UsersStats(ctx context.Context, reset bool) ([]UserTraffic
 		return users[i].Username < users[j].Username
 	})
 	return users, nil
+}
+
+func (c *statsClient) UserOnlineStatus(ctx context.Context, username string) (bool, error) {
+	response, err := c.raw.GetStatsOnline(ctx, &statscommand.GetStatsRequest{
+		Name: fmt.Sprintf(StatsUserOnlineFormat, username),
+	})
+	if err != nil {
+		return false, fmt.Errorf("xray stats get online status for user %q: %w", username, err)
+	}
+	stat := response.GetStat()
+	return stat != nil && stat.GetValue() > 0, nil
+}
+
+func (c *statsClient) UserIPList(ctx context.Context, username string, reset bool) ([]IPLastSeen, error) {
+	return c.onlineIPList(ctx, username, reset)
+}
+
+func (c *statsClient) UsersIPList(ctx context.Context, reset bool) ([]UserIPList, error) {
+	response, err := c.raw.GetAllOnlineUsers(ctx, &statscommand.GetAllOnlineUsersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("xray stats get all online users: %w", err)
+	}
+
+	seen := map[string]struct{}{}
+	users := make([]string, 0, len(response.GetUsers()))
+	for _, raw := range response.GetUsers() {
+		username, ok := parseOnlineStatName(raw)
+		if !ok {
+			continue
+		}
+		if _, exists := seen[username]; exists {
+			continue
+		}
+		seen[username] = struct{}{}
+		users = append(users, username)
+	}
+	sort.Strings(users)
+
+	output := make([]UserIPList, 0, len(users))
+	for _, username := range users {
+		ips, err := c.onlineIPList(ctx, username, reset)
+		if err != nil {
+			continue
+		}
+		if len(ips) == 0 {
+			continue
+		}
+		output = append(output, UserIPList{Username: username, IPs: ips})
+	}
+	return output, nil
 }
 
 func (c *statsClient) InboundStats(ctx context.Context, tag string, reset bool) (InboundTrafficStats, error) {
@@ -211,6 +271,26 @@ func (c *statsClient) query(ctx context.Context, pattern string, reset bool) (*s
 	return response, nil
 }
 
+func (c *statsClient) onlineIPList(ctx context.Context, username string, reset bool) ([]IPLastSeen, error) {
+	name := fmt.Sprintf(StatsUserOnlineFormat, username)
+	response, err := c.raw.GetStatsOnlineIpList(ctx, &statscommand.GetStatsRequest{Name: name, Reset_: reset})
+	if err != nil {
+		return nil, fmt.Errorf("xray stats get online IP list for user %q: %w", username, err)
+	}
+
+	ips := make([]IPLastSeen, 0, len(response.GetIps()))
+	for ip, lastSeen := range response.GetIps() {
+		ips = append(ips, IPLastSeen{IP: ip, LastSeen: lastSeen})
+	}
+	sort.Slice(ips, func(i, j int) bool {
+		if ips[i].LastSeen == ips[j].LastSeen {
+			return ips[i].IP < ips[j].IP
+		}
+		return ips[i].LastSeen > ips[j].LastSeen
+	})
+	return ips, nil
+}
+
 func parseTrafficStatName(name string, prefix string) (tag string, direction string, ok bool) {
 	parts := strings.Split(name, ">>>")
 	if len(parts) != 4 || parts[0] != prefix || parts[2] != "traffic" {
@@ -220,6 +300,14 @@ func parseTrafficStatName(name string, prefix string) (tag string, direction str
 		return "", "", false
 	}
 	return parts[1], parts[3], true
+}
+
+func parseOnlineStatName(name string) (username string, ok bool) {
+	parts := strings.Split(name, ">>>")
+	if len(parts) != 3 || parts[0] != "user" || parts[1] == "" || parts[2] != "online" {
+		return "", false
+	}
+	return parts[1], true
 }
 
 func applyDirection(direction string, value int64, uplink *int64, downlink *int64) {

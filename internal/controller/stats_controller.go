@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -73,15 +74,70 @@ func (ctrl StatsController) GetUsersStats(c *gin.Context) {
 }
 
 func (ctrl StatsController) GetUserOnlineStatus(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserOnlineStatusResponse{IsOnline: false})
+	var request contracts.UserOnlineStatusRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserOnlineStatusResponse{IsOnline: false})
+		return
+	}
+	client, err := ctrl.statsClient()
+	if err != nil {
+		ctrl.logger.Debug("xray stats client unavailable", "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserOnlineStatusResponse{IsOnline: false})
+		return
+	}
+
+	ctx, cancel := statsContext(c)
+	defer cancel()
+	online, err := client.UserOnlineStatus(ctx, request.Username)
+	if err != nil {
+		ctrl.logger.Warn("get xray user online status", "username", request.Username, "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserOnlineStatusResponse{IsOnline: false})
+		return
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserOnlineStatusResponse{IsOnline: online})
 }
 
 func (ctrl StatsController) GetUserIPList(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserIPListResponse{IPs: []contracts.IPLastSeen{}})
+	var request contracts.UserIPListRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserIPListResponse{IPs: []contracts.IPLastSeen{}})
+		return
+	}
+	client, err := ctrl.statsClient()
+	if err != nil {
+		ctrl.logger.Debug("xray stats client unavailable", "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserIPListResponse{IPs: []contracts.IPLastSeen{}})
+		return
+	}
+
+	ctx, cancel := statsContext(c)
+	defer cancel()
+	ips, err := client.UserIPList(ctx, request.UserID, true)
+	if err != nil {
+		ctrl.logger.Warn("get xray user IP list", "userId", request.UserID, "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserIPListResponse{IPs: []contracts.IPLastSeen{}})
+		return
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UserIPListResponse{IPs: contractIPLastSeenList(ips)})
 }
 
 func (ctrl StatsController) GetUsersIPList(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersIPListResponse{Users: []contracts.UserIPList{}})
+	client, err := ctrl.statsClient()
+	if err != nil {
+		ctrl.logger.Debug("xray stats client unavailable", "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersIPListResponse{Users: []contracts.UserIPList{}})
+		return
+	}
+
+	ctx, cancel := statsContext(c)
+	defer cancel()
+	users, err := client.UsersIPList(ctx, true)
+	if err != nil {
+		ctrl.logger.Warn("get xray users IP list", "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersIPListResponse{Users: []contracts.UserIPList{}})
+		return
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.UsersIPListResponse{Users: contractUsersIPList(users)})
 }
 
 func (ctrl StatsController) GetInboundStats(c *gin.Context) {
@@ -315,5 +371,30 @@ func contractOutboundTrafficStatsList(stats []xray.OutboundTrafficStats) []contr
 	for _, item := range stats {
 		output = append(output, contractOutboundTrafficStats(item))
 	}
+	return output
+}
+
+func contractIPLastSeenList(ips []xray.IPLastSeen) []contracts.IPLastSeen {
+	output := make([]contracts.IPLastSeen, 0, len(ips))
+	for _, item := range ips {
+		output = append(output, contracts.IPLastSeen{
+			IP:       item.IP,
+			LastSeen: time.Unix(item.LastSeen, 0).UTC().Format(time.RFC3339),
+		})
+	}
+	return output
+}
+
+func contractUsersIPList(users []xray.UserIPList) []contracts.UserIPList {
+	output := make([]contracts.UserIPList, 0, len(users))
+	for _, user := range users {
+		output = append(output, contracts.UserIPList{
+			UserID: user.Username,
+			IPs:    contractIPLastSeenList(user.IPs),
+		})
+	}
+	sort.Slice(output, func(i, j int) bool {
+		return output[i].UserID < output[j].UserID
+	})
 	return output
 }

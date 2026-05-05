@@ -24,6 +24,13 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 		users: []xray.UserTrafficStats{
 			{Username: "user-1", Uplink: 10, Downlink: 20},
 		},
+		userOnline: true,
+		userIPs: []xray.IPLastSeen{
+			{IP: "203.0.113.2", LastSeen: 1710000000},
+		},
+		usersIPs: []xray.UserIPList{
+			{Username: "user-1", IPs: []xray.IPLastSeen{{IP: "203.0.113.2", LastSeen: 1710000000}}},
+		},
 		inbound:  xray.InboundTrafficStats{Inbound: "VLESS_INBOUND", Uplink: 30, Downlink: 40},
 		outbound: xray.OutboundTrafficStats{Outbound: "DIRECT", Uplink: 50, Downlink: 60},
 		inbounds: []xray.InboundTrafficStats{
@@ -86,6 +93,45 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 	decodeResponse(t, usersRec, &usersBody)
 	if len(usersBody.Response.Users) != 1 || usersBody.Response.Users[0].Username != "user-1" || usersBody.Response.Users[0].Uplink != 10 {
 		t.Fatalf("users body = %s", usersRec.Body.String())
+	}
+
+	onlineRec := runStatsRequest(t, ctrl.GetUserOnlineStatus, http.MethodPost, `{"username":"user-1"}`)
+	var onlineBody struct {
+		Response struct {
+			IsOnline bool `json:"isOnline"`
+		} `json:"response"`
+	}
+	decodeResponse(t, onlineRec, &onlineBody)
+	if !onlineBody.Response.IsOnline || stats.onlineUsername != "user-1" {
+		t.Fatalf("online body=%s username=%q", onlineRec.Body.String(), stats.onlineUsername)
+	}
+
+	ipRec := runStatsRequest(t, ctrl.GetUserIPList, http.MethodPost, `{"userId":"user-1"}`)
+	var ipBody struct {
+		Response struct {
+			IPs []struct {
+				IP       string `json:"ip"`
+				LastSeen string `json:"lastSeen"`
+			} `json:"ips"`
+		} `json:"response"`
+	}
+	decodeResponse(t, ipRec, &ipBody)
+	if len(ipBody.Response.IPs) != 1 || ipBody.Response.IPs[0].IP != "203.0.113.2" || ipBody.Response.IPs[0].LastSeen != "2024-03-09T16:00:00Z" || !stats.userIPsReset {
+		t.Fatalf("ip body=%s reset=%v", ipRec.Body.String(), stats.userIPsReset)
+	}
+
+	usersIPRec := runStatsRequest(t, ctrl.GetUsersIPList, http.MethodGet, nil)
+	var usersIPBody struct {
+		Response struct {
+			Users []struct {
+				UserID string `json:"userId"`
+				IPs    []any  `json:"ips"`
+			} `json:"users"`
+		} `json:"response"`
+	}
+	decodeResponse(t, usersIPRec, &usersIPBody)
+	if len(usersIPBody.Response.Users) != 1 || usersIPBody.Response.Users[0].UserID != "user-1" || !stats.usersIPsReset {
+		t.Fatalf("users IP body=%s reset=%v", usersIPRec.Body.String(), stats.usersIPsReset)
 	}
 
 	inboundRec := runStatsRequest(t, ctrl.GetInboundStats, http.MethodPost, `{"tag":"VLESS_INBOUND","reset":true}`)
@@ -211,7 +257,7 @@ func TestStatsControllerDegradesOnBindAndClientErrors(t *testing.T) {
 	}
 }
 
-func TestStatsControllerOnlineAndIPRemainStubs(t *testing.T) {
+func TestStatsControllerOnlineAndIPDegradeWhenUnavailable(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{started: true}}
 
@@ -280,6 +326,9 @@ func decodeResponse(t *testing.T, rec *httptest.ResponseRecorder, target any) {
 type recordingStatsClient struct {
 	sys              xray.SysStats
 	users            []xray.UserTrafficStats
+	userOnline       bool
+	userIPs          []xray.IPLastSeen
+	usersIPs         []xray.UserIPList
 	inbound          xray.InboundTrafficStats
 	outbound         xray.OutboundTrafficStats
 	inbounds         []xray.InboundTrafficStats
@@ -289,6 +338,9 @@ type recordingStatsClient struct {
 	outboundReset    bool
 	allInboundReset  bool
 	allOutboundReset bool
+	userIPsReset     bool
+	usersIPsReset    bool
+	onlineUsername   string
 }
 
 type staticSnapshotter struct {
@@ -343,6 +395,21 @@ func (c *recordingStatsClient) SysStats(ctx context.Context) (xray.SysStats, err
 
 func (c *recordingStatsClient) UsersStats(ctx context.Context, reset bool) ([]xray.UserTrafficStats, error) {
 	return c.users, c.err
+}
+
+func (c *recordingStatsClient) UserOnlineStatus(ctx context.Context, username string) (bool, error) {
+	c.onlineUsername = username
+	return c.userOnline, c.err
+}
+
+func (c *recordingStatsClient) UserIPList(ctx context.Context, username string, reset bool) ([]xray.IPLastSeen, error) {
+	c.userIPsReset = reset
+	return c.userIPs, c.err
+}
+
+func (c *recordingStatsClient) UsersIPList(ctx context.Context, reset bool) ([]xray.UserIPList, error) {
+	c.usersIPsReset = reset
+	return c.usersIPs, c.err
 }
 
 func (c *recordingStatsClient) InboundStats(ctx context.Context, tag string, reset bool) (xray.InboundTrafficStats, error) {
