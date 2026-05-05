@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,14 +23,22 @@ type ProcessCore struct {
 	cmd     *exec.Cmd
 	done    chan error
 	version string
+	grpc    *GRPCClient
+	mtls    InternalMTLSBundle
 }
 
-func NewProcessCore(binaryPath, configPath, apiAddress string) *ProcessCore {
+func NewProcessCore(binaryPath, configPath, apiAddress string, mtls InternalMTLSBundle) *ProcessCore {
+	grpcClient, err := NewGRPCClient(GRPCClientConfig{Address: apiAddress, MTLS: mtls})
+	if err != nil {
+		panic(err)
+	}
 	return &ProcessCore{
 		binaryPath: binaryPath,
 		configPath: configPath,
 		apiAddress: apiAddress,
 		startWait:  3 * time.Second,
+		grpc:       grpcClient,
+		mtls:       mtls,
 	}
 }
 
@@ -100,7 +107,11 @@ func (c *ProcessCore) Stop(ctx context.Context) error {
 	c.mu.Lock()
 	cmd := c.cmd
 	done := c.done
+	grpcClient := c.grpc
 	c.mu.Unlock()
+	if grpcClient != nil {
+		_ = grpcClient.Close()
+	}
 	if cmd == nil || cmd.Process == nil {
 		return nil
 	}
@@ -136,6 +147,17 @@ func (c *ProcessCore) IsRunning() bool {
 	return c.cmd != nil && c.cmd.Process != nil
 }
 
+func (c *ProcessCore) Health(ctx context.Context) error {
+	if !c.IsRunning() {
+		return fmt.Errorf("xray is not running")
+	}
+	stats := c.Stats()
+	if stats == nil {
+		return fmt.Errorf("xray stats client is unavailable")
+	}
+	return stats.Ping(ctx)
+}
+
 func (c *ProcessCore) Version(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	cached := c.version
@@ -161,15 +183,45 @@ func (c *ProcessCore) Version(ctx context.Context) (string, error) {
 }
 
 func (c *ProcessCore) Handler() HandlerClient {
-	return nil
+	c.mu.Lock()
+	grpcClient := c.grpc
+	c.mu.Unlock()
+	if grpcClient == nil {
+		return nil
+	}
+	client, err := grpcClient.Handler()
+	if err != nil {
+		return nil
+	}
+	return client
 }
 
 func (c *ProcessCore) Stats() StatsClient {
-	return nil
+	c.mu.Lock()
+	grpcClient := c.grpc
+	c.mu.Unlock()
+	if grpcClient == nil {
+		return nil
+	}
+	client, err := grpcClient.Stats()
+	if err != nil {
+		return nil
+	}
+	return client
 }
 
 func (c *ProcessCore) Routing() RoutingClient {
-	return nil
+	c.mu.Lock()
+	grpcClient := c.grpc
+	c.mu.Unlock()
+	if grpcClient == nil {
+		return nil
+	}
+	client, err := grpcClient.Routing()
+	if err != nil {
+		return nil
+	}
+	return client
 }
 
 func (c *ProcessCore) waitUntilReady(ctx context.Context) error {
@@ -178,9 +230,10 @@ func (c *ProcessCore) waitUntilReady(ctx context.Context) error {
 		if !c.IsRunning() {
 			return fmt.Errorf("xray exited before becoming ready")
 		}
-		conn, err := net.DialTimeout("tcp", c.apiAddress, 200*time.Millisecond)
+		healthCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		err := c.Health(healthCtx)
+		cancel()
 		if err == nil {
-			_ = conn.Close()
 			return nil
 		}
 		if time.Now().After(deadline) {

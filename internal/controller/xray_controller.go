@@ -36,15 +36,30 @@ func (ctrl XrayController) Start(c *gin.Context) {
 	}
 
 	hashes := state.HashesFromContract(request.Internals.Hashes)
-	if !ctrl.state.ShouldRestart(request.Internals.ForceRestart, hashes, ctrl.core.IsRunning()) {
-		snapshot := ctrl.state.Snapshot()
-		httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
-			IsStarted:       true,
-			Version:         snapshot.XrayVersion,
-			Error:           nil,
-			NodeInformation: contracts.NodeInformation{Version: ptr(snapshot.NodeVersion)},
-			System:          emptySystemStats(),
-		})
+	shouldRestart := ctrl.state.ShouldRestart(request.Internals.ForceRestart, hashes, ctrl.core.IsRunning())
+	if !shouldRestart {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		err := ctrl.core.Health(ctx)
+		cancel()
+		if err != nil {
+			ctrl.logger.Warn("xray internal health check failed, restarting", "error", err)
+			ctrl.state.SetXrayInternalStatusCached(false)
+			shouldRestart = true
+		} else {
+			ctrl.state.SetXrayInternalStatusCached(true)
+			snapshot := ctrl.state.Snapshot()
+			httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
+				IsStarted:       true,
+				Version:         snapshot.XrayVersion,
+				Error:           nil,
+				NodeInformation: contracts.NodeInformation{Version: ptr(snapshot.NodeVersion)},
+				System:          emptySystemStats(),
+			})
+			return
+		}
+	}
+
+	if !shouldRestart {
 		return
 	}
 
@@ -96,10 +111,9 @@ func (ctrl XrayController) Stop(c *gin.Context) {
 
 func (ctrl XrayController) Healthcheck(c *gin.Context) {
 	snapshot := ctrl.state.Snapshot()
-	isRunning := ctrl.core.IsRunning()
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.HealthcheckResponse{
-		IsAlive:                  isRunning,
-		XrayInternalStatusCached: isRunning && snapshot.XrayVersion != nil,
+		IsAlive:                  true,
+		XrayInternalStatusCached: snapshot.XrayInternalStatusCached,
 		XrayVersion:              snapshot.XrayVersion,
 		NodeVersion:              snapshot.NodeVersion,
 	})

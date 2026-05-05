@@ -10,15 +10,16 @@ import (
 type RuntimeState struct {
 	mu sync.RWMutex
 
-	XrayRunning     bool
-	XrayVersion     *string
-	NodeVersion     string
-	CurrentConfig   map[string]any
-	LastHashes      Hashes
-	HasLastHashes   bool
-	InboundUsers    map[string]map[string]struct{}
-	KnownInboundTag map[string]struct{}
-	Plugins         PluginState
+	XrayRunning              bool
+	XrayInternalStatusCached bool
+	XrayVersion              *string
+	NodeVersion              string
+	CurrentConfig            map[string]any
+	LastHashes               Hashes
+	HasLastHashes            bool
+	InboundUsers             map[string]map[string]struct{}
+	KnownInboundTag          map[string]struct{}
+	Plugins                  PluginState
 }
 
 func NewRuntimeState() *RuntimeState {
@@ -41,12 +42,16 @@ func (s *RuntimeState) SetXrayRunning(running bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.XrayRunning = running
+	if !running {
+		s.XrayInternalStatusCached = false
+	}
 }
 
 func (s *RuntimeState) SetXrayStarted(version *string, currentConfig map[string]any, hashes Hashes) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.XrayRunning = true
+	s.XrayInternalStatusCached = true
 	s.XrayVersion = version
 	s.CurrentConfig = currentConfig
 	s.LastHashes = hashes
@@ -59,16 +64,26 @@ func (s *RuntimeState) SetXrayStarted(version *string, currentConfig map[string]
 	}
 }
 
+func (s *RuntimeState) SetXrayInternalStatusCached(cached bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.XrayInternalStatusCached = cached
+	if !cached {
+		s.XrayRunning = false
+	}
+}
+
 func (s *RuntimeState) Snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return Snapshot{
-		XrayRunning:   s.XrayRunning,
-		XrayVersion:   s.XrayVersion,
-		NodeVersion:   s.NodeVersion,
-		CurrentConfig: cloneMap(s.CurrentConfig),
-		LastHashes:    s.LastHashes,
+		XrayRunning:              s.XrayRunning,
+		XrayInternalStatusCached: s.XrayInternalStatusCached,
+		XrayVersion:              s.XrayVersion,
+		NodeVersion:              s.NodeVersion,
+		CurrentConfig:            cloneMap(s.CurrentConfig),
+		LastHashes:               s.LastHashes,
 	}
 }
 
@@ -85,11 +100,12 @@ func (s *RuntimeState) ShouldRestart(force bool, hashes Hashes, coreRunning bool
 }
 
 type Snapshot struct {
-	XrayRunning   bool
-	XrayVersion   *string
-	NodeVersion   string
-	CurrentConfig map[string]any
-	LastHashes    Hashes
+	XrayRunning              bool
+	XrayInternalStatusCached bool
+	XrayVersion              *string
+	NodeVersion              string
+	CurrentConfig            map[string]any
+	LastHashes               Hashes
 }
 
 func HashesFromContract(hashes contracts.Hashes) Hashes {

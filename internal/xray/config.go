@@ -1,6 +1,11 @@
 package xray
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/x-dora/rw-node-go/internal/system"
+)
 
 const (
 	APITag        = "REMNAWAVE_API"
@@ -8,7 +13,8 @@ const (
 )
 
 type ConfigBuilder struct {
-	XTLSAPIPort int
+	XTLSAPIPort  int
+	InternalMTLS InternalMTLSBundle
 }
 
 func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error) {
@@ -26,17 +32,14 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 		"tag":      APITag,
 	}
 
-	inbounds := ensureArray(config["inbounds"])
-	inbounds = append(inbounds, b.apiInbound())
+	inbounds := append([]any{b.apiInbound()}, ensureArray(config["inbounds"])...)
 	config["inbounds"] = inbounds
 
 	routing := ensureMap(config["routing"])
-	rules := ensureArray(routing["rules"])
-	rules = append(rules, map[string]any{
-		"type":        "field",
+	rules := append([]any{map[string]any{
 		"inboundTag":  []any{APIInboundTag},
 		"outboundTag": APITag,
-	})
+	}}, ensureArray(routing["rules"])...)
 	routing["rules"] = rules
 	config["routing"] = routing
 
@@ -45,7 +48,7 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	level0 := ensureMap(levels["0"])
 	level0["statsUserUplink"] = true
 	level0["statsUserDownlink"] = true
-	level0["statsUserOnline"] = true
+	level0["statsUserOnline"] = system.HasNetAdmin()
 	levels["0"] = level0
 	policy["levels"] = levels
 
@@ -76,10 +79,31 @@ func (b ConfigBuilder) apiInbound() map[string]any {
 				"serverName":        "internal.remnawave.local",
 				"disableSystemRoot": true,
 				"rejectUnknownSni":  true,
-				"certificates":      []any{},
+				"certificates": []any{
+					map[string]any{
+						"certificate": pemLines(b.InternalMTLS.ServerCertPEM),
+						"key":         pemLines(b.InternalMTLS.ServerKeyPEM),
+					},
+					map[string]any{
+						"usage":       "verify",
+						"certificate": pemLines(b.InternalMTLS.CACertPEM),
+					},
+				},
 			},
 		},
 	}
+}
+
+func pemLines(value string) []any {
+	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	output := make([]any, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			output = append(output, line)
+		}
+	}
+	return output
 }
 
 func cloneMap(input map[string]any) map[string]any {

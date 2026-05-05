@@ -20,12 +20,18 @@ type Registry struct {
 }
 
 func NewRegistry(cfg config.Config, runtimeState *state.RuntimeState, logger *slog.Logger) Registry {
+	internalMTLS, err := xray.NewInternalMTLSBundle()
+	if err != nil {
+		panic(err)
+	}
+	apiAddress := net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.XTLSAPIPort))
 	core := xray.NewProcessCore(
 		cfg.XrayBin,
 		cfg.XrayConfigPath,
-		net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.XTLSAPIPort)),
+		apiAddress,
+		internalMTLS,
 	)
-	builder := xray.ConfigBuilder{XTLSAPIPort: cfg.XTLSAPIPort}
+	builder := xray.ConfigBuilder{XTLSAPIPort: cfg.XTLSAPIPort, InternalMTLS: internalMTLS}
 	return NewRegistryWithXray(runtimeState, logger, core, builder)
 }
 

@@ -16,10 +16,10 @@
 - [x] HTTPS mTLS server config。
 - [x] JWT RS256 校验。
 - [x] zstd request body。
-- [x] Xray config 注入 API inbound、API service、routing 和 policy stats。
-- [x] 外部 Xray 进程启动、停止、配置写入和基础 ready 检查。
-- [~] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入基础流程。
-- [ ] Xray gRPC client、真实 healthcheck、真实 Panel + Xray 验收。
+- [x] Xray config 注入 API inbound、API service、routing、policy stats 和内部 mTLS 证书。
+- [x] 外部 Xray 进程启动、停止、配置写入和 StatsService gRPC ready 检查。
+- [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存语义接入基础流程。
+- [~] Xray gRPC client 已建立基础连接和 StatsService health check；Handler/Stats/Routing 业务方法和真实 Panel + Xray 验收仍未完成。
 
 ## M2: 用户动态管理
 
@@ -33,7 +33,7 @@
 ## M3: 基础统计
 
 - [~] system stats 已有基础快照返回。
-- [ ] StatsService client。
+- [~] StatsService client 已用于内部 health check，流量查询方法仍未接入 controller。
 - [ ] users stats、inbound stats、outbound stats、combined stats。
 - [ ] reset 语义。
 - [ ] 完整 system CPU、memory、disk、network、interface stats。

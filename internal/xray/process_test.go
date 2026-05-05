@@ -19,7 +19,7 @@ exit 1
 `)
 	}
 
-	core := NewProcessCore(fake, filepath.Join(t.TempDir(), "config.json"), "127.0.0.1:1")
+	core := NewProcessCore(fake, filepath.Join(t.TempDir(), "config.json"), "127.0.0.1:1", testMTLS(t))
 	version, err := core.Version(context.Background())
 	if err != nil {
 		t.Fatalf("Version() error = %v", err)
@@ -46,7 +46,7 @@ exit 1
 
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "xray", "config.json")
-	core := NewProcessCore(fake, configPath, "127.0.0.1:1")
+	core := NewProcessCore(fake, configPath, "127.0.0.1:1", testMTLS(t))
 	core.startWait = 100 * time.Millisecond
 	err := core.Start(context.Background(), []byte(`{"log":{}}`))
 	if err == nil {
@@ -59,6 +59,15 @@ exit 1
 	if string(data) != `{"log":{}}` {
 		t.Fatalf("config = %q", data)
 	}
+}
+
+func testMTLS(t *testing.T) InternalMTLSBundle {
+	t.Helper()
+	bundle, err := NewInternalMTLSBundle()
+	if err != nil {
+		t.Fatalf("NewInternalMTLSBundle() error = %v", err)
+	}
+	return bundle
 }
 
 func fakeXray(t *testing.T, script string) string {
