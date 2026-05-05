@@ -33,8 +33,9 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | stub | 返回成功；不操作 conntrack 或 nftables。 |
 | Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined、user online status、user IP list 和 users IP list 已接入 Xray StatsService；真实 Panel + Xray 验收仍未完成。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | stub | 返回成功；不操作 conntrack 或 nftables。 |
-| Plugin | `/node/plugin/*` | stub | 返回 accepted 或空 reports；不执行真实插件逻辑。 |
-| Internal | `/internal/get-config`, `/internal/webhook` | partial | 调试和 webhook 占位，不属于 Panel-facing contract。 |
+| Plugin | `/node/plugin/sync`, `/node/plugin/torrent-blocker/collect` | partial | 已接入 torrent blocker 配置内存态、Xray webhook report 收集和 collect flush；真实 nftables 封禁未实现，报告 `blocked=false`。 |
+| Plugin | `/node/plugin/nftables/*` | stub | 返回 accepted；不执行真实 nftables 操作。 |
+| Internal | `/internal/get-config`, `/internal/webhook` | partial | `get-config` 用于调试；`webhook` 接收 torrent blocker report。内部路径当前 JWT 豁免但仍复用主 Gin server，后续需补本机访问保护。 |
 
 ## Golden 测试
 

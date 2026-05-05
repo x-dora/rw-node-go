@@ -65,7 +65,14 @@ func (ctrl XrayController) Start(c *gin.Context) {
 		return
 	}
 
-	fullConfig, err := ctrl.builder.Build(request.XrayConfig)
+	builder := ctrl.builder
+	torrent := ctrl.state.TorrentBlockerSnapshot()
+	builder.TorrentBlocker = xray.TorrentBlockerInjection{
+		Enabled:         torrent.Enabled,
+		IncludeRuleTags: torrent.IncludeRuleTags,
+		WebhookURL:      "/internal/webhook",
+	}
+	fullConfig, err := builder.Build(request.XrayConfig)
 	if err != nil {
 		ctrl.writeStartError(c, err)
 		return

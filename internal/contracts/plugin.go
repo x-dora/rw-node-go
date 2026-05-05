@@ -46,12 +46,17 @@ type TorrentBlockerActionReport struct {
 }
 
 type XrayWebhookReport struct {
-	Type        string         `json:"type"`
-	RuleTag     string         `json:"ruleTag"`
-	InboundTag  string         `json:"inboundTag"`
-	Protocol    string         `json:"protocol"`
-	User        string         `json:"user"`
-	IP          string         `json:"ip"`
-	Destination string         `json:"destination"`
-	Raw         map[string]any `json:"raw,omitempty"`
+	Email          *string `json:"email"`
+	Level          *int    `json:"level"`
+	Protocol       *string `json:"protocol"`
+	Network        string  `json:"network"`
+	Source         *string `json:"source"`
+	Destination    string  `json:"destination"`
+	RouteTarget    *string `json:"routeTarget"`
+	OriginalTarget *string `json:"originalTarget"`
+	InboundTag     *string `json:"inboundTag"`
+	InboundName    *string `json:"inboundName"`
+	InboundLocal   *string `json:"inboundLocal"`
+	OutboundTag    *string `json:"outboundTag"`
+	Timestamp      int64   `json:"ts"`
 }

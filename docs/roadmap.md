@@ -49,9 +49,9 @@
 
 ## M5: 插件兼容
 
-- [~] plugin routes 已注册，并返回 accepted 或空 reports。
-- [ ] plugin sync 状态持久化或运行时状态管理。
-- [ ] torrent blocker config injection、internal webhook、report collect。
+- [~] plugin routes 已注册；torrent blocker 和 nftables route 均保持 Panel-facing 兼容。
+- [~] plugin sync 运行时状态管理已接入内存态；尚未持久化。
+- [~] torrent blocker config injection、internal webhook、report collect 已接入报告链路；真实 nftables 封禁未实现，报告 `blocked=false`。
 - [ ] nftables block、unblock、recreate tables。
 - [ ] 权限不足时的稳定降级和测试。
 

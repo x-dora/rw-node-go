@@ -10,8 +10,16 @@ import (
 )
 
 func JWTMiddleware(publicKey *rsa.PublicKey) func(http.Handler) http.Handler {
+	return JWTMiddlewareWithExemptPaths(publicKey, nil)
+}
+
+func JWTMiddlewareWithExemptPaths(publicKey *rsa.PublicKey, exemptPaths map[string]struct{}) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := exemptPaths[r.URL.Path]; ok {
+				next.ServeHTTP(w, r)
+				return
+			}
 			tokenValue, ok := bearerToken(r.Header.Get("Authorization"))
 			if !ok {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)

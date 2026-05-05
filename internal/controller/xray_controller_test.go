@@ -253,6 +253,7 @@ type fakeCore struct {
 	startErr   error
 	healthErr  error
 	startCalls int
+	config     []byte
 	handler    xray.HandlerClient
 	stats      xray.StatsClient
 }
@@ -264,6 +265,7 @@ func (f *fakeCore) Start(ctx context.Context, config []byte) error {
 	f.startCalls++
 	f.started = true
 	f.healthErr = nil
+	f.config = append([]byte(nil), config...)
 	return nil
 }
 

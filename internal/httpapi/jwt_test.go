@@ -53,3 +53,34 @@ func TestJWTMiddleware(t *testing.T) {
 		}
 	})
 }
+
+func TestJWTMiddlewareWithExemptPaths(t *testing.T) {
+	bundle := testkit.NewCertBundle(t)
+	publicKey, err := ParseJWTPublicKey(bundle.Payload.JWTPublicKey)
+	if err != nil {
+		t.Fatalf("ParseJWTPublicKey() error = %v", err)
+	}
+
+	handler := JWTMiddlewareWithExemptPaths(publicKey, map[string]struct{}{
+		"/internal/get-config": {},
+		"/internal/webhook":    {},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for _, path := range []string{"/internal/get-config", "/internal/webhook"} {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("%s status = %d, want %d", path, rec.Code, http.StatusNoContent)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/node/xray/healthcheck", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("node route status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}

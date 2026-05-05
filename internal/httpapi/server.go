@@ -37,7 +37,10 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		if err != nil {
 			return nil, err
 		}
-		handler = JWTMiddleware(publicKey)(handler)
+		handler = JWTMiddlewareWithExemptPaths(publicKey, map[string]struct{}{
+			"/internal/get-config": {},
+			"/internal/webhook":    {},
+		})(handler)
 	}
 
 	return &Server{

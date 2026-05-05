@@ -8,8 +8,8 @@
 - `internal/config`：环境变量、`SECRET_KEY` 解码、PEM normalize 和运行路径配置。
 - `internal/httpapi`：Gin router、response envelope、body limit、panic recovery、zstd request body、mTLS 和 JWT RS256 middleware。
 - `internal/contracts`：Panel-facing API 的请求和响应类型。
-- `internal/controller`：路由处理器。Xray controller 已接入外部进程控制；handler 已接入 Xray HandlerService；stats 已接入基础 Xray StatsService；plugin、vision 仍主要是兼容 stub。
-- `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash、inbound 用户集合和 plugin 状态。
+- `internal/controller`：路由处理器。Xray controller 已接入外部进程控制；handler 已接入 Xray HandlerService；stats 已接入基础 Xray StatsService；plugin 已接入 torrent blocker 报告链路，vision 仍主要是兼容 stub。
+- `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash、inbound 用户集合、plugin 状态和 torrent blocker 报告队列。
 - `internal/xray`：Xray config builder、内部 mTLS 证书、外部进程 core 和 Xray gRPC client 抽象。
 - `internal/system`：系统统计、网络能力检测、conntrack 和 nftables 集成入口。
 - `internal/plugin`：torrent blocker、nftables 插件状态和报告处理入口。
@@ -43,14 +43,16 @@ Xray TLS gRPC API on 127.0.0.1:XTLS_API_PORT
 - Xray start/restart 路径通过 StatsService `GetSysStats` 确认内部 API 可用；确认成功后才缓存 Xray 内部在线状态。
 - `/node/xray/stop` 会停止当前外部 Xray 进程。
 - `/node/xray/healthcheck` 按官方 Node 行为返回缓存状态：节点 API 可响应时 `isAlive=true`，`xrayInternalStatusCached` 来自上一次 start/stop 或内部健康检查结果，不在 healthcheck 请求中实时探测 Xray。
+- `/node/plugin/sync` 会保存 torrent blocker 的内存态配置。启用后，下一次 `/node/xray/start` 会注入 bittorrent blackhole outbound、webhook routing rule，以及命中 `includeRuleTags` 的现有 rule webhook。
+- `/internal/webhook` 接收 Xray webhook，按官方 report contract 写入内存队列；`/node/plugin/torrent-blocker/collect` 返回并清空队列。当前不执行真实 nftables 封禁，因此 report 中 `blocked=false`。
 
 ## 未完成边界
 
 - Xray gRPC client 已具备基础连接、StatsService health check、基础流量统计、在线用户/IP 查询和 HandlerService 用户管理方法；RoutingService 的业务方法尚未接入 controller。
 - 用户动态管理接口已通过 Xray HandlerService 增删和查询 inbound 用户；真实 Panel + Xray 验收仍未完成。
 - stats 接口已从 Xray StatsService 读取 system、users、inbound、outbound、combined、online status 和 online IP 数据；真实 Panel + Xray 验收仍未完成。
-- plugin、nftables、conntrack、Vision block/unblock 当前是占位行为。
-- 内部接口当前用于调试和 webhook 占位，后续需要补本机访问保护和插件逻辑。
+- nftables、conntrack、Vision block/unblock 当前是占位行为。
+- 内部接口当前用于调试和 torrent blocker webhook。`/internal/get-config` 和 `/internal/webhook` 在 JWT middleware 中豁免，以便 Xray 回调；它们仍复用主 Gin server，后续需要补独立 Unix socket 或本机 token 保护。
 
 ## 响应格式
 

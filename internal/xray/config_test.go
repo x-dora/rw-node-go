@@ -79,6 +79,80 @@ func TestConfigBuilderInjectsRemnawaveAPI(t *testing.T) {
 	}
 }
 
+func TestConfigBuilderInjectsTorrentBlockerWhenEnabled(t *testing.T) {
+	mtls, err := NewInternalMTLSBundle()
+	if err != nil {
+		t.Fatalf("NewInternalMTLSBundle() error = %v", err)
+	}
+	builder := ConfigBuilder{
+		XTLSAPIPort:  61000,
+		InternalMTLS: mtls,
+		TorrentBlocker: TorrentBlockerInjection{
+			Enabled:         true,
+			IncludeRuleTags: []string{"DIRECT_RULE"},
+			WebhookURL:      "/internal/webhook",
+		},
+	}
+	config, err := builder.Build(map[string]any{
+		"outbounds": []any{map[string]any{"tag": "DIRECT", "protocol": "freedom"}},
+		"routing": map[string]any{
+			"rules": []any{
+				map[string]any{"ruleTag": "DIRECT_RULE", "outboundTag": "DIRECT"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	outbounds := config["outbounds"].([]any)
+	lastOutbound := outbounds[len(outbounds)-1].(map[string]any)
+	if lastOutbound["tag"] != TorrentBlockerOutboundTag || lastOutbound["protocol"] != "blackhole" {
+		t.Fatalf("torrent outbound = %#v", lastOutbound)
+	}
+
+	rules := config["routing"].(map[string]any)["rules"].([]any)
+	if len(rules) != 3 {
+		t.Fatalf("rules len = %d, want 3", len(rules))
+	}
+	torrentRule := rules[1].(map[string]any)
+	if torrentRule["outboundTag"] != TorrentBlockerOutboundTag {
+		t.Fatalf("torrent rule = %#v", torrentRule)
+	}
+	protocols := torrentRule["protocol"].([]any)
+	if len(protocols) != 1 || protocols[0] != "bittorrent" {
+		t.Fatalf("torrent rule protocol = %#v", protocols)
+	}
+	webhook := torrentRule["webhook"].(map[string]any)
+	if webhook["url"] != "/internal/webhook" || webhook["deduplication"] != 5 {
+		t.Fatalf("torrent webhook = %#v", webhook)
+	}
+
+	includeRule := rules[2].(map[string]any)
+	includeWebhook := includeRule["webhook"].(map[string]any)
+	if includeWebhook["url"] != "/internal/webhook" || includeWebhook["deduplication"] != 5 {
+		t.Fatalf("include rule webhook = %#v", includeWebhook)
+	}
+}
+
+func TestConfigBuilderDoesNotInjectTorrentBlockerWhenDisabled(t *testing.T) {
+	config, err := ConfigBuilder{XTLSAPIPort: 61000}.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	for _, outbound := range ensureArray(config["outbounds"]) {
+		if outbound.(map[string]any)["tag"] == TorrentBlockerOutboundTag {
+			t.Fatalf("unexpected torrent blocker outbound = %#v", outbound)
+		}
+	}
+	rules := config["routing"].(map[string]any)["rules"].([]any)
+	for _, rule := range rules {
+		if ruleMap, ok := rule.(map[string]any); ok && ruleMap["outboundTag"] == TorrentBlockerOutboundTag {
+			t.Fatalf("unexpected torrent blocker rule = %#v", ruleMap)
+		}
+	}
+}
+
 func TestConfigBuilderRejectsTagConflict(t *testing.T) {
 	_, err := ConfigBuilder{XTLSAPIPort: 61000}.Build(map[string]any{
 		"inbounds": []any{map[string]any{"tag": APIInboundTag}},

@@ -8,13 +8,21 @@ import (
 )
 
 const (
-	APITag        = "REMNAWAVE_API"
-	APIInboundTag = "REMNAWAVE_API_INBOUND"
+	APITag                    = "REMNAWAVE_API"
+	APIInboundTag             = "REMNAWAVE_API_INBOUND"
+	TorrentBlockerOutboundTag = "RW_TB_OUTBOUND_BLOCK"
 )
 
 type ConfigBuilder struct {
-	XTLSAPIPort  int
-	InternalMTLS InternalMTLSBundle
+	XTLSAPIPort    int
+	InternalMTLS   InternalMTLSBundle
+	TorrentBlocker TorrentBlockerInjection
+}
+
+type TorrentBlockerInjection struct {
+	Enabled         bool
+	IncludeRuleTags []string
+	WebhookURL      string
 }
 
 func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error) {
@@ -43,6 +51,10 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	routing["rules"] = rules
 	config["routing"] = routing
 
+	if b.TorrentBlocker.Enabled {
+		injectTorrentBlocker(config, b.TorrentBlocker)
+	}
+
 	policy := ensureMap(config["policy"])
 	levels := ensureMap(policy["levels"])
 	level0 := ensureMap(levels["0"])
@@ -61,6 +73,65 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	config["policy"] = policy
 
 	return config, nil
+}
+
+func injectTorrentBlocker(config map[string]any, torrent TorrentBlockerInjection) {
+	webhookURL := torrent.WebhookURL
+	if webhookURL == "" {
+		webhookURL = "/internal/webhook"
+	}
+
+	outbounds := ensureArray(config["outbounds"])
+	outbounds = append(outbounds, map[string]any{
+		"tag":      TorrentBlockerOutboundTag,
+		"protocol": "blackhole",
+	})
+	config["outbounds"] = outbounds
+
+	routing := ensureMap(config["routing"])
+	rules := ensureArray(routing["rules"])
+	torrentRule := map[string]any{
+		"protocol":    []any{"bittorrent"},
+		"outboundTag": TorrentBlockerOutboundTag,
+		"webhook":     webhookConfig(webhookURL),
+	}
+	if len(rules) >= 1 {
+		rules = append(rules[:1], append([]any{torrentRule}, rules[1:]...)...)
+	} else {
+		rules = append(rules, torrentRule)
+	}
+
+	include := map[string]struct{}{}
+	for _, tag := range torrent.IncludeRuleTags {
+		if tag != "" {
+			include[tag] = struct{}{}
+		}
+	}
+	if len(include) > 0 {
+		for _, rule := range rules {
+			ruleMap, ok := rule.(map[string]any)
+			if !ok {
+				continue
+			}
+			ruleTag, ok := ruleMap["ruleTag"].(string)
+			if !ok {
+				continue
+			}
+			if _, found := include[ruleTag]; found {
+				ruleMap["webhook"] = webhookConfig(webhookURL)
+			}
+		}
+	}
+
+	routing["rules"] = rules
+	config["routing"] = routing
+}
+
+func webhookConfig(url string) map[string]any {
+	return map[string]any{
+		"url":           url,
+		"deduplication": 5,
+	}
 }
 
 func (b ConfigBuilder) apiInbound() map[string]any {

@@ -27,8 +27,10 @@ func (ctrl StatsController) GetSystemStats(c *gin.Context) {
 	systemStats := ctrl.systemStats(c.Request.Context())
 	response := contracts.SystemStatsResponse{
 		XrayInfo: nil,
-		Plugins:  emptyPluginStats(),
-		System:   contracts.SystemStats{Stats: systemStats.Stats},
+		Plugins: contracts.PluginStats{
+			TorrentBlocker: contracts.TorrentBlockerPluginStats{ReportsCount: ctrl.state.TorrentBlockerReportsCount()},
+		},
+		System: contracts.SystemStats{Stats: systemStats.Stats},
 	}
 	client, err := ctrl.statsClient()
 	if err != nil {
