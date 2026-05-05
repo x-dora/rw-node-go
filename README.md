@@ -47,7 +47,7 @@ ENABLE_PLUGIN_STUBS=true
 
 ## Images
 
-The planned CI publishes multi-arch images to:
+The Docker workflow validates multi-arch builds on `main` and publishes tagged releases to:
 
 ```text
 ghcr.io/x-dora/rw-node-go
