@@ -29,7 +29,7 @@
 - `VERSION`：`rw-node-go` 自己的语义化发布版本，当前从 `1.0.0` 开始。构建和 Docker 镜像会把它注入为 `ProjectVersion`。
 - `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，固定默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
 
-普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，通过后创建 `vX.Y.Z` 正式 release、写入自动 release notes，并发布 GHCR 多架构镜像。GHCR 推送默认使用 `GITHUB_TOKEN`，如果既有 package 权限不允许写入，可在仓库 secrets 配置具备 `write:packages` 权限的 `GHCR_TOKEN`。
+普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，通过后创建 `vX.Y.Z` 正式 release、写入自动 release notes，并发布 GHCR 多架构镜像。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`。
 
 ## 快速开始
 

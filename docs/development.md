@@ -86,7 +86,7 @@ GitHub Actions 发布流程：
 - `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
 - `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes；若 `VERSION` 改变或对应正式 tag 尚不存在，会创建 `v<VERSION>` 正式 release，删除滚动预发版，并推送 GHCR 镜像。
 
-正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。GHCR 推送默认使用 `GITHUB_TOKEN`；如果仓库 token 不能写入既有 package，需要在仓库 secrets 配置具备 `write:packages` 权限的 `GHCR_TOKEN`，必要时同时配置对应用户名 `GHCR_USERNAME`。
+正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret。
 
 本地发布前验证：
 
