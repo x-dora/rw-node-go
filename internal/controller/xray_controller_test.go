@@ -50,8 +50,8 @@ func TestHealthcheckReturnsCachedStatusAndNodeVersion(t *testing.T) {
 	if body.Response.XrayInternalStatusCached {
 		t.Fatalf("XrayInternalStatusCached = true, want false")
 	}
-	if body.Response.NodeVersion != version.Version {
-		t.Fatalf("NodeVersion = %q, want %q", body.Response.NodeVersion, version.Version)
+	if body.Response.NodeVersion != version.NodeVersion {
+		t.Fatalf("NodeVersion = %q, want %q", body.Response.NodeVersion, version.NodeVersion)
 	}
 }
 

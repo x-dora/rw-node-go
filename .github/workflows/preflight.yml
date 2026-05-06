@@ -1,0 +1,66 @@
+name: Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_panel_integration:
+        description: Run real Panel live harness
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  workflow_call:
+    inputs:
+      run_panel_integration:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+
+      - name: Format check
+        run: |
+          mise exec -- go fmt ./...
+          git diff --exit-code
+
+      - name: Test
+        run: mise run test
+
+      - name: Build
+        run: |
+          PROJECT_VERSION="$(tr -d '[:space:]' < VERSION)"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          mise exec -- go build \
+            -ldflags "-X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${PROJECT_VERSION} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=2.7.0 -X github.com/x-dora/rw-node-go/internal/version.Commit=${GITHUB_SHA} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
+            ./cmd/rw-node-go
+
+      - name: Contract diff
+        run: mise run contract-diff
+
+      - name: Real Panel live harness
+        if: ${{ inputs.run_panel_integration == true || inputs.run_panel_integration == 'true' }}
+        env:
+          PANEL_BASE_URL: ${{ secrets.PANEL_BASE_URL }}
+          PANEL_API_KEY: ${{ secrets.PANEL_API_KEY }}
+          PANEL_NODE_ID: ${{ secrets.PANEL_NODE_ID }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          NODE_PORT: ${{ secrets.NODE_PORT }}
+          INTERNAL_REST_PORT: ${{ secrets.INTERNAL_REST_PORT }}
+          XRAY_ASSET_DIR: ${{ secrets.XRAY_ASSET_DIR }}
+          PANEL_SMOKE_PATH: ${{ secrets.PANEL_SMOKE_PATH }}
+        run: bash scripts/panel-integration.sh run

@@ -17,6 +17,7 @@ mise run fmt
 mise run test
 mise run build
 mise run docker-build
+mise run preflight
 ```
 
 `mise run lint` 依赖本地已安装 `golangci-lint`。
@@ -70,7 +71,36 @@ bash scripts/panel-integration.sh stop
 
 脚本内部会调用 `cmd/panel-integration`。这个 Go 命令是脚本专用 harness，不是公开入口；直接 `go run ./cmd/panel-integration ...` 会失败并提示改用 `scripts/panel-integration.sh`。普通 `go test ./...` 不会连接真实 Panel。
 
-Panel-facing `nodeVersion` 默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。这是兼容 Panel 版本检查的 contract 值，不代表本 Go 项目的发布语义版本；正式构建仍可通过 ldflags 覆盖。
+## 版本与发布
+
+项目发布版本和 Panel 兼容版本必须分开维护：
+
+- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本，当前从 `1.0.0` 开始。
+- `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
+- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.7.0`，只代表兼容官方 `remnawave/node` 2.7.x contract。除非明确跟随上游 contract 升级，否则不要改它。
+
+GitHub Actions 发布流程：
+
+- `CI`：push 和 pull request 跑测试与二进制构建。
+- `Docker`：push、pull request 和手动触发时只构建多架构镜像，不推送。
+- `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
+- `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变，会更新滚动 `pre-release` 的 release notes；若 `VERSION` 改变，会创建 `v<VERSION>` 正式 release，删除滚动预发版，并推送 GHCR 镜像。
+
+正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。
+
+本地发布前验证：
+
+```sh
+mise run preflight
+```
+
+真实 Panel 验证：
+
+```sh
+RUN_PANEL_INTEGRATION=true mise run preflight
+```
+
+真实 Panel harness 会修改测试节点状态，必须使用完整测试节点 UUID，并确认结束时 disable 节点。
 
 ## 实现规则
 
@@ -99,6 +129,7 @@ Panel-facing `nodeVersion` 默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`
 mise run fmt
 mise run test
 mise run build
+mise run contract-diff
 ```
 
 涉及 Docker 的改动再运行：

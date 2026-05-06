@@ -26,4 +26,9 @@ jobs:
         run: mise run test
 
       - name: Build
-        run: mise exec -- go build ./cmd/rw-node-go
+        run: |
+          PROJECT_VERSION="$(tr -d '[:space:]' < VERSION)"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          mise exec -- go build \
+            -ldflags "-X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${PROJECT_VERSION} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=2.7.0 -X github.com/x-dora/rw-node-go/internal/version.Commit=${GITHUB_SHA} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
+            ./cmd/rw-node-go

@@ -9,7 +9,7 @@
 状态说明：`[x]` 已完成，`[~]` 部分完成，`[ ]` 未完成。
 
 - [x] Go 项目骨架、Gin HTTP 层、公开路由注册、response envelope、contract struct。
-- [x] CI、Dockerfile、GitHub Actions 多架构 Docker 构建流程。
+- [x] CI、Dockerfile、GitHub Actions 多架构 Docker 构建和 release 流程。
 - [x] `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256、zstd request body。
 - [x] 内嵌 `xray-core` 启动、停止、重复 start 替换旧 instance。
 - [x] Xray config 最小 stats/policy 注入；不注入 Remnawave API inbound/service。
@@ -22,6 +22,15 @@
 - [x] Plugin routes 只做 contract adapter：sync accepted、torrent blocker collect 空数组、nftables accepted；不保存状态、不重启 Xray、不执行 nftables。
 - [~] contract golden tests 和 contract drift 检查已接入；脚本专用真实 Panel live harness 已接入，自动 enable/disable 测试节点并断言 `isConnected=true`，更完整的 Panel + Xray 覆盖仍在推进。
 
+## 版本语义
+
+本项目有两个互相独立的版本：
+
+- `VERSION`：`rw-node-go` 自己的语义化发布版本，当前从 `1.0.0` 开始。构建和 Docker 镜像会把它注入为 `ProjectVersion`。
+- `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，固定默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
+
+普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，通过后创建 `vX.Y.Z` 正式 release、写入自动 release notes，并发布 GHCR 多架构镜像。
+
 ## 快速开始
 
 安装工具链并运行测试：
@@ -31,6 +40,14 @@ mise install
 mise run test
 mise run build
 ```
+
+发布前本地验证：
+
+```sh
+mise run preflight
+```
+
+如需把真实 Panel live harness 纳入验证，设置 `RUN_PANEL_INTEGRATION=true` 后再运行 `mise run preflight`。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
 
 启动本地服务：
 
@@ -80,6 +97,13 @@ docker build -t ghcr.io/x-dora/rw-node-go:local .
 ```
 
 当前镜像包含 `rw-node-go` 二进制。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像默认 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
+
+正式 release 发布后，GitHub Actions 会推送：
+
+- `ghcr.io/x-dora/rw-node-go:latest`
+- `ghcr.io/x-dora/rw-node-go:<VERSION>`
+- `ghcr.io/x-dora/rw-node-go:v<VERSION>`
+- `ghcr.io/x-dora/rw-node-go:<major>.<minor>`
 
 ## 真实 Panel 联调
 

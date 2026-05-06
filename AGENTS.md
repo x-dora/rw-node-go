@@ -5,11 +5,12 @@
 ## 当前阶段
 
 - 当前唯一运行模式是内嵌 `xray-core`；不要重新引入外部 `xray` 进程、Xray 配置落盘、内部 gRPC API inbound 或 internal mTLS。
-- 已完成项目骨架、Gin HTTP 层、公开路由注册、contract struct、response envelope、CI 和 Docker 构建流程。
+- 已完成项目骨架、Gin HTTP 层、公开路由注册、contract struct、response envelope、CI、Docker 构建和 release 流程。
 - 已完成 `SECRET_KEY` 解析、mTLS、JWT RS256、zstd request body。
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
 - handler、stats 和 Vision 已通过内嵌 Xray feature 部分接入；drop connections 已通过 conntrack best-effort 接入并保留稳定降级，online IP 仍是降级响应。
 - 已建立脚本专用真实 Panel live harness：只能通过 `scripts/panel-integration.sh` 触发；可启动本地节点、调用 Panel API enable 测试节点、等待 Panel 报告 `isConnected=true`、跑最小 smoke，并在结束或失败清理时 disable 节点和停止本地进程。该 harness 会修改真实 Panel 节点状态，`run`、`enable` 和 `disable` 必须使用完整节点 UUID，只能指向测试节点。
+- 项目自身发布版本由根目录 `VERSION` 管理，从 `1.0.0` 开始；Panel-facing `nodeVersion` 是兼容性版本，默认继续上报官方 2.7.x 的 `2.7.0`。
 - plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。
 
 ## 必须参考
@@ -64,4 +65,5 @@
 - `mise run fmt`
 - `mise run test`
 - `mise run build`
+- `mise run preflight`
 - `mise run docker-build`

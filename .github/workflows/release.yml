@@ -1,0 +1,254 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/x-dora/rw-node-go
+  NODE_VERSION: "2.7.0"
+  PRERELEASE_TAG: pre-release
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/preflight.yml
+    with:
+      run_panel_integration: false
+    secrets: inherit
+
+  release:
+    needs: preflight
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.publish.outputs.should_publish }}
+      tag: ${{ steps.version.outputs.release_tag }}
+      project_version: ${{ steps.version.outputs.project_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read project version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_version="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$project_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "VERSION must be a semver value, got: $project_version" >&2
+            exit 1
+          fi
+          echo "project_version=$project_version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v$project_version" >> "$GITHUB_OUTPUT"
+
+      - name: Detect VERSION change
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_changed=false
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if ! git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.release_tag }}" >/dev/null; then
+              version_changed=true
+            fi
+          elif [[ -n "${{ github.event.before }}" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            previous_version="$(git show "${{ github.event.before }}:VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+            if [[ "$previous_version" != "${{ steps.version.outputs.project_version }}" ]]; then
+              version_changed=true
+            fi
+          elif ! git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.release_tag }}" >/dev/null; then
+            version_changed=true
+          fi
+          echo "version_changed=$version_changed" >> "$GITHUB_OUTPUT"
+
+      - name: Find previous release tag
+        id: previous
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous_tag="$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -v '^${{ steps.version.outputs.release_tag }}$' | head -n 1 || true)"
+          echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Move rolling pre-release tag
+        if: steps.changes.outputs.version_changed != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f "$PRERELEASE_TAG" "${{ github.sha }}"
+          git push origin "refs/tags/$PRERELEASE_TAG" --force
+
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_tag="$RELEASE_TAG"
+          if [[ "${{ steps.changes.outputs.version_changed }}" != "true" ]]; then
+            target_tag="$PRERELEASE_TAG"
+          fi
+
+          args=(-X POST "repos/${{ github.repository }}/releases/generate-notes" -f "tag_name=$target_tag" -f "target_commitish=${{ github.sha }}")
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            args+=(-f "previous_tag_name=$PREVIOUS_TAG")
+          fi
+          gh api "${args[@]}" --jq '.body' > release-notes.generated.md
+
+          {
+            echo "## Build"
+            echo
+            echo "- Project version: \`${{ steps.version.outputs.project_version }}\`"
+            echo "- Panel compatibility version: \`$NODE_VERSION\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo
+            echo "## Docker images"
+            echo
+            if [[ "${{ steps.changes.outputs.version_changed }}" == "true" ]]; then
+              echo "- \`$IMAGE_NAME:latest\`"
+              echo "- \`$IMAGE_NAME:${{ steps.version.outputs.project_version }}\`"
+            else
+              echo "- 正式 release 镜像会在 \`VERSION\` 变更并通过门禁后发布。"
+            fi
+            echo
+            cat release-notes.generated.md
+          } > release-notes.md
+
+      - name: Update rolling pre-release
+        if: steps.changes.outputs.version_changed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$PRERELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$PRERELEASE_TAG" \
+              --title "Pre-release after ${{ steps.previous.outputs.tag || 'initial release' }}" \
+              --notes-file release-notes.md \
+              --prerelease
+          else
+            gh release create "$PRERELEASE_TAG" \
+              --target "${{ github.sha }}" \
+              --title "Pre-release after ${{ steps.previous.outputs.tag || 'initial release' }}" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+
+      - name: Validate formal release tag is unused
+        if: steps.changes.outputs.version_changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="${{ steps.version.outputs.release_tag }}"
+          if git rev-parse -q --verify "refs/tags/$release_tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$release_tag" >/dev/null 2>&1; then
+            echo "Tag $release_tag already exists; refusing to overwrite an existing release tag." >&2
+            exit 1
+          fi
+
+      - name: Upload release notes
+        if: steps.changes.outputs.version_changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
+      - name: Set publish output
+        id: publish
+        shell: bash
+        run: echo "should_publish=${{ steps.changes.outputs.version_changed }}" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: release
+    if: needs.release.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.release.outputs.project_version }}
+            type=raw,value=${{ needs.release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag }}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PROJECT_VERSION=${{ needs.release.outputs.project_version }}
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+
+  publish-release:
+    needs:
+      - release
+      - docker
+    if: needs.release.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
+      - name: Publish formal release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="${{ needs.release.outputs.tag }}"
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "Release $release_tag already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+
+          gh release create "$release_tag" \
+            --target "${{ github.sha }}" \
+            --title "rw-node-go $release_tag" \
+            --notes-file release-notes.md \
+            --latest
+
+          if gh release view "$PRERELEASE_TAG" >/dev/null 2>&1; then
+            gh release delete "$PRERELEASE_TAG" --yes --cleanup-tag || true
+          elif git ls-remote --exit-code --tags origin "refs/tags/$PRERELEASE_TAG" >/dev/null 2>&1; then
+            git push origin ":refs/tags/$PRERELEASE_TAG" || true
+          fi

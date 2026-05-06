@@ -26,7 +26,11 @@ run = "go run ./cmd/contract-diff"
 
 [tasks.docker-build]
 description = "Build the local Docker image"
-run = "powershell -NoProfile -Command \"$version = if ($env:VERSION) { $env:VERSION } else { '0.1.0-dev' }; $commit = if ($env:COMMIT) { $env:COMMIT } else { 'unknown' }; $buildDate = if ($env:BUILD_DATE) { $env:BUILD_DATE } else { 'unknown' }; docker build --build-arg VERSION=$version --build-arg COMMIT=$commit --build-arg BUILD_DATE=$buildDate -t ghcr.io/x-dora/rw-node-go:local .\""
+run = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docker-build.ps1"
+
+[tasks.preflight]
+description = "Run release preflight checks"
+run = "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1"
 
 [tasks.clean]
 description = "Remove local build artifacts"

@@ -14,6 +14,7 @@ import (
 	"github.com/x-dora/rw-node-go/internal/controller"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
 	"github.com/x-dora/rw-node-go/internal/state"
+	"github.com/x-dora/rw-node-go/internal/version"
 )
 
 func main() {
@@ -54,7 +55,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("starting rw-node-go", "addr", cfg.ListenAddress(), "node_version", runtimeState.NodeVersion)
+		logger.Info("starting rw-node-go", "addr", cfg.ListenAddress(), "project_version", version.ProjectVersion, "node_version", runtimeState.NodeVersion)
 		errCh <- server.ListenAndServe()
 	}()
 

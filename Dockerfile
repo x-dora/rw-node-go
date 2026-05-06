@@ -2,7 +2,8 @@
 
 FROM golang:1.26-alpine AS build
 
-ARG VERSION=0.1.0-dev
+ARG PROJECT_VERSION=1.0.0
+ARG NODE_VERSION=2.7.0
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 
@@ -14,7 +15,7 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-s -w -X github.com/x-dora/rw-node-go/internal/version.Version=${VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${COMMIT} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
+    -ldflags "-s -w -X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${PROJECT_VERSION} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=${NODE_VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${COMMIT} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
     -o /out/rw-node-go ./cmd/rw-node-go
 
 FROM alpine:3.23

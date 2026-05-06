@@ -24,7 +24,7 @@ type RuntimeState struct {
 
 func NewRuntimeState() *RuntimeState {
 	return &RuntimeState{
-		NodeVersion:     version.Version,
+		NodeVersion:     version.NodeVersion,
 		CurrentConfig:   map[string]any{},
 		InboundUsers:    map[string]map[string]struct{}{},
 		KnownInboundTag: map[string]struct{}{},
