@@ -32,7 +32,7 @@ func NewRegistryWithXray(runtimeState *state.RuntimeState, logger *slog.Logger, 
 func NewRegistryWithXrayAndSnapshotter(runtimeState *state.RuntimeState, logger *slog.Logger, core xray.Core, builder xray.ConfigBuilder, snapshotter system.Snapshotter) Registry {
 	return Registry{
 		Xray:     XrayController{state: runtimeState, logger: logger, core: core, builder: builder, snapshot: snapshotter},
-		Handler:  HandlerController{state: runtimeState, logger: logger, core: core},
+		Handler:  HandlerController{state: runtimeState, logger: logger, core: core, dropper: system.Conntrack{}},
 		Stats:    StatsController{state: runtimeState, logger: logger, core: core, snapshot: snapshotter},
 		Vision:   VisionController{state: runtimeState, logger: logger, core: core},
 		Plugin:   PluginController{state: runtimeState, logger: logger, core: core},

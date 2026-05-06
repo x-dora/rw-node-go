@@ -12,13 +12,19 @@ import (
 	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
 	"github.com/x-dora/rw-node-go/internal/state"
+	"github.com/x-dora/rw-node-go/internal/system"
 	"github.com/x-dora/rw-node-go/internal/xray"
 )
 
+type ConnectionDropper interface {
+	DropIP(context.Context, string) error
+}
+
 type HandlerController struct {
-	state  *state.RuntimeState
-	logger *slog.Logger
-	core   xray.Core
+	state   *state.RuntimeState
+	logger  *slog.Logger
+	core    xray.Core
+	dropper ConnectionDropper
 }
 
 func (ctrl HandlerController) AddUser(c *gin.Context) {
@@ -221,11 +227,54 @@ func (ctrl HandlerController) GetInboundUsersCount(c *gin.Context) {
 }
 
 func (ctrl HandlerController) DropUsersConnections(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccess())
+	var request contracts.DropUsersConnectionsRequest
+	if err := c.ShouldBindJSON(&request); err != nil || len(request.UserIDs) == 0 {
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccessResponse{Success: false})
+		return
+	}
+	client, err := ctrl.statsClient()
+	if err != nil {
+		ctrl.logger.Debug("xray stats client unavailable for connection drop", "error", err)
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccess())
+		return
+	}
+
+	ctx, cancel := handlerContext(c)
+	defer cancel()
+	success := true
+	for _, userID := range request.UserIDs {
+		ips, err := client.UserIPList(ctx, userID, true)
+		if err != nil {
+			ctrl.logger.Debug("get user IPs for connection drop", "userId", userID, "error", err)
+			continue
+		}
+		for _, item := range ips {
+			if err := ctrl.dropConnectionIP(ctx, item.IP); err != nil {
+				ctrl.logger.Warn("drop user connection IP", "userId", userID, "ip", item.IP, "error", err)
+				success = false
+			}
+		}
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccessResponse{Success: success})
 }
 
 func (ctrl HandlerController) DropIPs(c *gin.Context) {
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccess())
+	var request contracts.DropIPsRequest
+	if err := c.ShouldBindJSON(&request); err != nil || len(request.IPs) == 0 {
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccessResponse{Success: false})
+		return
+	}
+
+	ctx, cancel := handlerContext(c)
+	defer cancel()
+	success := true
+	for _, ip := range request.IPs {
+		if err := ctrl.dropConnectionIP(ctx, ip); err != nil {
+			ctrl.logger.Warn("drop connection IP", "ip", ip, "error", err)
+			success = false
+		}
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.SimpleSuccessResponse{Success: success})
 }
 
 func (ctrl HandlerController) handlerClient() (xray.HandlerClient, error) {
@@ -237,6 +286,31 @@ func (ctrl HandlerController) handlerClient() (xray.HandlerClient, error) {
 		return nil, errors.New("xray handler client is unavailable")
 	}
 	return client, nil
+}
+
+func (ctrl HandlerController) statsClient() (xray.StatsClient, error) {
+	if ctrl.core == nil || !ctrl.core.IsRunning() {
+		return nil, errors.New("xray core not running")
+	}
+	client := ctrl.core.Stats()
+	if client == nil {
+		return nil, errors.New("xray stats client is unavailable")
+	}
+	return client, nil
+}
+
+func (ctrl HandlerController) dropConnectionIP(ctx context.Context, ip string) error {
+	if ctrl.dropper == nil {
+		return nil
+	}
+	if err := ctrl.dropper.DropIP(ctx, ip); err != nil {
+		if system.IsConntrackUnavailable(err) {
+			ctrl.logger.Debug("conntrack unavailable for connection drop", "ip", ip, "error", err)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (ctrl HandlerController) removeUser(ctx context.Context, client xray.HandlerClient, tag string, username string) error {

@@ -42,10 +42,10 @@
 - [x] `INTERNAL_REST_PORT` 本机 internal server。
 - [x] `GET /internal/get-config` 返回当前内存 config。
 - [~] `/vision/block-ip`、`/vision/unblock-ip` 是官方主 API unprefixed route，已接入内嵌 routing feature；真实 Panel + Xray 验收仍未完成。
-- [ ] drop users connections。
-- [ ] drop IPs。
+- [~] drop users connections 已通过用户 IP list + conntrack best-effort 接入；当前 online IP 来源未完成时稳定 no-op。
+- [~] drop IPs 已通过 conntrack best-effort 接入；无权限或无系统能力时稳定降级。
 - [~] Vision block/unblock dynamic routing feature 实现。
-- [ ] 无对应系统能力环境的稳定降级测试。
+- [x] 无对应系统能力环境的稳定降级测试。
 
 ## M5: Plugin 接口适配
 

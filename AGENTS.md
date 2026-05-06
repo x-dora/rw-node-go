@@ -8,7 +8,7 @@
 - 已完成项目骨架、Gin HTTP 层、公开路由注册、contract struct、response envelope、CI 和 Docker 构建流程。
 - 已完成 `SECRET_KEY` 解析、mTLS、JWT RS256、zstd request body。
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
-- handler、stats 和 Vision 已通过内嵌 Xray feature 部分接入；online IP、drop connections 仍是兼容 stub 或降级响应。
+- handler、stats 和 Vision 已通过内嵌 Xray feature 部分接入；drop connections 已通过 conntrack best-effort 接入并保留稳定降级，online IP 仍是降级响应。
 - plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。
 
 ## 必须参考

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/state"
+	"github.com/x-dora/rw-node-go/internal/system"
 	"github.com/x-dora/rw-node-go/internal/xray"
 )
 
@@ -168,6 +170,98 @@ func TestHandlerFailureDoesNotReturnHTTP500(t *testing.T) {
 	assertGenericSuccess(t, rec.Body.String(), false)
 }
 
+func TestHandlerDropIPsUsesConnectionDropper(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	dropper := &recordingConnectionDropper{}
+	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), dropper: dropper}
+
+	rec := runHandlerRequest(t, ctrl.DropIPs, `{"ips":["203.0.113.1","2001:db8::1"]}`)
+
+	assertSimpleSuccess(t, rec.Body.String(), true)
+	if got := dropper.ips; len(got) != 2 || got[0] != "203.0.113.1" || got[1] != "2001:db8::1" {
+		t.Fatalf("dropper ips = %#v", got)
+	}
+}
+
+func TestHandlerDropIPsRejectsInvalidRequests(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), dropper: &recordingConnectionDropper{}}
+
+	assertSimpleSuccess(t, runHandlerRequest(t, ctrl.DropIPs, `{`).Body.String(), false)
+	assertSimpleSuccess(t, runHandlerRequest(t, ctrl.DropIPs, `{"ips":[]}`).Body.String(), false)
+
+	rec := runHandlerRequest(t, ctrl.DropIPs, `{"ips":["not-an-ip"]}`)
+	assertSimpleSuccess(t, rec.Body.String(), false)
+}
+
+func TestHandlerDropIPsDegradesWhenConntrackUnavailable(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	ctrl := HandlerController{
+		state:   state.NewRuntimeState(),
+		logger:  slog.Default(),
+		dropper: &recordingConnectionDropper{err: fmt.Errorf("%w: fixture", system.ErrConntrackUnavailable)},
+	}
+
+	rec := runHandlerRequest(t, ctrl.DropIPs, `{"ips":["203.0.113.1"]}`)
+
+	assertSimpleSuccess(t, rec.Body.String(), true)
+}
+
+func TestHandlerDropUsersConnectionsGetsUserIPs(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	stats := &recordingStatsClient{
+		userIPs: []xray.IPLastSeen{{IP: "203.0.113.2", LastSeen: 1710000000}},
+	}
+	dropper := &recordingConnectionDropper{}
+	ctrl := HandlerController{
+		state:   state.NewRuntimeState(),
+		logger:  slog.Default(),
+		core:    &fakeCore{started: true, stats: stats},
+		dropper: dropper,
+	}
+
+	rec := runHandlerRequest(t, ctrl.DropUsersConnections, `{"userIds":["user-1"]}`)
+
+	assertSimpleSuccess(t, rec.Body.String(), true)
+	if stats.onlineUsername != "" {
+		t.Fatalf("online username should not be used: %q", stats.onlineUsername)
+	}
+	if !stats.userIPsReset {
+		t.Fatalf("UserIPList reset = false, want true")
+	}
+	if got := dropper.ips; len(got) != 1 || got[0] != "203.0.113.2" {
+		t.Fatalf("dropper ips = %#v", got)
+	}
+}
+
+func TestHandlerDropUsersConnectionsDegradesWhenStatsUnavailable(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}}
+
+	rec := runHandlerRequest(t, ctrl.DropUsersConnections, `{"userIds":["user-1"]}`)
+
+	assertSimpleSuccess(t, rec.Body.String(), true)
+}
+
+func TestHandlerDropUsersConnectionsDegradesWhenUserIPLookupFails(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	stats := &recordingStatsClient{err: fmt.Errorf("boom")}
+	dropper := &recordingConnectionDropper{}
+	ctrl := HandlerController{
+		state:   state.NewRuntimeState(),
+		logger:  slog.Default(),
+		core:    &fakeCore{started: true, stats: stats},
+		dropper: dropper,
+	}
+
+	rec := runHandlerRequest(t, ctrl.DropUsersConnections, `{"userIds":["user-1"]}`)
+
+	assertSimpleSuccess(t, rec.Body.String(), true)
+	if len(dropper.ips) != 0 {
+		t.Fatalf("dropper ips = %#v, want empty", dropper.ips)
+	}
+}
+
 func runHandlerRequest(t *testing.T, handler gin.HandlerFunc, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -188,6 +282,21 @@ func assertGenericSuccess(t *testing.T, body string, want bool) {
 	}
 	if err := json.Unmarshal([]byte(body), &decoded); err != nil {
 		t.Fatalf("unmarshal generic response: %v; body=%s", err, body)
+	}
+	if decoded.Response.Success != want {
+		t.Fatalf("success = %v, want %v; body=%s", decoded.Response.Success, want, body)
+	}
+}
+
+func assertSimpleSuccess(t *testing.T, body string, want bool) {
+	t.Helper()
+	var decoded struct {
+		Response struct {
+			Success bool `json:"success"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal([]byte(body), &decoded); err != nil {
+		t.Fatalf("unmarshal simple response: %v; body=%s", err, body)
 	}
 	if decoded.Response.Success != want {
 		t.Fatalf("success = %v, want %v; body=%s", decoded.Response.Success, want, body)
@@ -230,4 +339,20 @@ func (c *recordingHandlerClient) GetInboundUsersCount(ctx context.Context, tag s
 		return 0, c.err
 	}
 	return c.count, nil
+}
+
+type recordingConnectionDropper struct {
+	ips []string
+	err error
+}
+
+func (d *recordingConnectionDropper) DropIP(ctx context.Context, ip string) error {
+	d.ips = append(d.ips, ip)
+	if d.err != nil {
+		return d.err
+	}
+	if ip == "not-an-ip" {
+		return fmt.Errorf("invalid ip %q", ip)
+	}
+	return nil
 }

@@ -11,7 +11,7 @@
 - `internal/controller`：路由处理器。Xray controller 管理内嵌 instance；handler、stats 和 vision 通过内嵌 Xray feature 访问运行时；plugin 当前是接口适配 stub。
 - `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash 和 inbound 用户集合。
 - `internal/xray`：内嵌 `xray-core` core、config builder、用户构建、stats 读取和 feature client 抽象。
-- `internal/system`：系统统计、网络能力检测、conntrack 和 nftables 未来集成入口。
+- `internal/system`：系统统计、网络能力检测、conntrack 连接清理和 nftables 未来集成入口。
 - `internal/testkit`：证书、JWT、golden 和 Panel client 测试辅助。
 
 ## 当前运行路径
@@ -53,7 +53,7 @@ Internal Gin API
 
 - 用户动态管理接口已通过内嵌 Xray inbound feature 增删和查询 inbound 用户；真实 Panel + Xray 验收仍未完成。
 - stats 接口已从内嵌 Xray stats feature 读取 users、inbound、outbound 和 combined 统计；online status/IP 当前按系统能力稳定降级。
-- drop users connections、drop IPs 当前不操作 conntrack 或 nftables。
+- drop users connections、drop IPs 已通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。
 - Vision block/unblock 已通过内嵌 routing feature 添加或删除 source IP dynamic rule；真实 Panel + Xray 验收仍未完成。
 - plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。
 
