@@ -325,16 +325,23 @@ func (c *embeddedStatsClient) UserOnlineStatus(ctx context.Context, username str
 	if err != nil {
 		return false, err
 	}
-	counter := manager.GetCounter(fmt.Sprintf(StatsUserOnlineFormat, username))
-	return counter != nil && counter.Value() > 0, nil
+	return onlineStatus(manager, username), nil
 }
 
 func (c *embeddedStatsClient) UserIPList(ctx context.Context, username string, reset bool) ([]IPLastSeen, error) {
-	return []IPLastSeen{}, nil
+	manager, err := c.manager()
+	if err != nil {
+		return nil, err
+	}
+	return onlineIPList(manager, username), nil
 }
 
 func (c *embeddedStatsClient) UsersIPList(ctx context.Context, reset bool) ([]UserIPList, error) {
-	return []UserIPList{}, nil
+	manager, err := c.manager()
+	if err != nil {
+		return nil, err
+	}
+	return onlineUsersIPList(manager), nil
 }
 
 func (c *embeddedStatsClient) InboundStats(ctx context.Context, tag string, reset bool) (InboundTrafficStats, error) {
@@ -433,6 +440,55 @@ func embeddedCounterValue(manager *appstats.Manager, name string, reset bool) in
 		counter.Set(0)
 	}
 	return value
+}
+
+func onlineStatus(manager featurestats.Manager, username string) bool {
+	onlineMap := manager.GetOnlineMap(fmt.Sprintf(StatsUserOnlineFormat, username))
+	return onlineMap != nil && onlineMap.Count() > 0
+}
+
+func onlineIPList(manager featurestats.Manager, username string) []IPLastSeen {
+	return onlineIPLastSeen(manager.GetOnlineMap(fmt.Sprintf(StatsUserOnlineFormat, username)))
+}
+
+func onlineUsersIPList(manager featurestats.Manager) []UserIPList {
+	rawUsers := manager.GetAllOnlineUsers()
+	output := make([]UserIPList, 0, len(rawUsers))
+	seen := map[string]struct{}{}
+	for _, raw := range rawUsers {
+		username, ok := parseOnlineStatName(raw)
+		if !ok {
+			continue
+		}
+		if _, ok := seen[username]; ok {
+			continue
+		}
+		seen[username] = struct{}{}
+		ips := onlineIPLastSeen(manager.GetOnlineMap(raw))
+		if len(ips) == 0 {
+			continue
+		}
+		output = append(output, UserIPList{Username: username, IPs: ips})
+	}
+	sort.Slice(output, func(i, j int) bool {
+		return output[i].Username < output[j].Username
+	})
+	return output
+}
+
+func onlineIPLastSeen(onlineMap featurestats.OnlineMap) []IPLastSeen {
+	if onlineMap == nil {
+		return []IPLastSeen{}
+	}
+	ipTimes := onlineMap.IPTimeMap()
+	output := make([]IPLastSeen, 0, len(ipTimes))
+	for ip, lastSeen := range ipTimes {
+		output = append(output, IPLastSeen{IP: ip, LastSeen: lastSeen.Unix()})
+	}
+	sort.Slice(output, func(i, j int) bool {
+		return output[i].IP < output[j].IP
+	})
+	return output
 }
 
 type embeddedRoutingClient struct {

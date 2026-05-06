@@ -16,7 +16,7 @@
 - [x] 本机 internal REST API：`127.0.0.1:INTERNAL_REST_PORT` 上的 `/internal/get-config`。
 - [~] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存状态语义接入；真实 Panel + Xray 验收仍未完成。
 - [~] Handler 用户动态管理通过内嵌 Xray inbound feature 接入；真实 Panel + Xray 验收仍未完成。
-- [~] Stats users、inbound、outbound、combined 通过内嵌 Xray stats feature 接入；online status/IP 当前按系统能力降级。
+- [~] Stats users、inbound、outbound、combined 通过内嵌 Xray stats feature 接入；online status/IP 已通过内嵌 Xray stats OnlineMap 接入，真实 Panel + Xray 验收仍未完成。
 - [~] Vision `/vision/block-ip`、`/vision/unblock-ip` 已走内嵌 routing feature；真实 Panel + Xray 验收仍未完成。
 - [~] drop users connections、drop IPs 已通过 conntrack best-effort 接入；无权限或无系统能力时稳定降级。
 - [x] Plugin routes 只做 contract adapter：sync accepted、torrent blocker collect 空数组、nftables accepted；不保存状态、不重启 Xray、不执行 nftables。

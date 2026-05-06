@@ -52,7 +52,7 @@ Internal Gin API
 ## 未完成边界
 
 - 用户动态管理接口已通过内嵌 Xray inbound feature 增删和查询 inbound 用户；真实 Panel + Xray 验收仍未完成。
-- stats 接口已从内嵌 Xray stats feature 读取 users、inbound、outbound 和 combined 统计；online status/IP 当前按系统能力稳定降级。
+- stats 接口已从内嵌 Xray stats feature 读取 users、inbound、outbound、combined 和 OnlineMap online status/IP；真实 Panel + Xray 验收仍未完成。
 - drop users connections、drop IPs 已通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。
 - Vision block/unblock 已通过内嵌 routing feature 添加或删除 source IP dynamic rule；真实 Panel + Xray 验收仍未完成。
 - plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。
