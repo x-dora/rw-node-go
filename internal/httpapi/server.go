@@ -5,19 +5,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/x-dora/rw-node-go/internal/config"
 )
 
 type Server struct {
-	httpServer         *http.Server
-	internalServer     *http.Server
-	internalSocketPath string
-	useTLS             bool
+	httpServer     *http.Server
+	internalServer *http.Server
+	useTLS         bool
 }
 
 func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Server, error) {
@@ -41,9 +38,7 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		if err != nil {
 			return nil, err
 		}
-		handler = JWTMiddlewareWithExemptPaths(publicKey, map[string]struct{}{
-			"/internal/get-config": {},
-		})(handler)
+		handler = JWTMiddlewareWithExemptPaths(publicKey, visionJWTExemptPaths())(handler)
 	}
 
 	server := &Server{
@@ -56,29 +51,30 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       60 * time.Second,
 		},
-		useTLS: useTLS,
-	}
-	if cfg.InternalSocketPath != "" {
-		server.internalSocketPath = cfg.InternalSocketPath
-		server.internalServer = &http.Server{
-			Handler:           InternalTokenMiddleware(NewRouter(cfg, handlers, logger), cfg.InternalRESTToken),
+		internalServer: &http.Server{
+			Addr:              cfg.InternalListenAddress(),
+			Handler:           NewInternalRouter(cfg, handlers, logger),
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       60 * time.Second,
-		}
+		},
+		useTLS: useTLS,
 	}
 	return server, nil
 }
 
+func visionJWTExemptPaths() map[string]struct{} {
+	return map[string]struct{}{
+		"/vision/block-ip":   {},
+		"/vision/unblock-ip": {},
+	}
+}
+
 func (s *Server) ListenAndServe() error {
-	if s.internalServer != nil && s.internalSocketPath != "" {
-		listener, err := internalUnixListener(s.internalSocketPath)
-		if err != nil {
-			return err
-		}
+	if s.internalServer != nil {
 		go func() {
-			_ = s.internalServer.Serve(listener)
+			_ = s.internalServer.ListenAndServe()
 		}()
 	}
 	if s.useTLS {
@@ -90,39 +86,9 @@ func (s *Server) ListenAndServe() error {
 	return s.httpServer.ListenAndServe()
 }
 
-func (s *Server) ListenAndServeInternal(socketPath string) error {
-	if s.internalServer == nil {
-		return nil
-	}
-	if socketPath != "" {
-		s.internalSocketPath = socketPath
-	}
-	listener, err := internalUnixListener(s.internalSocketPath)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(s.internalSocketPath)
-	return s.internalServer.Serve(listener)
-}
-
-func internalUnixListener(socketPath string) (net.Listener, error) {
-	if socketPath == "" {
-		return nil, fmt.Errorf("internal socket path is empty")
-	}
-	_ = os.Remove(socketPath)
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		return nil, fmt.Errorf("listen internal socket: %w", err)
-	}
-	return listener, nil
-}
-
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.internalServer != nil {
 		_ = s.internalServer.Shutdown(ctx)
-		if s.internalSocketPath != "" {
-			_ = os.Remove(s.internalSocketPath)
-		}
 	}
 	return s.httpServer.Shutdown(ctx)
 }

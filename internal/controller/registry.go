@@ -2,8 +2,6 @@ package controller
 
 import (
 	"log/slog"
-	"net"
-	"strconv"
 
 	"github.com/x-dora/rw-node-go/internal/config"
 	"github.com/x-dora/rw-node-go/internal/state"
@@ -22,23 +20,8 @@ type Registry struct {
 }
 
 func NewRegistry(cfg config.Config, runtimeState *state.RuntimeState, logger *slog.Logger) Registry {
-	internalMTLS, err := xray.NewInternalMTLSBundle()
-	if err != nil {
-		panic(err)
-	}
-	apiAddress := net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.XTLSAPIPort))
-	core := xray.NewProcessCore(
-		cfg.XrayBin,
-		cfg.XrayConfigPath,
-		apiAddress,
-		internalMTLS,
-	)
-	builder := xray.ConfigBuilder{
-		XTLSAPIPort:        cfg.XTLSAPIPort,
-		InternalMTLS:       internalMTLS,
-		InternalSocketPath: cfg.InternalSocketPath,
-		InternalRESTToken:  cfg.InternalRESTToken,
-	}
+	core := xray.NewEmbeddedCore()
+	builder := xray.ConfigBuilder{StatsUserOnline: system.HasNetAdmin()}
 	return NewRegistryWithXrayAndSnapshotter(runtimeState, logger, core, builder, system.NewSnapshotter())
 }
 
@@ -51,7 +34,7 @@ func NewRegistryWithXrayAndSnapshotter(runtimeState *state.RuntimeState, logger 
 		Xray:     XrayController{state: runtimeState, logger: logger, core: core, builder: builder, snapshot: snapshotter},
 		Handler:  HandlerController{state: runtimeState, logger: logger, core: core},
 		Stats:    StatsController{state: runtimeState, logger: logger, core: core, snapshot: snapshotter},
-		Vision:   VisionController{state: runtimeState, logger: logger},
+		Vision:   VisionController{state: runtimeState, logger: logger, core: core},
 		Plugin:   PluginController{state: runtimeState, logger: logger, core: core},
 		Internal: InternalController{state: runtimeState, logger: logger},
 		Snapshot: snapshotter,

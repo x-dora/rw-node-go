@@ -8,7 +8,7 @@ import (
 
 func TestLoadDefaults(t *testing.T) {
 	t.Setenv("NODE_PORT", "")
-	t.Setenv("XTLS_API_PORT", "")
+	t.Setenv("INTERNAL_REST_PORT", "")
 	t.Setenv("RW_NODE_DIR", "")
 
 	cfg, err := Load()
@@ -19,14 +19,11 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.NodePort != DefaultNodePort {
 		t.Fatalf("NodePort = %d, want %d", cfg.NodePort, DefaultNodePort)
 	}
-	if cfg.XTLSAPIPort != DefaultXTLSAPIPort {
-		t.Fatalf("XTLSAPIPort = %d, want %d", cfg.XTLSAPIPort, DefaultXTLSAPIPort)
+	if cfg.InternalRESTPort != DefaultInternalRESTPort {
+		t.Fatalf("InternalRESTPort = %d, want %d", cfg.InternalRESTPort, DefaultInternalRESTPort)
 	}
 	if cfg.RWNodeDir != DefaultRWNodeDir {
 		t.Fatalf("RWNodeDir = %q, want %q", cfg.RWNodeDir, DefaultRWNodeDir)
-	}
-	if cfg.InternalSocketPath != DefaultInternalSocketPath {
-		t.Fatalf("InternalSocketPath = %q, want %q", cfg.InternalSocketPath, DefaultInternalSocketPath)
 	}
 }
 

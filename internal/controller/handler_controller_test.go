@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/xray"
-	handlercommand "github.com/xtls/xray-core/app/proxyman/command"
 )
 
 func TestHandlerAddUserRemovesKnownInboundsThenAddsUsers(t *testing.T) {
@@ -231,8 +230,4 @@ func (c *recordingHandlerClient) GetInboundUsersCount(ctx context.Context, tag s
 		return 0, c.err
 	}
 	return c.count, nil
-}
-
-func (c *recordingHandlerClient) Raw() handlercommand.HandlerServiceClient {
-	return nil
 }

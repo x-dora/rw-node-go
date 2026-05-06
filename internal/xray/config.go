@@ -2,23 +2,18 @@ package xray
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/x-dora/rw-node-go/internal/system"
 )
 
 const (
 	APITag                    = "REMNAWAVE_API"
 	APIInboundTag             = "REMNAWAVE_API_INBOUND"
+	BlockOutboundTag          = "BLOCK"
 	TorrentBlockerOutboundTag = "RW_TB_OUTBOUND_BLOCK"
 )
 
 type ConfigBuilder struct {
-	XTLSAPIPort        int
-	InternalMTLS       InternalMTLSBundle
-	InternalSocketPath string
-	InternalRESTToken  string
-	TorrentBlocker     TorrentBlockerInjection
+	TorrentBlocker  TorrentBlockerInjection
+	StatsUserOnline bool
 }
 
 type TorrentBlockerInjection struct {
@@ -37,35 +32,14 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	}
 
 	config["stats"] = ensureMap(config["stats"])
-	config["api"] = map[string]any{
-		"services": []any{"HandlerService", "StatsService", "RoutingService"},
-		"tag":      APITag,
-	}
-
-	inbounds := append([]any{b.apiInbound()}, ensureArray(config["inbounds"])...)
-	config["inbounds"] = inbounds
-
-	routing := ensureMap(config["routing"])
-	rules := append([]any{map[string]any{
-		"inboundTag":  []any{APIInboundTag},
-		"outboundTag": APITag,
-	}}, ensureArray(routing["rules"])...)
-	routing["rules"] = rules
-	config["routing"] = routing
-
-	if b.TorrentBlocker.Enabled {
-		if b.TorrentBlocker.WebhookURL == "" {
-			b.TorrentBlocker.WebhookURL = b.InternalWebhookURL()
-		}
-		injectTorrentBlocker(config, b.TorrentBlocker)
-	}
+	config["outbounds"] = ensureBlockOutbound(config["outbounds"])
 
 	policy := ensureMap(config["policy"])
 	levels := ensureMap(policy["levels"])
 	level0 := ensureMap(levels["0"])
 	level0["statsUserUplink"] = true
 	level0["statsUserDownlink"] = true
-	level0["statsUserOnline"] = system.HasNetAdmin()
+	level0["statsUserOnline"] = b.StatsUserOnline
 	levels["0"] = level0
 	policy["levels"] = levels
 
@@ -80,118 +54,18 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	return config, nil
 }
 
-func injectTorrentBlocker(config map[string]any, torrent TorrentBlockerInjection) {
-	webhookURL := torrent.WebhookURL
-	if webhookURL == "" {
-		webhookURL = "/internal/webhook"
+func ensureBlockOutbound(value any) []any {
+	outbounds := ensureArray(value)
+	for _, item := range outbounds {
+		itemMap, ok := item.(map[string]any)
+		if ok && itemMap["tag"] == BlockOutboundTag {
+			return outbounds
+		}
 	}
-
-	outbounds := ensureArray(config["outbounds"])
-	outbounds = append(outbounds, map[string]any{
-		"tag":      TorrentBlockerOutboundTag,
+	return append(outbounds, map[string]any{
+		"tag":      BlockOutboundTag,
 		"protocol": "blackhole",
 	})
-	config["outbounds"] = outbounds
-
-	routing := ensureMap(config["routing"])
-	rules := ensureArray(routing["rules"])
-	torrentRule := map[string]any{
-		"protocol":    []any{"bittorrent"},
-		"outboundTag": TorrentBlockerOutboundTag,
-		"webhook":     webhookConfig(webhookURL),
-	}
-	if len(rules) >= 1 {
-		rules = append(rules[:1], append([]any{torrentRule}, rules[1:]...)...)
-	} else {
-		rules = append(rules, torrentRule)
-	}
-
-	include := map[string]struct{}{}
-	for _, tag := range torrent.IncludeRuleTags {
-		if tag != "" {
-			include[tag] = struct{}{}
-		}
-	}
-	if len(include) > 0 {
-		for _, rule := range rules {
-			ruleMap, ok := rule.(map[string]any)
-			if !ok {
-				continue
-			}
-			ruleTag, ok := ruleMap["ruleTag"].(string)
-			if !ok {
-				continue
-			}
-			if _, found := include[ruleTag]; found {
-				ruleMap["webhook"] = webhookConfig(webhookURL)
-			}
-		}
-	}
-
-	routing["rules"] = rules
-	config["routing"] = routing
-}
-
-func webhookConfig(url string) map[string]any {
-	return map[string]any{
-		"url":           url,
-		"deduplication": 5,
-	}
-}
-
-func (b ConfigBuilder) InternalWebhookURL() string {
-	socketPath := b.InternalSocketPath
-	if socketPath == "" {
-		socketPath = "/tmp/remnawave-node.sock"
-	}
-	url := "/" + strings.TrimPrefix(socketPath, "/") + ":/internal/webhook"
-	if b.InternalRESTToken != "" {
-		url += "?token=" + b.InternalRESTToken
-	}
-	return url
-}
-
-func (b ConfigBuilder) apiInbound() map[string]any {
-	return map[string]any{
-		"tag":      APIInboundTag,
-		"port":     b.XTLSAPIPort,
-		"listen":   "127.0.0.1",
-		"protocol": "dokodemo-door",
-		"settings": map[string]any{
-			"address": "127.0.0.1",
-		},
-		"streamSettings": map[string]any{
-			"security": "tls",
-			"tlsSettings": map[string]any{
-				"alpn":              []any{"h2"},
-				"serverName":        "internal.remnawave.local",
-				"disableSystemRoot": true,
-				"rejectUnknownSni":  true,
-				"certificates": []any{
-					map[string]any{
-						"certificate": pemLines(b.InternalMTLS.ServerCertPEM),
-						"key":         pemLines(b.InternalMTLS.ServerKeyPEM),
-					},
-					map[string]any{
-						"usage":       "verify",
-						"certificate": pemLines(b.InternalMTLS.CACertPEM),
-					},
-				},
-			},
-		},
-	}
-}
-
-func pemLines(value string) []any {
-	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
-	output := make([]any, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			output = append(output, line)
-		}
-	}
-	return output
 }
 
 func cloneMap(input map[string]any) map[string]any {

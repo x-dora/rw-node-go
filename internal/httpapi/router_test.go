@@ -15,8 +15,6 @@ import (
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/testkit"
 	"github.com/x-dora/rw-node-go/internal/xray"
-	handlercommand "github.com/xtls/xray-core/app/proxyman/command"
-	statscommand "github.com/xtls/xray-core/app/stats/command"
 )
 
 func TestOfficialPanelRoutesAreRegistered(t *testing.T) {
@@ -41,18 +39,18 @@ func TestOfficialPanelRoutesAreRegistered(t *testing.T) {
 }
 
 func TestInternalRoutesAreRegistered(t *testing.T) {
-	router := newTestRouter(t)
+	router := newInternalTestRouter(t)
 	routes := []struct {
 		method string
 		path   string
 	}{
 		{http.MethodGet, "/internal/get-config"},
-		{http.MethodPost, "/internal/webhook"},
 	}
 
 	for _, route := range routes {
 		t.Run(route.method+" "+route.path, func(t *testing.T) {
 			req := httptest.NewRequest(route.method, route.path, nil)
+			req.RemoteAddr = "127.0.0.1:12345"
 			rec := httptest.NewRecorder()
 
 			router.ServeHTTP(rec, req)
@@ -127,9 +125,31 @@ func newTestRouter(t *testing.T) http.Handler {
 		runtimeState,
 		logger,
 		&routerFakeCore{},
-		xray.ConfigBuilder{XTLSAPIPort: 61000},
+		xray.ConfigBuilder{},
 	)
 	return httpapi.NewRouter(config.Config{RequestBodyLimitBytes: 1 << 20}, httpapi.Handlers{
+		Xray:     controllers.Xray,
+		Handler:  controllers.Handler,
+		Stats:    controllers.Stats,
+		Vision:   controllers.Vision,
+		Plugin:   controllers.Plugin,
+		Internal: controllers.Internal,
+	}, logger)
+}
+
+func newInternalTestRouter(t *testing.T) http.Handler {
+	t.Helper()
+
+	runtimeState := state.NewRuntimeState()
+	logger := slog.New(slog.NewTextHandler(testWriter{t: t}, nil))
+	controllers := controller.NewRegistryWithXray(
+		runtimeState,
+		logger,
+		&routerFakeCore{},
+		xray.ConfigBuilder{},
+	)
+	cfg := config.Config{RequestBodyLimitBytes: 1 << 20, InternalRESTPort: 61001}
+	return httpapi.NewInternalRouter(cfg, httpapi.Handlers{
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,
 		Stats:    controllers.Stats,
@@ -179,6 +199,16 @@ func (f *routerFakeCore) Stats() xray.StatsClient {
 }
 
 func (f *routerFakeCore) Routing() xray.RoutingClient {
+	return routerFakeRouting{}
+}
+
+type routerFakeRouting struct{}
+
+func (routerFakeRouting) AddSourceIPRule(ctx context.Context, ruleTag string, sourceIP string, outboundTag string) error {
+	return nil
+}
+
+func (routerFakeRouting) RemoveRule(ctx context.Context, ruleTag string) error {
 	return nil
 }
 
@@ -198,10 +228,6 @@ func (routerFakeHandler) GetInboundUsers(ctx context.Context, tag string) ([]xra
 
 func (routerFakeHandler) GetInboundUsersCount(ctx context.Context, tag string) (int, error) {
 	return 0, nil
-}
-
-func (routerFakeHandler) Raw() handlercommand.HandlerServiceClient {
-	return nil
 }
 
 type routerFakeStats struct{}
@@ -244,8 +270,4 @@ func (routerFakeStats) AllInboundStats(ctx context.Context, reset bool) ([]xray.
 
 func (routerFakeStats) AllOutboundStats(ctx context.Context, reset bool) ([]xray.OutboundTrafficStats, error) {
 	return []xray.OutboundTrafficStats{}, nil
-}
-
-func (routerFakeStats) Raw() statscommand.StatsServiceClient {
-	return nil
 }

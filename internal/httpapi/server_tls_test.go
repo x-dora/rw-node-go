@@ -25,9 +25,7 @@ func TestSecureServerRequiresMTLSAndJWT(t *testing.T) {
 
 	cfg := config.Config{
 		SecretKey:             base64.StdEncoding.EncodeToString(raw),
-		XrayBin:               "xray",
-		XrayConfigPath:        t.TempDir() + "/config.json",
-		XTLSAPIPort:           61000,
+		InternalRESTPort:      61001,
 		RequestBodyLimitBytes: 1 << 20,
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -79,6 +77,19 @@ func TestSecureServerRequiresMTLSAndJWT(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status with JWT = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	if err != nil {
+		t.Fatalf("new vision request: %v", err)
+	}
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("vision request without JWT: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("vision status without JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
 }
 
 type tlsTestHandlers struct{}
@@ -112,7 +123,6 @@ func (tlsTestHandlers) BlockIPs(c *gin.Context)                     { c.Status(h
 func (tlsTestHandlers) UnblockIPs(c *gin.Context)                   { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) RecreateTables(c *gin.Context)               { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetConfig(c *gin.Context)                    { c.Status(http.StatusNoContent) }
-func (tlsTestHandlers) Webhook(c *gin.Context)                      { c.Status(http.StatusNoContent) }
 
 func clientTLSConfig(t *testing.T, bundle testkit.CertBundle) *tls.Config {
 	t.Helper()

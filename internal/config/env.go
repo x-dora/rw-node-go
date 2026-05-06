@@ -6,31 +6,24 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 const (
 	DefaultNodePort              = 2222
-	DefaultXTLSAPIPort           = 61000
+	DefaultInternalRESTPort      = 61001
 	DefaultLogLevel              = "info"
 	DefaultRWNodeDir             = "/opt/rw-node-go"
-	DefaultXrayBin               = "/usr/local/bin/xray"
-	DefaultInternalSocketPath    = "/tmp/remnawave-node.sock"
 	DefaultRequestBodyLimitBytes = int64(1 << 30)
 )
 
 type Config struct {
 	NodePort                int
+	InternalRESTPort        int
 	SecretKey               string
-	XTLSAPIPort             int
 	LogLevel                string
 	RWNodeDir               string
-	XrayBin                 string
-	XrayConfigPath          string
-	InternalSocketPath      string
-	InternalRESTToken       string
 	RequestBodyLimitBytes   int64
 	RequireSecretKey        bool
 	AllowInsecureHTTPTarget bool
@@ -39,13 +32,10 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{
 		NodePort:              envInt("NODE_PORT", DefaultNodePort),
+		InternalRESTPort:      envInt("INTERNAL_REST_PORT", DefaultInternalRESTPort),
 		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
-		XTLSAPIPort:           envInt("XTLS_API_PORT", DefaultXTLSAPIPort),
 		LogLevel:              envString("LOG_LEVEL", DefaultLogLevel),
 		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
-		XrayBin:               envString("XRAY_BIN", DefaultXrayBin),
-		InternalSocketPath:    envString("INTERNAL_SOCKET_PATH", DefaultInternalSocketPath),
-		InternalRESTToken:     strings.TrimSpace(os.Getenv("INTERNAL_REST_TOKEN")),
 		RequestBodyLimitBytes: envInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes),
 		RequireSecretKey:      envBool("REQUIRE_SECRET_KEY", false),
 		AllowInsecureHTTPTarget: envBool(
@@ -53,7 +43,6 @@ func Load() (Config, error) {
 			true,
 		),
 	}
-	cfg.XrayConfigPath = filepath.Join(cfg.RWNodeDir, "xray", "config.json")
 
 	if cfg.RequireSecretKey && cfg.SecretKey == "" {
 		return Config{}, fmt.Errorf("SECRET_KEY is required")
@@ -64,6 +53,10 @@ func Load() (Config, error) {
 
 func (c Config) ListenAddress() string {
 	return net.JoinHostPort("0.0.0.0", strconv.Itoa(c.NodePort))
+}
+
+func (c Config) InternalListenAddress() string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(c.InternalRESTPort))
 }
 
 type NodePayload struct {

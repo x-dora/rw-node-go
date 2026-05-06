@@ -8,22 +8,22 @@
 - [x] 注册官方 2.7.x 计划内 Panel-facing routes。
 - [x] 建立 `internal/contracts` 请求和响应类型。
 - [x] 统一 response envelope。
-- [~] 已建立官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试；官方 release contract diff 流程仍未完成。
+- [~] 已建立官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试；官方 release contract diff 自动提醒仍未完成。
 
-## M1: 节点握手与 Xray 生命周期
+## M1: 节点握手与内嵌 Xray 生命周期
 
 - [x] `SECRET_KEY` base64 JSON 解析和 PEM normalize。
 - [x] HTTPS mTLS server config。
 - [x] JWT RS256 校验。
 - [x] zstd request body。
-- [x] Xray config 注入 API inbound、API service、routing、policy stats 和内部 mTLS 证书。
-- [x] 外部 Xray 进程启动、停止、配置写入和 StatsService gRPC ready 检查。
+- [x] 内嵌 `xray-core` instance 启动、停止和重复 start 替换旧 instance。
+- [x] Xray config 最小 stats/policy 注入。
 - [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存在线状态语义接入基础流程。
-- [~] Xray gRPC client 已建立基础连接、StatsService health check、基础流量统计和 HandlerService 用户管理方法；Routing 业务方法和真实 Panel + Xray 验收仍未完成。
+- [ ] 真实 Panel + Xray config integration test。
 
 ## M2: 用户动态管理
 
-- [x] HandlerService client。
+- [x] 内嵌 Xray inbound feature 访问。
 - [x] `add-user`、`add-users`。
 - [x] `remove-user`、`remove-users`。
 - [x] `get-inbound-users`、`get-inbound-users-count`。
@@ -33,27 +33,27 @@
 ## M3: 基础统计
 
 - [x] system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load average、network interface 列表、默认网卡速率、插件计数占位和 Xray sys stats。
-- [~] StatsService client 已用于内部 health check，并已接入 users、inbound、outbound、combined 流量统计、在线状态/IP 查询和官方错误 envelope。
-- [~] users stats、inbound stats、outbound stats、combined stats、user online status、user IP list 和 users IP list 已接入 Xray StatsService；真实 Panel + Xray 验收仍未完成。
-- [x] reset 语义已透传给 Xray `GetStats`/`QueryStats`。
-- [x] 官方 contract 已暴露的 system CPU、memory、uptime、load average、network、interface stats。
+- [~] users、inbound、outbound、combined 流量统计已接入内嵌 Xray stats feature。
+- [~] reset 语义已在内嵌 stats counter 上实现；真实 Panel + Xray 验收仍未完成。
+- [~] user online status、user IP list 和 users IP list 当前按 `statsUserOnline`/系统能力稳定降级；真实 online IP 仍未完成。
 
-## M4: 在线 IP 与连接处理
+## M4: Internal API 与连接处理
 
-- [~] user online status 已接入 Xray `GetStatsOnline`；真实 Panel + Xray 验收仍未完成。
-- [~] user IP list 和 users IP list 已接入 Xray online IP RPC；真实 Panel + Xray 验收仍未完成。
+- [x] `INTERNAL_REST_PORT` 本机 internal server。
+- [x] `GET /internal/get-config` 返回当前内存 config。
+- [~] `/vision/block-ip`、`/vision/unblock-ip` 是官方主 API unprefixed route，已接入内嵌 routing feature；真实 Panel + Xray 验收仍未完成。
 - [ ] drop users connections。
 - [ ] drop IPs。
-- [ ] Vision block/unblock。
-- [ ] 无 `CAP_NET_ADMIN` 环境的稳定降级。
+- [~] Vision block/unblock dynamic routing feature 实现。
+- [ ] 无对应系统能力环境的稳定降级测试。
 
-## M5: 插件兼容
+## M5: Plugin 接口适配
 
-- [~] plugin routes 已注册；torrent blocker 和 nftables route 均保持 Panel-facing 兼容。
-- [~] plugin sync 运行时状态管理已接入内存态；配置变化会停止 Xray 等待 Panel 重新下发 start；尚未持久化。
-- [~] torrent blocker config injection、Unix socket internal webhook、report collect 已接入报告链路；真实 nftables 封禁未实现，报告 `blocked=false`。
-- [ ] nftables block、unblock、recreate tables。
-- [ ] 权限不足时的稳定降级和测试。
+- [x] plugin routes 已注册。
+- [x] `/node/plugin/sync` 只做 accepted 响应，不保存状态、不触发 Xray restart。
+- [x] `/node/plugin/torrent-blocker/collect` 固定返回空 reports。
+- [x] `/node/plugin/nftables/*` 固定返回 accepted，不执行 nftables。
+- [ ] plugin feature intentionally unsupported；若未来恢复真实能力，需要单独重新设计，不复用当前 adapter stub。
 
 ## M6: 发布与跟随上游
 

@@ -1,15 +1,11 @@
 package config
 
 type Paths struct {
-	RWNodeDir      string
-	XrayBin        string
-	XrayConfigPath string
+	RWNodeDir string
 }
 
 func (c Config) Paths() Paths {
 	return Paths{
-		RWNodeDir:      c.RWNodeDir,
-		XrayBin:        c.XrayBin,
-		XrayConfigPath: c.XrayConfigPath,
+		RWNodeDir: c.RWNodeDir,
 	}
 }

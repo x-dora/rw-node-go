@@ -63,12 +63,12 @@ func TestJWTMiddlewareWithExemptPaths(t *testing.T) {
 
 	handler := JWTMiddlewareWithExemptPaths(publicKey, map[string]struct{}{
 		"/internal/get-config": {},
-		"/internal/webhook":    {},
+		"/healthz":             {},
 	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
-	for _, path := range []string{"/internal/get-config", "/internal/webhook"} {
+	for _, path := range []string{"/internal/get-config", "/healthz"} {
 		req := httptest.NewRequest(http.MethodPost, path, nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)

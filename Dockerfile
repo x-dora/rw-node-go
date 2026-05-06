@@ -28,6 +28,8 @@ COPY docker/entrypoint.sh /usr/local/bin/rw-node-go-entrypoint
 
 RUN chmod +x /usr/local/bin/rw-node-go /usr/local/bin/rw-node-go-entrypoint
 
+ENV REQUIRE_SECRET_KEY=true
+
 USER rw-node
 EXPOSE 2222
 ENTRYPOINT ["/usr/local/bin/rw-node-go-entrypoint"]

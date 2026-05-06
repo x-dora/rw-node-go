@@ -9,13 +9,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/xray"
-	statscommand "github.com/xtls/xray-core/app/stats/command"
 )
 
 func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
@@ -42,18 +40,6 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 		},
 	}
 	ctrl := StatsController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{started: true, stats: stats}, snapshot: fixedSystemSnapshotter()}
-	ctrl.state.SyncTorrentBlockerPlugin("uuid", "torrent-blocker", map[string]any{}, state.TorrentBlockerConfig{
-		Enabled:       true,
-		BlockDuration: 30,
-	})
-	email := "user-1"
-	source := "tcp:203.0.113.9:443"
-	ctrl.state.AddTorrentBlockerReport(contracts.XrayWebhookReport{
-		Email:       &email,
-		Network:     "tcp",
-		Source:      &source,
-		Destination: "tracker.example:443",
-	}, "203.0.113.9", "user-1", time.Unix(1710000000, 0))
 
 	systemRec := runStatsRequest(t, ctrl.GetSystemStats, http.MethodGet, nil)
 	var systemBody struct {
@@ -86,7 +72,7 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 	if systemBody.Response.XrayInfo == nil || systemBody.Response.XrayInfo.NumGoroutine != 2 || systemBody.Response.XrayInfo.TotalAlloc != 3 || systemBody.Response.XrayInfo.PauseTotalNs != 4 {
 		t.Fatalf("system body = %s", systemRec.Body.String())
 	}
-	if systemBody.Response.Plugins.TorrentBlocker.ReportsCount != 1 || len(systemBody.Response.System.Stats.LoadAvg) != 3 {
+	if systemBody.Response.Plugins.TorrentBlocker.ReportsCount != 0 || len(systemBody.Response.System.Stats.LoadAvg) != 3 {
 		t.Fatalf("system body = %s", systemRec.Body.String())
 	}
 	if systemBody.Response.System.Stats.Interface == nil || systemBody.Response.System.Stats.Interface.Interface != "eth0" || systemBody.Response.System.Stats.Interface.RxBytesPerSec != 12 {
@@ -411,8 +397,4 @@ func (c *recordingStatsClient) AllInboundStats(ctx context.Context, reset bool) 
 func (c *recordingStatsClient) AllOutboundStats(ctx context.Context, reset bool) ([]xray.OutboundTrafficStats, error) {
 	c.allOutboundReset = reset
 	return c.outbounds, c.err
-}
-
-func (c *recordingStatsClient) Raw() statscommand.StatsServiceClient {
-	return nil
 }

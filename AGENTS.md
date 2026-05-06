@@ -4,19 +4,19 @@
 
 ## 当前阶段
 
+- 当前唯一运行模式是内嵌 `xray-core`；不要重新引入外部 `xray` 进程、Xray 配置落盘、内部 gRPC API inbound 或 internal mTLS。
 - 已完成项目骨架、Gin HTTP 层、公开路由注册、contract struct、response envelope、CI 和 Docker 构建流程。
-- 已完成 `SECRET_KEY` 解析、mTLS、JWT RS256、zstd request body、Xray config 注入和外部 Xray 进程启动/停止基础能力。
-- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入进程控制，但 Xray gRPC Handler/Stats/Routing client 仍未实现。
-- handler、stats、plugin、vision 相关 controller 当前主要是兼容 stub 或占位响应，不能写成真实能力。
-- 后续实现顺序按 `REMNAWAVE_NODE_GO_PLAN.md` 和 `docs/roadmap.md` 推进；如果本地计划和官方仓库实现冲突，以官方仓库为准。
+- 已完成 `SECRET_KEY` 解析、mTLS、JWT RS256、zstd request body。
+- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
+- handler、stats 和 Vision 已通过内嵌 Xray feature 部分接入；online IP、drop connections 仍是兼容 stub 或降级响应。
+- plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。
 
 ## 必须参考
 
-- `REMNAWAVE_NODE_GO_PLAN.md` 是本地完整实现方案，但不是最高优先级规范。
-- `docs/roadmap.md` 是当前阶段进度和下一步任务说明。
-- `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时必须参考其 contract、controller、service、plugin、Xray 配置生成和错误处理实现。
+- `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现。
 - `tmp/remnawave-node/libs/contract` 是官方 2.7.0 contract 入口。
-- `tmp/remnawave-node-go` 只用于行为对照，不复制它的框架结构。
+- `tmp/remnawave-node-go` 只用于内嵌 `xray-core` 结构和行为对照，不复制它的 contract 或框架结构。
+- `REMNAWAVE_NODE_GO_PLAN.md` 是历史设计备忘，不是当前实现规范。
 - 不要修改 `tmp/` 下的参考仓库。
 
 ## 工程约束
@@ -24,11 +24,10 @@
 - HTTP 层使用 Gin。
 - 保持公开 JSON 字段名、路由路径、HTTP method 和 response envelope 稳定。
 - 新增或修改 Panel-facing contract 前，必须对照官方 `remnawave/node` contract 和相关实现。
-- `REMNAWAVE_NODE_GO_PLAN.md`、`docs/roadmap.md` 或当前代码注释与 `tmp/remnawave-node` 官方实现冲突时，以 `tmp/remnawave-node` 为准。
 - stub 必须明确，不能伪装成真实 Xray、stats、plugin、nftables 或 conntrack 能力。
 - 优先标准库和必要的小依赖；新增依赖要有明确理由。
 - 不要打印 `SECRET_KEY`、JWT、节点私钥、客户端证书或 bearer token。
-- `XTLS_API_PORT` 和内部控制接口必须保持本机访问，不要在 Docker 示例里暴露。
+- `INTERNAL_REST_PORT` 只允许本机访问，不要在 Docker 示例里暴露。
 - 不做无关重构，不移动公开 API 边界，不把参考仓库结构复制进本项目。
 
 ## 测试要求
@@ -46,7 +45,7 @@
 - `docs/architecture.md` 写架构和运行时边界。
 - `docs/contracts.md` 写 contract 对齐、路由覆盖和 stub 策略。
 - `docs/development.md` 写本地开发规范和验证命令。
-- `docs/roadmap.md` 写 M0-M6 需要实现的能力和完成情况。
+- `docs/roadmap.md` 写需要实现的能力和完成情况。
 - 不在 README 或 AGENTS 里写临时准备步骤、参考仓库拉取命令或忽略规则。
 
 ## Git 提交

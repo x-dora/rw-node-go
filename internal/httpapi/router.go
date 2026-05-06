@@ -62,7 +62,6 @@ type PluginHandlers interface {
 
 type InternalHandlers interface {
 	GetConfig(*gin.Context)
-	Webhook(*gin.Context)
 }
 
 func NewRouter(cfg config.Config, handlers Handlers, logger *slog.Logger) http.Handler {
@@ -73,6 +72,18 @@ func NewRouter(cfg config.Config, handlers Handlers, logger *slog.Logger) http.H
 		closeRequestConnection(c.Writer, http.StatusNotFound)
 	})
 	registerRoutes(router, handlers)
+
+	return router
+}
+
+func NewInternalRouter(cfg config.Config, handlers Handlers, logger *slog.Logger) http.Handler {
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(ginRecovery(logger), ginBodyLimit(cfg.RequestBodyLimitBytes), ginInternalPortGuard(cfg.InternalRESTPort))
+	router.NoRoute(func(c *gin.Context) {
+		closeRequestConnection(c.Writer, http.StatusNotFound)
+	})
+	registerInternalRoutes(router, handlers)
 
 	return router
 }
@@ -110,7 +121,8 @@ func registerRoutes(router gin.IRoutes, handlers Handlers) {
 	router.POST("/node/plugin/nftables/block-ips", handlers.Plugin.BlockIPs)
 	router.POST("/node/plugin/nftables/unblock-ips", handlers.Plugin.UnblockIPs)
 	router.POST("/node/plugin/nftables/recreate-tables", handlers.Plugin.RecreateTables)
+}
 
+func registerInternalRoutes(router gin.IRoutes, handlers Handlers) {
 	router.GET("/internal/get-config", handlers.Internal.GetConfig)
-	router.POST("/internal/webhook", handlers.Internal.Webhook)
 }

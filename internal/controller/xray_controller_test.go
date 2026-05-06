@@ -24,7 +24,7 @@ func TestHealthcheckReturnsCachedStatusAndNodeVersion(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     core,
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
@@ -63,7 +63,7 @@ func TestStartXrayStartsCore(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     core,
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     &fakeCore{startErr: errors.New("boom")},
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
@@ -169,7 +169,7 @@ func TestStopXrayClearsHealthcheckInternalStatus(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     core,
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 
@@ -207,7 +207,7 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     core,
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
@@ -254,7 +254,7 @@ func TestStartXrayRestartsWhenHashesUnchangedButHealthFails(t *testing.T) {
 		state:    runtimeState,
 		logger:   slog.Default(),
 		core:     core,
-		builder:  xray.ConfigBuilder{XTLSAPIPort: 61000},
+		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
 	}
 	rec := httptest.NewRecorder()
@@ -296,6 +296,7 @@ type fakeCore struct {
 	config     []byte
 	handler    xray.HandlerClient
 	stats      xray.StatsClient
+	routing    xray.RoutingClient
 }
 
 func (f *fakeCore) Start(ctx context.Context, config []byte) error {
@@ -335,5 +336,5 @@ func (f *fakeCore) Stats() xray.StatsClient {
 }
 
 func (f *fakeCore) Routing() xray.RoutingClient {
-	return nil
+	return f.routing
 }
