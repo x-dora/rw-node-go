@@ -78,7 +78,7 @@ func officialResponseValue(t *testing.T, name string) any {
 	switch name {
 	case "xray.start":
 		version := "25.1.1"
-		nodeVersion := "0.1.0-dev"
+		nodeVersion := "2.7.0"
 		return httpapi.Envelope{Response: contracts.StartXrayResponse{
 			IsStarted:       true,
 			Version:         &version,
@@ -93,7 +93,7 @@ func officialResponseValue(t *testing.T, name string) any {
 			IsAlive:                  true,
 			XrayInternalStatusCached: false,
 			XrayVersion:              nil,
-			NodeVersion:              "0.1.0-dev",
+			NodeVersion:              "2.7.0",
 		}}
 	case "handler.add-user", "handler.add-users", "handler.remove-user", "handler.remove-users", "vision.block-ip", "vision.unblock-ip":
 		return httpapi.Envelope{Response: contracts.SuccessResponse()}

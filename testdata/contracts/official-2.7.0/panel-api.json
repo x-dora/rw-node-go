@@ -41,7 +41,7 @@
           "version": "25.1.1",
           "error": null,
           "nodeInformation": {
-            "version": "0.1.0-dev"
+            "version": "2.7.0"
           },
           "system": {
             "info": {
@@ -94,7 +94,7 @@
           "isAlive": true,
           "xrayInternalStatusCached": false,
           "xrayVersion": null,
-          "nodeVersion": "0.1.0-dev"
+          "nodeVersion": "2.7.0"
         }
       }
     },

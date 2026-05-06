@@ -19,7 +19,7 @@
 - [x] 内嵌 `xray-core` instance 启动、停止和重复 start 替换旧 instance。
 - [x] Xray config 最小 stats/policy 注入。
 - [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存在线状态语义接入基础流程。
-- [ ] 真实 Panel + Xray config integration test。
+- [~] 真实 Panel + Xray config 脚本验收：live harness 已能启动本地节点、enable Panel 测试节点、等待 `isConnected=true`、结束前 disable 节点；仍需扩大到更多 config/profile/handler/stats 场景。
 
 ## M2: 用户动态管理
 
@@ -61,5 +61,5 @@
 - [x] Dockerfile 和 Docker multi-arch workflow。
 - [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture；已补官方 contract hash baseline，仍需扩展更多 fixture 变体。
 - [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow 和本地 `mise run contract-diff`；尚未接入自动 release 监控。
-- [ ] 真实 Panel + Xray integration test。
+- [~] 真实 Panel + Xray 脚本验收：已建立可重复执行的 live harness 和结构化日志，当前覆盖 Panel 连通、节点 enable/disable、Panel 侧连接状态断言和最小 smoke；仍需补齐 handler、stats、Vision 和失败路径覆盖。
 - [ ] 镜像发布前的兼容性验收清单。

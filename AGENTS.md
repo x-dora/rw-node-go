@@ -9,6 +9,7 @@
 - 已完成 `SECRET_KEY` 解析、mTLS、JWT RS256、zstd request body。
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
 - handler、stats 和 Vision 已通过内嵌 Xray feature 部分接入；drop connections 已通过 conntrack best-effort 接入并保留稳定降级，online IP 仍是降级响应。
+- 已建立脚本专用真实 Panel live harness：只能通过 `scripts/panel-integration.sh` 触发；可启动本地节点、调用 Panel API enable 测试节点、等待 Panel 报告 `isConnected=true`、跑最小 smoke，并在结束或失败清理时 disable 节点和停止本地进程。该 harness 会修改真实 Panel 节点状态，`run`、`enable` 和 `disable` 必须使用完整节点 UUID，只能指向测试节点。
 - plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。
 
 ## 必须参考
@@ -34,6 +35,7 @@
 
 - 新增 route、公开 contract struct 或响应形状时必须补测试。
 - 从 stub 进入真实行为实现后，应尽量补 integration test。
+- 真实 Panel live harness 不能作为 `go test` 测试暴露；涉及节点联通时必须断言 Panel 侧 `isConnected=true`，并在清理阶段 disable 测试节点；清理失败必须显式失败或输出清晰错误。
 - contract 变化要对照官方 `remnawave/node` 和 golden fixture。
 - Xray 真实行为需要覆盖 start/stop/healthcheck、用户管理、统计和降级路径。
 - 文档状态矩阵必须和当前代码一致，不能把未实现项标记为已完成。
@@ -46,6 +48,8 @@
 - `docs/contracts.md` 写 contract 对齐、路由覆盖和 stub 策略。
 - `docs/development.md` 写本地开发规范和验证命令。
 - `docs/roadmap.md` 写需要实现的能力和完成情况。
+- 新增功能、改变运行方式、改变公开 API/contract、改变测试/联调流程或改变配置项时，必须同步更新对应文档；至少检查 `README.md`、`docs/development.md`、`docs/contracts.md`、`docs/roadmap.md`、`.env*.example` 和本文件是否需要调整。
+- 文档更新要和实际行为一致：如果代码会 enable/disable 真实 Panel 节点、修改运行端口、读取 `geoip.dat`/`geosite.dat`、改变日志或清理策略，文档必须明确风险、前置条件、命令和清理行为。
 - 不在 README 或 AGENTS 里写临时准备步骤、参考仓库拉取命令或忽略规则。
 
 ## Git 提交

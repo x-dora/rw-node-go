@@ -14,9 +14,12 @@ Thumbs.db
 *.out
 
 /tmp/
+/runtime/
 
 .env
 .env.*
 !.env.example
+!.env.integration.example
 
 *.log
+/logs/
