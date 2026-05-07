@@ -60,7 +60,7 @@
 - [x] CI test/build。
 - [x] Dockerfile 和 Docker multi-arch workflow。
 - [x] 项目发布版本和 Panel 兼容版本已拆分：`VERSION` 从 `1.0.0` 开始，Panel-facing `nodeVersion` 继续默认上报 `2.7.0`。
-- [x] Release workflow 已接入：普通 `main` push 更新滚动 `pre-release`，`VERSION` 变更后创建正式 release、自动写 release notes 并推送 GHCR 多架构镜像。
+- [x] Release workflow 已接入：普通 `main` push 更新滚动 `pre-release`；`VERSION` 变更后先推 GHCR 多架构镜像，成功后再创建正式 release，并支持已有正式 release 的手动镜像补推恢复入口。
 - [x] 发布前门禁已接入：Preflight workflow 覆盖格式检查、测试、构建和 contract diff，并支持受控运行真实 Panel live harness。
 - [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture；已补官方 contract hash baseline，仍需扩展更多 fixture 变体。
 - [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow 和本地 `mise run contract-diff`；尚未接入自动 release 监控。

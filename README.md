@@ -29,7 +29,7 @@
 - `VERSION`：`rw-node-go` 自己的语义化发布版本，当前从 `1.0.0` 开始。构建和 Docker 镜像会把它注入为 `ProjectVersion`。
 - `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，固定默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
 
-普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，通过后创建 `vX.Y.Z` 正式 release、写入自动 release notes，并发布 GHCR 多架构镜像。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`。
+普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，再推 GHCR 多架构镜像，最后创建 `vX.Y.Z` 正式 release，避免出现 release 已创建但镜像失败的半成品状态。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`，但仍需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予这个仓库的写入或继承权限。
 
 ## 快速开始
 
@@ -104,6 +104,8 @@ docker build -t ghcr.io/x-dora/rw-node-go:local .
 - `ghcr.io/x-dora/rw-node-go:<VERSION>`
 - `ghcr.io/x-dora/rw-node-go:v<VERSION>`
 - `ghcr.io/x-dora/rw-node-go:<major>.<minor>`
+
+如果某次正式 release 已经创建，但 GHCR 镜像因为权限问题没有推上去，可以手动触发 Release workflow，并选择 `republish_existing_release=true` 只补推镜像，不会改动已有 GitHub Release。
 
 ## 真实 Panel 联调
 

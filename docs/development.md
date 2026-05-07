@@ -84,9 +84,9 @@ GitHub Actions 发布流程：
 - `CI`：push 和 pull request 跑测试与二进制构建。
 - `Docker`：push、pull request 和手动触发时只构建多架构镜像，不推送。
 - `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
-- `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes；若 `VERSION` 改变或对应正式 tag 尚不存在，会创建 `v<VERSION>` 正式 release，删除滚动预发版，并推送 GHCR 镜像。
+- `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release。普通 `main` push 不会推正式镜像。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
 
-正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret。
+正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret，但还需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予本仓库的写入或继承权限，否则 workflow 会在 Docker push 阶段失败并提示 `write_package` 问题。
 
 本地发布前验证：
 
