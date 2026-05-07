@@ -4,7 +4,7 @@
 
 `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。`tmp/remnawave-node-go` 只作为内嵌 `xray-core` 结构参考。
 
-本仓库的 `nodeVersion` 仍固定为 `2.7.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自身发布版本。
+本仓库的 `nodeVersion` 仍固定为 `2.7.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
 
 当前已从官方 2.7.0 contract 手工整理小型 golden manifest：
 
@@ -13,6 +13,16 @@ testdata/contracts/official-2.7.0/panel-api.json
 ```
 
 该 manifest 覆盖官方 Panel-facing route、代表性请求和响应 envelope，用于 Go contract struct 的 strict decode、响应 JSON 形状和路由注册测试。它不包含 internal REST API，也不复制官方 TypeScript contract 包。
+
+## 状态总览
+
+| 分组 | 状态 | 说明 |
+| --- | --- | --- |
+| Xray | `partial` | 已接入内嵌 `xray-core` instance 生命周期。 |
+| Handler | `partial` | 已接入内嵌 inbound feature 和 best-effort 清理。 |
+| Stats | `partial` | 已接入基础 stats、流量统计和 OnlineMap 降级。 |
+| Vision | `partial` | 已接入内嵌 routing feature。 |
+| Plugin | `adapter stub` | 只保留 Panel-facing contract adapter。 |
 
 ## 覆盖原则
 

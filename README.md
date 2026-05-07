@@ -1,38 +1,74 @@
 # rw-node-go
 
-`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前主线使用内嵌 `xray-core`：Go 进程直接加载 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
+[![CI](https://github.com/x-dora/rw-node-go/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/x-dora/rw-node-go/actions/workflows/ci.yml)
+[![Preflight](https://github.com/x-dora/rw-node-go/actions/workflows/preflight.yml/badge.svg?branch=main)](https://github.com/x-dora/rw-node-go/actions/workflows/preflight.yml)
+[![Docker](https://github.com/x-dora/rw-node-go/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/x-dora/rw-node-go/actions/workflows/docker.yml)
+[![Release](https://img.shields.io/github/v/release/x-dora/rw-node-go?include_prereleases&label=release)](https://github.com/x-dora/rw-node-go/releases)
+[![License](https://img.shields.io/github/license/x-dora/rw-node-go)](LICENSE)
 
-本项目不再管理外部 `xray` 进程，不把 Xray 配置作为主路径落盘，不注入内部 gRPC API inbound，也不实现 plugin 运行时能力。Plugin 相关路由只做 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前主线运行模式是内嵌 `xray-core`：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
 
-## 当前能力
+这不是外部 `xray` 进程包装器，也不把 Xray 配置作为主路径落盘。Plugin 相关路由只保留 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
 
-详细进度矩阵见 [docs/roadmap.md](docs/roadmap.md)。入口文档只保留关键状态：
+## 导航
 
-- 已建立 Gin HTTP 层、公开路由注册、contract struct、response envelope、CI、Docker 构建和 release 流程。
-- 已接入 `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256 和 zstd request body。
-- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
-- Handler、stats、Vision 和连接清理已部分接入内嵌 Xray feature 或系统能力；真实 Panel + Xray 的完整验收仍在推进。
-- Stats online status/IP 已通过内嵌 Xray stats `OnlineMap` 接入；不可用或读取失败时稳定降级为 `false` 或空列表。
-- Plugin routes 只做 contract adapter，不保存状态、不重启 Xray、不执行 nftables。
+- [一眼看懂](#一眼看懂)
+- [能力快照](#能力快照)
+- [快速开始](#快速开始)
+- [运行配置](#运行配置)
+- [运行结构](#运行结构)
+- [目录导航](#目录导航)
 
-## 版本语义
+## 一眼看懂
 
-本项目有两个互相独立的版本：
+| 维度 | 当前状态 |
+| --- | --- |
+| 面向对象 | Remnawave Panel 和需要兼容官方 Node contract 的部署环境 |
+| 当前主线 | 内嵌 `xray-core`、Gin HTTP 层、Panel-facing contract、真实 Panel live harness |
+| 明确支持 | 主 API、internal API、Vision route、基础统计、用户管理、Xray 生命周期 |
+| 明确降级 | conntrack、系统能力、Xray feature 读取失败时会稳定退化 |
+| 明确不做 | 外部 `xray` 进程、内部 gRPC inbound、internal mTLS、plugin 运行时状态、nftables 真实现 |
 
-- `VERSION`：`rw-node-go` 自己的语义化发布版本，构建和 Docker 镜像会把它注入为 `ProjectVersion`。
-- `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
-- `mise run build`、CI、Docker 和 release 都走同一个构建入口读取 `VERSION` 并注入构建元信息；不要直接用裸 `go build` 代替发布构建路径。
+详细进度矩阵见 [docs/roadmap.md](docs/roadmap.md)。
 
-正式 release 发布后，GitHub Actions 会推送：
+## 公开面
 
-- `ghcr.io/x-dora/rw-node-go:latest`
-- `ghcr.io/x-dora/rw-node-go:v<VERSION>`
+| 面向 | 入口 | 说明 |
+| --- | --- | --- |
+| 主 API | `NODE_PORT` | 面向 Panel 的主服务，走 HTTPS、mTLS 和可选 JWT 校验。 |
+| Internal API | `INTERNAL_REST_PORT` | 仅本机可见的 internal REST API。 |
+| Vision | `/vision/block-ip`、`/vision/unblock-ip` | 官方主 API 上的 unprefixed Panel-facing route。 |
+| Live Harness | `scripts/panel-integration.sh` | 唯一真实 Panel 联调入口。 |
+| Contract Drift | `mise run contract-diff` | 对照官方 `remnawave/node` 2.7.x 的 contract 变化。 |
 
-发布流程、GHCR 权限和恢复入口见 [docs/development.md](docs/development.md)。
+## 能力快照
+
+<details open>
+<summary>当前仓库已经覆盖</summary>
+
+- Gin HTTP 层、公开路由注册、contract struct、response envelope。
+- `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256、zstd request body。
+- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期。
+- handler、stats、Vision 和连接清理的部分接入。
+- Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取，失败时稳定降级为 `false` 或空列表。
+- Docker 构建、CI、release 流程和真实 Panel live harness。
+
+</details>
+
+<details>
+<summary>当前仍然明确不做</summary>
+
+- 外部 `xray` 进程模式。
+- Xray 配置落盘主路径。
+- 内部 gRPC API inbound。
+- plugin 运行时能力和状态持久化。
+- nftables 真执行。
+
+</details>
 
 ## 快速开始
 
-安装工具链并运行基础验证：
+本地开发最短路径：
 
 ```sh
 mise install
@@ -46,15 +82,33 @@ mise run build
 NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
 ```
 
-不设置 `SECRET_KEY` 时，服务会以本地 HTTP 模式启动，只用于本地开发和 contract 测试。生产部署必须设置 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像让缺少密钥的容器直接启动失败。设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT 校验；官方 `/vision/*` 路由保留 mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
+开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
 
-发布前本地验证：
+发布前验证：
 
 ```sh
 mise run preflight
 ```
 
-如需把真实 Panel live harness 纳入验证，设置 `RUN_PANEL_INTEGRATION=true` 后再运行 `mise run preflight`。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
+真实 Panel live harness 只通过 `scripts/panel-integration.sh` 触发。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
+
+<details>
+<summary>推荐的本地验证顺序</summary>
+
+```sh
+mise run fmt
+mise run test
+mise run build
+mise run contract-diff
+```
+
+Docker 相关改动再补：
+
+```sh
+mise run docker-build
+```
+
+</details>
 
 ## 运行配置
 
@@ -65,51 +119,46 @@ mise run preflight
 | `SECRET_KEY` | 空 | 官方 Node 使用的 base64 JSON 密钥包；设置后启用 mTLS/JWT。 |
 | `REQUIRE_SECRET_KEY` | `false` | 裸进程默认允许本地开发 HTTP；Docker 镜像默认设为 `true`。 |
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
-| `LOG_LEVEL` | `info` | 日志级别配置入口。 |
+| `LOG_LEVEL` | `info` | 日志级别。 |
 | `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |
-| `XRAY_LOCATION_ASSET` | 空 | Xray geodata 目录。Docker 镜像固定设置为 `/usr/local/share/xray`。 |
+| `XRAY_LOCATION_ASSET` | 空 | Xray geodata 目录；Docker 镜像固定设置为 `/usr/local/share/xray`。 |
 
-`INTERNAL_REST_PORT` 必须保持本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
+`INTERNAL_REST_PORT` 只允许本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
-## Internal API
+## 运行结构
 
-Internal API 不走 Panel mTLS/JWT，只供本机调试或内部控制面使用：
-
-- `GET /internal/get-config`：返回当前内存中的 Xray config；没有 config 时返回 `{}`。
-
-Vision API 是官方主服务上的 unprefixed Panel-facing route，不属于 internal API：
-
-- `POST /vision/block-ip`：添加内嵌 Xray dynamic source IP routing rule，目标 outbound 为 `BLOCK`。
-- `POST /vision/unblock-ip`：删除对应 dynamic routing rule。
-
-## Docker
-
-本地构建镜像：
-
-```sh
-mise run docker-build
+```mermaid
+flowchart TD
+    panel[Remnawave Panel] -->|HTTPS + mTLS + Bearer JWT| main[Main Gin API on 0.0.0.0:NODE_PORT]
+    main --> state[Controller + runtime state]
+    state --> xray[Embedded xray-core instance]
+    xray --> runtime[Xray runtime in the same Go process]
+    tooling[Local tooling] -->|HTTP on 127.0.0.1:INTERNAL_REST_PORT| internal[Internal Gin API]
 ```
 
-手动构建：
+<details>
+<summary>运行边界</summary>
 
-```sh
-docker build -t ghcr.io/x-dora/rw-node-go:local .
+```text
+Panel-facing contract
+    -> main API
+        -> controller
+            -> embedded xray-core
+                -> runtime feature and system fallback
+
+local-only control plane
+    -> internal API
 ```
 
-当前镜像包含 `rw-node-go` 二进制和 Xray geodata。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像内默认设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray` 和 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
+</details>
 
-## 真实 Panel 联调
+设置 `SECRET_KEY` 后，主 API 通过 TLS server config、mTLS 和 JWT public key 校验 Panel 请求。官方 `/vision/*` route 仍走主 API 的 HTTPS/mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
 
-真实 Panel 联调唯一入口是 `scripts/panel-integration.sh`，详细配置见 [docs/development.md](docs/development.md)。该 harness 会修改真实 Panel 节点状态，`run`、`enable` 和 `disable` 必须使用完整节点 UUID 且只应指向专门的测试节点；普通 `go test ./...` 不会连接真实 Panel。
+不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
 
-```sh
-bash scripts/panel-integration.sh summary
-bash scripts/panel-integration.sh run
-```
+## 目录导航
 
-## 文档
-
-- [docs/architecture.md](docs/architecture.md)：当前架构和运行时边界。
-- [docs/contracts.md](docs/contracts.md)：Panel-facing contract 对齐、路由覆盖和 stub 策略。
-- [docs/development.md](docs/development.md)：本地开发、测试、真实 Panel harness 和发布流程。
-- [docs/roadmap.md](docs/roadmap.md)：功能路线图和详细进度矩阵。
+- [docs/architecture.md](docs/architecture.md)：架构分层、运行路径、运行时边界和 internal API 边界。
+- [docs/contracts.md](docs/contracts.md)：Panel-facing contract 对齐、route 覆盖、stub 策略、golden fixture 和 contract drift 检查。
+- [docs/development.md](docs/development.md)：本地开发、验证命令、真实 Panel harness、版本发布和实现规则。
+- [docs/roadmap.md](docs/roadmap.md)：功能路线图和详细完成情况。

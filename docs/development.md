@@ -1,8 +1,8 @@
 # 开发说明
 
-本文档记录本项目的长期开发、验证、真实 Panel harness 和发布操作。项目定位和最短运行路径放在 `README.md`；详细功能进度矩阵放在 `docs/roadmap.md`。
+本文档记录本项目的本地开发、验证、真实 Panel harness 和发布操作。项目定位和最短运行路径放在 `README.md`；详细功能进度矩阵放在 `docs/roadmap.md`。
 
-## 工具链
+## 1. 本地开发
 
 项目使用 `mise` 管理 Go 版本和常用任务：
 
@@ -24,8 +24,6 @@ mise run preflight
 
 `mise run build` 通过 `cmd/rw-build` 读取根目录 `VERSION`，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。CI、Docker 和 release workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
 
-## 本地运行
-
 开发模式可以不设置 `SECRET_KEY`，此时主服务使用 HTTP，便于 route 和 contract 测试：
 
 ```sh
@@ -40,9 +38,39 @@ NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
 mise run preflight
 ```
 
-## 真实 Panel 联调
+```mermaid
+flowchart LR
+    local[本地开发] --> verify[验证]
+    verify --> harness[真实 Panel harness]
+    harness --> release[版本与发布]
+```
 
-真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合 AI Agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只应指向专门用于联调的测试节点。
+## 2. 验证
+
+- 新增 route、公开 contract struct 或 response shape 时必须补单元测试。
+- 从 stub 进入真实 Xray 行为时，应补 integration test 或明确记录无法在 CI 中验证的原因。
+- mTLS/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
+- contract golden 应只保存必要 fixture，避免复制大段上游源码。
+- 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以官方仓库为准，并同步修正文档中的错误假设。
+
+建议验证顺序：
+
+```sh
+mise run fmt
+mise run test
+mise run build
+mise run contract-diff
+```
+
+涉及 Docker 的改动再运行：
+
+```sh
+mise run docker-build
+```
+
+## 3. 真实 Panel harness
+
+真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只应指向专门用于联调的测试节点。
 
 先把根目录 `.env.integration.example` 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
 
@@ -79,7 +107,19 @@ bash scripts/panel-integration.sh stop
 
 脚本内部会调用 `cmd/panel-integration`。这个 Go 命令是脚本专用 harness，不是公开入口；直接 `go run ./cmd/panel-integration ...` 会失败并提示改用 `scripts/panel-integration.sh`。普通 `go test ./...` 不会连接真实 Panel。
 
-## 版本与发布
+<details>
+<summary>联调前检查</summary>
+
+- `PANEL_BASE_URL`
+- `PANEL_API_KEY`
+- `PANEL_NODE_ID`
+- `SECRET_KEY`
+- `NODE_PORT`
+- `XRAY_ASSET_DIR`
+
+</details>
+
+## 4. 版本与发布
 
 项目发布版本和 Panel 兼容版本必须分开维护：
 
@@ -113,7 +153,7 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 
 真实 Panel harness 会修改测试节点状态，必须使用完整测试节点 UUID，并确认结束时 disable 节点。
 
-## 实现规则
+## 5. 实现规则
 
 - HTTP 层使用 Gin，main route 和 internal route 注册集中在 `internal/httpapi/router.go`。
 - Panel-facing response 使用 `httpapi.WriteEnvelope`。
@@ -125,36 +165,3 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 - Vision block/unblock 通过内嵌 routing feature 实现 source IP dynamic rule，不通过 Xray gRPC RoutingService。
 - plugin 只做 contract adapter；不要保存 plugin runtime state、注入 Xray plugin config、接收 webhook、触发 Xray restart 或执行 nftables。
 - 不新增公开 `pkg` API，除非明确决定把项目的一部分作为 Go library 发布。
-
-## 测试策略
-
-- 新增 route、公开 contract struct 或 response shape 时必须补单元测试。
-- 从 stub 进入真实 Xray 行为时，应补 integration test 或明确记录无法在 CI 中验证的原因。
-- mTLS/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
-- contract golden 应只保存必要 fixture，避免复制大段上游源码。
-- 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以官方仓库为准，并同步修正文档中的错误假设。
-
-建议验证顺序：
-
-```sh
-mise run fmt
-mise run test
-mise run build
-mise run contract-diff
-```
-
-涉及 Docker 的改动再运行：
-
-```sh
-mise run docker-build
-```
-
-## 文档归属
-
-- `README.md`：项目定位、关键能力快照、最短运行路径、配置入口和文档导航。
-- `AGENTS.md`：协作规则、当前阶段硬约束、工程约束、测试要求、文档维护规则、提交规则和常用命令。
-- `docs/architecture.md`：架构分层、运行路径、运行时边界和 internal API 边界。
-- `docs/contracts.md`：Panel-facing contract 对齐、route 覆盖、stub 策略、golden fixture 和 contract drift 检查。
-- `docs/development.md`：本地开发、验证命令、真实 Panel harness 操作、版本发布操作和实现规则。
-- `docs/roadmap.md`：路线图和详细完成情况；README 和 AGENTS 不维护完整进度矩阵。
-- `REMNAWAVE_NODE_GO_PLAN.md`：历史设计备忘；若与当前文档或官方仓库冲突，以官方仓库和当前 `docs/*` 为准。

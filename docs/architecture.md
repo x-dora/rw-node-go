@@ -1,6 +1,6 @@
 # 架构说明
 
-`rw-node-go` 把 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步把 stub 替换为真实运行时能力。
+`rw-node-go` 将 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步把 stub 替换为真实运行时能力。
 
 详细功能进度由 [docs/roadmap.md](roadmap.md) 维护。本文只描述当前架构边界和运行路径。
 
@@ -81,3 +81,4 @@ Panel-facing API 统一返回：
 ```
 
 Internal API 可以直接返回 JSON 对象，因为它不是 Panel contract 的一部分。
+

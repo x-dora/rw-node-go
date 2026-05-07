@@ -10,7 +10,7 @@
 - [x] 注册官方 2.7.x 计划内 Panel-facing routes。
 - [x] 建立 `internal/contracts` 请求和响应类型。
 - [x] 统一 response envelope。
-- [~] 已建立官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试；官方 release contract diff 自动提醒仍未完成。
+- [~] 官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试已建立；官方 release contract diff 自动提醒仍未完成。
 
 ## M1: 节点握手与内嵌 Xray 生命周期
 
@@ -70,3 +70,4 @@
 - [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow 和本地 `mise run contract-diff`；尚未接入自动 release 监控。
 - [~] 真实 Panel + Xray 脚本验收：已建立可重复执行的 live harness 和结构化日志，当前覆盖 Panel 连通、节点 enable/disable、Panel 侧连接状态断言和最小 smoke；仍需补齐 handler、stats、Vision 和失败路径覆盖。
 - [x] 镜像发布前的基础兼容性验收清单已固化为 `mise run preflight` 和 Preflight workflow；更完整真实 Panel 场景仍需继续扩展。
+
