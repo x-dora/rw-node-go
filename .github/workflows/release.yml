@@ -527,7 +527,7 @@ jobs:
 
           gh release create "$RELEASE_TAG" \
             --target "${{ github.sha }}" \
-            --title "rw-node-go $RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
             --notes-file release-notes.md \
             --latest
           gh release upload "$RELEASE_TAG" release-assets/* --clobber
