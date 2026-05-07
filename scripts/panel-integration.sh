@@ -195,7 +195,7 @@ build_node_binary() {
   log_event "info" "node_build" "building rw-node-go binary at $binary" >&2
   (
     cd "$ROOT_DIR"
-    go_cmd build -o "$build_output" ./cmd/rw-node-go
+    go_cmd run ./cmd/rw-build -repo-root "$ROOT_DIR" -o "$build_output"
   ) >&2
   printf '%s' "$binary"
 }

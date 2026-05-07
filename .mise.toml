@@ -18,7 +18,7 @@ run = "mise exec -- go test ./..."
 
 [tasks.build]
 description = "Build rw-node-go"
-run = "go build -o bin/rw-node-go ./cmd/rw-node-go"
+run = "go run ./cmd/rw-build -o bin/rw-node-go -repo-root ."
 
 [tasks.contract-diff]
 description = "Check official remnawave/node contract drift"

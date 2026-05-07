@@ -22,6 +22,8 @@ mise run preflight
 
 `mise run lint` 依赖本地已安装 `golangci-lint`。
 
+`mise run build` 通过 `cmd/rw-build` 读取根目录 `VERSION`，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。CI、Docker 和 release workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
+
 ## 本地运行
 
 开发模式可以不设置 `SECRET_KEY`，此时主服务使用 HTTP，便于 route 和 contract 测试：
@@ -81,9 +83,11 @@ bash scripts/panel-integration.sh stop
 
 项目发布版本和 Panel 兼容版本必须分开维护：
 
-- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本，当前从 `1.0.0` 开始。
+- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本，当前从 `1.0.1` 开始。
 - `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
 - `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.7.0`，只代表兼容官方 `remnawave/node` 2.7.x contract。除非明确跟随上游 contract 升级，否则不要改它。
+
+`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 `.mise.toml` 的 Go 版本对齐；release 流程仍按 `go.mod` 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 
 GitHub Actions 发布流程：
 

@@ -4,6 +4,8 @@
 
 `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。`tmp/remnawave-node-go` 只作为内嵌 `xray-core` 结构参考。
 
+本仓库的 `nodeVersion` 仍固定为 `2.7.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自身发布版本。
+
 当前已从官方 2.7.0 contract 手工整理小型 golden manifest：
 
 ```text

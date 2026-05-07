@@ -350,11 +350,7 @@ jobs:
           set -euo pipefail
           mkdir -p build_assets dist
           build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          go build \
-            -trimpath \
-            -buildvcs=false \
-            -ldflags "-s -w -buildid= -X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${{ needs.prepare.outputs.project_version }} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=${NODE_VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${GITHUB_SHA} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${build_date}" \
-            -o build_assets/rw-node-go ./cmd/rw-node-go
+          COMMIT=${GITHUB_SHA} BUILD_DATE=${build_date} go run ./cmd/rw-build -repo-root . -o build_assets/rw-node-go -goos "$GOOS" -goarch "$GOARCH"
           cp resources/geoip.dat build_assets/geoip.dat
           cp resources/geosite.dat build_assets/geosite.dat
           cp README.md build_assets/README.md
@@ -433,8 +429,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            PROJECT_VERSION=${{ needs.prepare.outputs.project_version }}
-            NODE_VERSION=${{ env.NODE_VERSION }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
           cache-from: type=gha

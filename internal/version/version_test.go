@@ -6,6 +6,9 @@ func TestVersionSeparation(t *testing.T) {
 	if ProjectVersion == "" {
 		t.Fatal("ProjectVersion is empty")
 	}
+	if ProjectVersion != "dev" {
+		t.Fatalf("ProjectVersion = %q, want dev fallback when not injected", ProjectVersion)
+	}
 	if NodeVersion != "2.7.0" {
 		t.Fatalf("NodeVersion = %q, want 2.7.0", NodeVersion)
 	}

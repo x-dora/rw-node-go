@@ -1,9 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS build
 
-ARG PROJECT_VERSION=unknown
-ARG NODE_VERSION=2.7.0
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 ARG TARGETOS
@@ -17,9 +15,8 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
-    -ldflags "-s -w -X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${PROJECT_VERSION} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=${NODE_VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${COMMIT} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
-    -o /out/rw-node-go ./cmd/rw-node-go
+    COMMIT=${COMMIT} BUILD_DATE=${BUILD_DATE} \
+    go run ./cmd/rw-build -repo-root /src -o /out/rw-node-go -goos $TARGETOS -goarch $TARGETARCH
 
 # Download geodat into a staging directory, matching Xray-core Docker assets.
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat /tmp/geodat/geoip.dat

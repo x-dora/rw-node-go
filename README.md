@@ -21,6 +21,7 @@
 
 - `VERSION`：`rw-node-go` 自己的语义化发布版本，构建和 Docker 镜像会把它注入为 `ProjectVersion`。
 - `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
+- `mise run build`、CI、Docker 和 release 都走同一个构建入口读取 `VERSION` 并注入构建元信息；不要直接用裸 `go build` 代替发布构建路径。
 
 正式 release 发布后，GitHub Actions 会推送：
 

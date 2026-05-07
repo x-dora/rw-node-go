@@ -141,7 +141,7 @@ set -euo pipefail
 if [[ "${1:-}" == "env" && "${2:-}" == "GOEXE" ]]; then
   exit 0
 fi
-if [[ "${1:-}" == "build" ]]; then
+if [[ "${1:-}" == "run" && "${2:-}" == "./cmd/rw-build" ]]; then
   out=""
   while [[ $# -gt 0 ]]; do
     if [[ "$1" == "-o" ]]; then
