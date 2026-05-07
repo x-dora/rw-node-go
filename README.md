@@ -1,53 +1,43 @@
 # rw-node-go
 
-`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前主线使用内嵌 `xray-core`：Go 进程直接加载 Panel 下发的 Xray JSON config，启动并管理内存中的 Xray instance。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前主线使用内嵌 `xray-core`：Go 进程直接加载 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
 
-本项目不再管理外部 `xray` 进程，不写入 Xray 配置文件，不注入内部 gRPC API inbound，也不实现 plugin 运行时能力。Plugin 相关路由只做 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
+本项目不再管理外部 `xray` 进程，不把 Xray 配置作为主路径落盘，不注入内部 gRPC API inbound，也不实现 plugin 运行时能力。Plugin 相关路由只做 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
 
-## 功能进度
+## 当前能力
 
-状态说明：`[x]` 已完成，`[~]` 部分完成，`[ ]` 未完成。
+详细进度矩阵见 [docs/roadmap.md](docs/roadmap.md)。入口文档只保留关键状态：
 
-- [x] Go 项目骨架、Gin HTTP 层、公开路由注册、response envelope、contract struct。
-- [x] CI、Dockerfile、GitHub Actions 多架构 Docker 构建和 release 流程。
-- [x] `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256、zstd request body。
-- [x] 内嵌 `xray-core` 启动、停止、重复 start 替换旧 instance。
-- [x] Xray config 最小 stats/policy 注入；不注入 Remnawave API inbound/service。
-- [x] 本机 internal REST API：`127.0.0.1:INTERNAL_REST_PORT` 上的 `/internal/get-config`。
-- [~] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存状态语义接入；已建立脚本专用真实 Panel live harness，可启用测试节点并等待 Panel 报告连接成功，覆盖更完整的 Xray 行为仍在推进。
-- [~] Handler 用户动态管理通过内嵌 Xray inbound feature 接入；真实 Panel + Xray 验收仍未完成。
-- [~] Stats users、inbound、outbound、combined 通过内嵌 Xray stats feature 接入；online status/IP 已通过内嵌 Xray stats OnlineMap 接入，真实 Panel + Xray 验收仍未完成。
-- [~] Vision `/vision/block-ip`、`/vision/unblock-ip` 已走内嵌 routing feature；真实 Panel + Xray 验收仍未完成。
-- [~] drop users connections、drop IPs 已通过 conntrack best-effort 接入；无权限或无系统能力时稳定降级。
-- [x] Plugin routes 只做 contract adapter：sync accepted、torrent blocker collect 空数组、nftables accepted；不保存状态、不重启 Xray、不执行 nftables。
-- [~] contract golden tests 和 contract drift 检查已接入；脚本专用真实 Panel live harness 已接入，自动 enable/disable 测试节点并断言 `isConnected=true`，更完整的 Panel + Xray 覆盖仍在推进。
+- 已建立 Gin HTTP 层、公开路由注册、contract struct、response envelope、CI、Docker 构建和 release 流程。
+- 已接入 `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256 和 zstd request body。
+- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已接入内嵌 Xray instance 生命周期。
+- Handler、stats、Vision 和连接清理已部分接入内嵌 Xray feature 或系统能力；真实 Panel + Xray 的完整验收仍在推进。
+- Stats online status/IP 已通过内嵌 Xray stats `OnlineMap` 接入；不可用或读取失败时稳定降级为 `false` 或空列表。
+- Plugin routes 只做 contract adapter，不保存状态、不重启 Xray、不执行 nftables。
 
 ## 版本语义
 
 本项目有两个互相独立的版本：
 
-- `VERSION`：`rw-node-go` 自己的语义化发布版本，当前从 `1.0.0` 开始。构建和 Docker 镜像会把它注入为 `ProjectVersion`。
-- `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，固定默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
+- `VERSION`：`rw-node-go` 自己的语义化发布版本，构建和 Docker 镜像会把它注入为 `ProjectVersion`。
+- `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
 
-普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更，并上传 Linux `tar.gz` 预发布包。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，再推 GHCR 多架构镜像，最后创建 `vX.Y.Z` 正式 release，避免出现 release 已创建但镜像失败的半成品状态。Release 包内包含 `rw-node-go`、`geoip.dat`、`geosite.dat`、`README.md` 和 `LICENSE`；geodata 来自 `Loyalsoldier/v2ray-rules-dat` release 分支，并通过定时 workflow 缓存。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`，但仍需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予这个仓库的写入或继承权限。
+正式 release 发布后，GitHub Actions 会推送：
+
+- `ghcr.io/x-dora/rw-node-go:latest`
+- `ghcr.io/x-dora/rw-node-go:v<VERSION>`
+
+发布流程、GHCR 权限和恢复入口见 [docs/development.md](docs/development.md)。
 
 ## 快速开始
 
-安装工具链并运行测试：
+安装工具链并运行基础验证：
 
 ```sh
 mise install
 mise run test
 mise run build
 ```
-
-发布前本地验证：
-
-```sh
-mise run preflight
-```
-
-如需把真实 Panel live harness 纳入验证，设置 `RUN_PANEL_INTEGRATION=true` 后再运行 `mise run preflight`。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
 
 启动本地服务：
 
@@ -56,6 +46,14 @@ NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
 ```
 
 不设置 `SECRET_KEY` 时，服务会以本地 HTTP 模式启动，只用于本地开发和 contract 测试。生产部署必须设置 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像让缺少密钥的容器直接启动失败。设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT 校验；官方 `/vision/*` 路由保留 mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
+
+发布前本地验证：
+
+```sh
+mise run preflight
+```
+
+如需把真实 Panel live harness 纳入验证，设置 `RUN_PANEL_INTEGRATION=true` 后再运行 `mise run preflight`。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
 
 ## 运行配置
 
@@ -97,22 +95,20 @@ mise run docker-build
 docker build -t ghcr.io/x-dora/rw-node-go:local .
 ```
 
-当前镜像包含 `rw-node-go` 二进制。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像构建时会按 Xray-core 的方式从 `Loyalsoldier/v2ray-rules-dat` 下载 `geoip.dat` 和 `geosite.dat`，并放到 `/usr/local/share/xray`；镜像内默认设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray`。镜像默认 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
-
-正式 release 发布后，GitHub Actions 会推送：
-
-- `ghcr.io/x-dora/rw-node-go:latest`
-- `ghcr.io/x-dora/rw-node-go:v<VERSION>`
-
-如果某次正式 release 已经创建，但 GHCR 镜像因为权限问题没有推上去，可以手动触发 Release workflow，并选择 `republish_existing_release=true` 只补推镜像，不会改动已有 GitHub Release。
+当前镜像包含 `rw-node-go` 二进制和 Xray geodata。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像内默认设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray` 和 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
 
 ## 真实 Panel 联调
 
-真实 Panel 联调唯一入口是 `scripts/panel-integration.sh`，详细配置见 [docs/development.md](docs/development.md)。该 harness 会启动本地节点、调用 Panel API 启用测试节点、等待 Panel 报告 `isConnected=true`，结束或失败清理时禁用该节点并停止本地进程。它会修改真实 Panel 节点状态，`run`、`enable` 和 `disable` 必须使用完整节点 UUID 且只应指向专门的测试节点；普通 `go test ./...` 不会连接真实 Panel。
+真实 Panel 联调唯一入口是 `scripts/panel-integration.sh`，详细配置见 [docs/development.md](docs/development.md)。该 harness 会修改真实 Panel 节点状态，`run`、`enable` 和 `disable` 必须使用完整节点 UUID 且只应指向专门的测试节点；普通 `go test ./...` 不会连接真实 Panel。
+
+```sh
+bash scripts/panel-integration.sh summary
+bash scripts/panel-integration.sh run
+```
 
 ## 文档
 
 - [docs/architecture.md](docs/architecture.md)：当前架构和运行时边界。
 - [docs/contracts.md](docs/contracts.md)：Panel-facing contract 对齐、路由覆盖和 stub 策略。
-- [docs/development.md](docs/development.md)：本地开发、测试和文档维护规则。
-- [docs/roadmap.md](docs/roadmap.md)：功能路线图和当前进度。
+- [docs/development.md](docs/development.md)：本地开发、测试、真实 Panel harness 和发布流程。
+- [docs/roadmap.md](docs/roadmap.md)：功能路线图和详细进度矩阵。

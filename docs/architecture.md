@@ -1,6 +1,8 @@
 # 架构说明
 
-`rw-node-go` 把 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步替换 stub。
+`rw-node-go` 把 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步把 stub 替换为真实运行时能力。
+
+详细功能进度由 [docs/roadmap.md](roadmap.md) 维护。本文只描述当前架构边界和运行路径。
 
 ## 分层
 
@@ -14,7 +16,7 @@
 - `internal/system`：系统统计、网络能力检测、conntrack 连接清理和 nftables 未来集成入口。
 - `internal/testkit`：证书、JWT、golden 和 Panel client 测试辅助。
 
-## 当前运行路径
+## 运行路径
 
 ```text
 Remnawave Panel
@@ -27,7 +29,7 @@ Main Gin API on 0.0.0.0:NODE_PORT
     v
 Embedded xray-core instance
     |
-    | inbound/stats features
+    | inbound/stats/routing features
     v
 Xray runtime in the same Go process
 
@@ -38,24 +40,35 @@ Local tooling
 Internal Gin API
 ```
 
-当前已实现的运行路径包括：
+设置 `SECRET_KEY` 后，主 API 通过 TLS server config、mTLS 和 JWT public key 校验 Panel 请求。官方 `/vision/*` route 仍走主 API 的 HTTPS/mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
 
-- `SECRET_KEY` 解码后生成 TLS server config 和 JWT public key。
-- request body 支持 zstd 解压和大小限制。
-- `/node/xray/start` 会构建内嵌可加载的 Xray config，启动新的 `xray-core` instance；重复 start 会关闭旧 instance。
-- config builder 只补齐 stats/policy 和 Vision 所需 `BLOCK` outbound，不注入 Remnawave API inbound、API service、internal mTLS 或 plugin webhook。
-- `/node/xray/stop` 会关闭当前内嵌 Xray instance。
+不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
+
+## Xray 运行时边界
+
+当前唯一 Xray runtime 是内嵌 `xray-core`：
+
+- `/node/xray/start` 从 Panel 下发的 JSON config 构建内嵌可加载的 Xray config，并启动新的 `xray-core` instance。
+- 重复 start 会关闭旧 instance，再替换为新 instance。
+- `/node/xray/stop` 会关闭当前内嵌 instance。
 - `/node/xray/healthcheck` 按官方 Node 行为返回缓存状态：节点 API 可响应时 `isAlive=true`，`xrayInternalStatusCached` 来自 start/stop 或内部健康检查结果。
-- `/vision/block-ip` 和 `/vision/unblock-ip` 是官方主 API 上的 unprefixed Panel-facing route；设置 `SECRET_KEY` 后仍走 HTTPS/mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
-- `INTERNAL_REST_PORT` 上保留本机 internal API。`/internal/get-config` 返回当前内存 config。
+- Config builder 只补齐 stats/policy 和 Vision 所需 `BLOCK` outbound，不注入 Remnawave API inbound、API service、internal mTLS 或 plugin webhook。
 
-## 未完成边界
+用户动态管理、stats 和 Vision 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；读取失败或 feature 不可用时按 contract 稳定降级为 `false` 或空列表。
 
-- 用户动态管理接口已通过内嵌 Xray inbound feature 增删和查询 inbound 用户；真实 Panel + Xray 验收仍未完成。
-- stats 接口已从内嵌 Xray stats feature 读取 users、inbound、outbound、combined 和 OnlineMap online status/IP；真实 Panel + Xray 验收仍未完成。
-- drop users connections、drop IPs 已通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。
-- Vision block/unblock 已通过内嵌 routing feature 添加或删除 source IP dynamic rule；真实 Panel + Xray 验收仍未完成。
-- plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。
+## Internal API 边界
+
+`INTERNAL_REST_PORT` 只监听 `127.0.0.1`，不属于 Panel-facing contract，也不走 Panel mTLS/JWT。
+
+- `GET /internal/get-config`：返回当前内存 Xray config；没有 config 时返回 `{}`。
+
+`/vision/block-ip` 和 `/vision/unblock-ip` 是官方主 API 上的 unprefixed Panel-facing route，不属于 internal API。它们通过内嵌 routing feature 添加或删除 source IP dynamic rule。
+
+## 降级和不支持能力
+
+- Handler 和 stats 读取运行时 feature 失败时返回兼容的业务降级响应，不把内部错误暴露为不稳定 JSON 形状。
+- Drop users connections 和 drop IPs 通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。
+- Plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。
 
 ## 响应格式
 

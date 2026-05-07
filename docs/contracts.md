@@ -22,6 +22,8 @@ testdata/contracts/official-2.7.0/panel-api.json
 
 ## 当前路由状态
 
+本表只描述 Panel-facing contract 层的注册、响应形状和真实/partial/stub 边界，不作为完整功能路线图。详细进度见 [docs/roadmap.md](roadmap.md)。
+
 状态说明：`done` 已有真实或基础实现，`partial` 部分接入，`adapter stub` 只做接口适配。
 
 | 分组 | 路由 | 状态 | 说明 |
@@ -31,10 +33,11 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `GET /node/xray/healthcheck` | partial | 当前按官方缓存在线状态和缓存版本返回。 |
 | Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入内嵌 Xray inbound feature 和内存 inbound/user hash 状态；真实 Panel + Xray 验收仍未完成。 |
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | partial | 已通过 conntrack best-effort 清理匹配 IP 的连接；无权限或无系统能力时返回成功 no-op，不操作 nftables。 |
-| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；真实 Panel + Xray 验收仍未完成。 |
+| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | partial | 官方主 API unprefixed route；设置 `SECRET_KEY` 后保留 mTLS、豁免 JWT；已通过内嵌 routing feature 操作 source IP dynamic rule，真实验收仍未完成。 |
 | Plugin | `/node/plugin/sync`, `/node/plugin/torrent-blocker/collect`, `/node/plugin/nftables/*` | adapter stub | routes 保持 Panel-facing contract adapter；feature intentionally unsupported，不保存插件状态、不注入 Xray 配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。 |
-| Internal | `GET /internal/get-config` | done | 位于 `127.0.0.1:INTERNAL_REST_PORT`；返回当前内存 Xray config 或 `{}`。 |
+
+Internal REST API 不是 Panel-facing contract，边界说明见 [docs/architecture.md](architecture.md)。
 
 ## Golden 测试
 

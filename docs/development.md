@@ -1,6 +1,6 @@
 # 开发说明
 
-本文档记录本项目的长期开发规范。临时准备步骤、参考仓库维护和个人环境细节不要写入入口文档。
+本文档记录本项目的长期开发、验证、真实 Panel harness 和发布操作。项目定位和最短运行路径放在 `README.md`；详细功能进度矩阵放在 `docs/roadmap.md`。
 
 ## 工具链
 
@@ -31,6 +31,12 @@ NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
 ```
 
 设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT RS256 校验；官方 `/vision/*` route 只豁免 Bearer JWT，仍保留 mTLS。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
+
+发布前本地验证：
+
+```sh
+mise run preflight
+```
 
 ## 真实 Panel 联调
 
@@ -141,9 +147,10 @@ mise run docker-build
 
 ## 文档归属
 
-- `README.md`：项目定位、当前状态、运行方式和功能进度。
-- `AGENTS.md`：协作规则、工程约束、当前阶段和测试要求。
-- `docs/architecture.md`：架构分层、运行路径和未完成边界。
-- `docs/contracts.md`：contract 对齐、route 覆盖和 stub 策略。
-- `docs/roadmap.md`：路线图和当前完成情况。
+- `README.md`：项目定位、关键能力快照、最短运行路径、配置入口和文档导航。
+- `AGENTS.md`：协作规则、当前阶段硬约束、工程约束、测试要求、文档维护规则、提交规则和常用命令。
+- `docs/architecture.md`：架构分层、运行路径、运行时边界和 internal API 边界。
+- `docs/contracts.md`：Panel-facing contract 对齐、route 覆盖、stub 策略、golden fixture 和 contract drift 检查。
+- `docs/development.md`：本地开发、验证命令、真实 Panel harness 操作、版本发布操作和实现规则。
+- `docs/roadmap.md`：路线图和详细完成情况；README 和 AGENTS 不维护完整进度矩阵。
 - `REMNAWAVE_NODE_GO_PLAN.md`：历史设计备忘；若与当前文档或官方仓库冲突，以官方仓库和当前 `docs/*` 为准。

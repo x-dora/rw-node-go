@@ -1,5 +1,7 @@
 # 路线图
 
+本文档是详细功能进度矩阵的单一事实来源。开发命令、真实 Panel harness 操作和发布流程见 [docs/development.md](development.md)。
+
 状态说明：`[x]` 已完成，`[~]` 部分完成，`[ ]` 未完成。
 
 ## M0: 协议冻结
@@ -35,14 +37,14 @@
 - [x] system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load average、network interface 列表、默认网卡速率、插件计数占位和 Xray sys stats。
 - [~] users、inbound、outbound、combined 流量统计已接入内嵌 Xray stats feature。
 - [~] reset 语义已在内嵌 stats counter 上实现；真实 Panel + Xray 验收仍未完成。
-- [~] user online status、user IP list 和 users IP list 已通过内嵌 Xray stats OnlineMap 接入；真实 Panel + Xray 验收仍未完成。
+- [~] user online status、user IP list 和 users IP list 已通过内嵌 Xray stats OnlineMap 接入；OnlineMap 不可用或读取失败时稳定降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。
 
 ## M4: Internal API 与连接处理
 
 - [x] `INTERNAL_REST_PORT` 本机 internal server。
 - [x] `GET /internal/get-config` 返回当前内存 config。
 - [~] `/vision/block-ip`、`/vision/unblock-ip` 是官方主 API unprefixed route，已接入内嵌 routing feature；真实 Panel + Xray 验收仍未完成。
-- [~] drop users connections 已通过 OnlineMap 用户 IP list + conntrack best-effort 接入；无在线 IP 或无系统能力时稳定 no-op。
+- [~] drop users connections 已通过 OnlineMap 用户 IP list + conntrack best-effort 接入；无在线 IP、OnlineMap 不可用或无系统能力时稳定 no-op。
 - [~] drop IPs 已通过 conntrack best-effort 接入；无权限或无系统能力时稳定降级。
 - [~] Vision block/unblock dynamic routing feature 实现。
 - [x] 无对应系统能力环境的稳定降级测试。
