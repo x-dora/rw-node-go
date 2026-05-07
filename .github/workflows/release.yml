@@ -314,10 +314,6 @@ jobs:
           - goos: linux
             goarch: arm64
             asset_name: linux-arm64-v8a
-    env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
-      CGO_ENABLED: 0
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -345,12 +341,14 @@ jobs:
           test -s resources/geosite.dat
 
       - name: Build release package
+        env:
+          CGO_ENABLED: 0
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build_assets dist
           build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          COMMIT=${GITHUB_SHA} BUILD_DATE=${build_date} go run ./cmd/rw-build -repo-root . -o build_assets/rw-node-go -goos "$GOOS" -goarch "$GOARCH"
+          COMMIT=${GITHUB_SHA} BUILD_DATE=${build_date} go run ./cmd/rw-build -repo-root . -o build_assets/rw-node-go -goos "${{ matrix.goos }}" -goarch "${{ matrix.goarch }}"
           cp resources/geoip.dat build_assets/geoip.dat
           cp resources/geosite.dat build_assets/geosite.dat
           cp README.md build_assets/README.md
@@ -432,7 +430,6 @@ jobs:
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Explain GHCR permission failure
         if: failure()
