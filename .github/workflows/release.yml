@@ -157,6 +157,61 @@ jobs:
             args+=(-f "previous_tag_name=$BASELINE_TAG")
           fi
           gh api "${args[@]}" --jq '.body' > release-notes.generated.md
+          sed -i '/^\*\*Full Changelog\*\*:/d' release-notes.generated.md
+
+          if [[ -n "$BASELINE_TAG" ]]; then
+            range="$BASELINE_TAG..${{ github.sha }}"
+          else
+            range="${{ github.sha }}"
+          fi
+
+          declare -A titles=(
+            [feat]="Features"
+            [fix]="Bug Fixes"
+            [refactor]="Refactors"
+            [perf]="Performance"
+            [ci]="CI/CD"
+            [chore]="Chores"
+            [docs]="Documentation"
+            [test]="Tests"
+            [style]="Styles"
+            [other]="Other Changes"
+          )
+          order=(feat fix refactor perf ci chore docs test style other)
+          conventional_re='^([a-z]+)(\([^)]+\))?!?:[[:space:]]+'
+          tmp_dir="$(mktemp -d)"
+          while IFS=$'\t' read -r sha subject
+          do
+            type="other"
+            if [[ "$subject" =~ $conventional_re ]]; then
+              candidate="${BASH_REMATCH[1]}"
+              case "$candidate" in
+                feat|fix|refactor|perf|ci|chore|docs|test|style) type="$candidate" ;;
+              esac
+            fi
+            printf -- "- %s ([%s](https://github.com/${{ github.repository }}/commit/%s))\n" "$subject" "${sha:0:7}" "$sha" >> "$tmp_dir/$type.md"
+          done < <(git log --reverse --format='%H%x09%s' "$range")
+
+          {
+            echo "## Commits"
+            echo
+            wrote=false
+            for type in "${order[@]}"
+            do
+              file="$tmp_dir/$type.md"
+              if [[ -s "$file" ]]; then
+                echo "### ${titles[$type]}"
+                echo
+                cat "$file"
+                echo
+                wrote=true
+              fi
+            done
+            if [[ "$wrote" == "false" ]]; then
+              echo "- No commits found."
+              echo
+            fi
+          } > release-notes.commits.md
 
           {
             echo "## Build"
@@ -180,7 +235,11 @@ jobs:
             echo "- Xray geodata source: \`Loyalsoldier/v2ray-rules-dat\` release branch."
             echo "- Default Xray asset directory: \`/usr/local/share/xray\`."
             echo
+            cat release-notes.commits.md
+            echo
             cat release-notes.generated.md
+            echo
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${BASELINE_TAG:-${{ github.sha }}}...$target_tag"
           } > release-notes.md
 
       - name: Upload release notes
