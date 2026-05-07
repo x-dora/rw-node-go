@@ -29,7 +29,7 @@
 - `VERSION`：`rw-node-go` 自己的语义化发布版本，当前从 `1.0.0` 开始。构建和 Docker 镜像会把它注入为 `ProjectVersion`。
 - `nodeVersion`：上报给 Remnawave Panel 的兼容性版本，固定默认对齐官方 `remnawave/node` 2.7.x 的 `2.7.0`。它只用于 Panel 兼容性检查，不代表本项目发布版本。
 
-普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，再推 GHCR 多架构镜像，最后创建 `vX.Y.Z` 正式 release，避免出现 release 已创建但镜像失败的半成品状态。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`，但仍需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予这个仓库的写入或继承权限。
+普通 `main` push 会更新 GitHub 上滚动的 `pre-release`，记录自上次正式发版后的变更，并上传 Linux `tar.gz` 预发布包。修改 `VERSION` 并推送到 `main` 后，Release workflow 会先跑发布前门禁，再推 GHCR 多架构镜像，最后创建 `vX.Y.Z` 正式 release，避免出现 release 已创建但镜像失败的半成品状态。Release 包内包含 `rw-node-go`、`geoip.dat`、`geosite.dat`、`README.md` 和 `LICENSE`；geodata 来自 `Loyalsoldier/v2ray-rules-dat` release 分支，并通过定时 workflow 缓存。GHCR 推送直接使用仓库自带的 `GITHUB_TOKEN`，但仍需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予这个仓库的写入或继承权限。
 
 ## 快速开始
 
@@ -68,6 +68,7 @@ NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
 | `LOG_LEVEL` | `info` | 日志级别配置入口。 |
 | `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |
+| `XRAY_LOCATION_ASSET` | 空 | Xray geodata 目录。Docker 镜像固定设置为 `/usr/local/share/xray`。 |
 
 `INTERNAL_REST_PORT` 必须保持本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
@@ -96,14 +97,12 @@ mise run docker-build
 docker build -t ghcr.io/x-dora/rw-node-go:local .
 ```
 
-当前镜像包含 `rw-node-go` 二进制。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像默认 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
+当前镜像包含 `rw-node-go` 二进制。Xray 运行时来自内嵌 `xray-core`，不需要额外提供外部 `xray` 二进制。镜像构建时会按 Xray-core 的方式从 `Loyalsoldier/v2ray-rules-dat` 下载 `geoip.dat` 和 `geosite.dat`，并放到 `/usr/local/share/xray`；镜像内默认设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray`。镜像默认 `REQUIRE_SECRET_KEY=true`；本地容器调试如需 HTTP contract 模式，需要显式覆盖为 `REQUIRE_SECRET_KEY=false`。
 
 正式 release 发布后，GitHub Actions 会推送：
 
 - `ghcr.io/x-dora/rw-node-go:latest`
-- `ghcr.io/x-dora/rw-node-go:<VERSION>`
 - `ghcr.io/x-dora/rw-node-go:v<VERSION>`
-- `ghcr.io/x-dora/rw-node-go:<major>.<minor>`
 
 如果某次正式 release 已经创建，但 GHCR 镜像因为权限问题没有推上去，可以手动触发 Release workflow，并选择 `republish_existing_release=true` 只补推镜像，不会改动已有 GitHub Release。
 

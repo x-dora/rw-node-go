@@ -21,6 +21,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     -ldflags "-s -w -X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${PROJECT_VERSION} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=${NODE_VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${COMMIT} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${BUILD_DATE}" \
     -o /out/rw-node-go ./cmd/rw-node-go
 
+# Download geodat into a staging directory, matching Xray-core Docker assets.
+ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat /tmp/geodat/geoip.dat
+ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat /tmp/geodat/geosite.dat
+
 FROM --platform=$BUILDPLATFORM alpine:3.23 AS runtime-files
 
 RUN addgroup -S -g 10001 rw-node \
@@ -34,10 +38,12 @@ COPY --from=runtime-files /etc/passwd /etc/passwd
 COPY --from=runtime-files /etc/group /etc/group
 COPY --from=runtime-files --chown=10001:10001 /opt/rw-node-go /opt/rw-node-go
 COPY --from=runtime-files --chown=10001:10001 /usr/local/share/xray /usr/local/share/xray
+COPY --from=build --chown=10001:10001 --chmod=644 /tmp/geodat/*.dat /usr/local/share/xray/
 COPY --from=build --chmod=755 /out/rw-node-go /usr/local/bin/rw-node-go
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/rw-node-go-entrypoint
 
 ENV REQUIRE_SECRET_KEY=true
+ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
 USER 10001:10001
 EXPOSE 2222

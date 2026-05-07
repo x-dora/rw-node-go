@@ -56,9 +56,16 @@
 
 ## Git 提交
 
-- 提交信息使用中文，采用标准、有效、可靠的 Conventional Commits 格式。
-- 推荐格式：`docs: 规范项目文档和协作说明`、`feat: 实现 Xray 启动流程`、`fix: 修复 JWT 校验失败处理`。
-- subject 要简洁说明本次变更；必要时在正文说明原因、影响范围和验证结果。
+- 提交信息必须使用中文，严格采用 Conventional Commits 格式：`<type>(<scope>): <简短描述>`；scope 要能指向模块、能力或工具链，例如 `ci`、`release`、`xray`、`docs`、`docker`。
+- 可用 type：`feat`、`fix`、`refactor`、`style`、`chore`、`docs`、`test`、`ci`、`perf`。配置 CI/CD、release、Docker workflow 时优先使用 `ci`；工具、依赖和构建脚本使用 `chore`；纯文档使用 `docs`。
+- `style` 只用于纯空白、缩进、换行、引号等不影响逻辑的格式变更；lint 规则修复、路径 API 替换、变量重命名或代码结构变化应使用 `refactor` 或更具体的 type。
+- subject 必须具体说明真实变更，禁止使用“清理”“优化”“调整”“更新”“统一”“整理”等模糊词；不要写“清理代码”“提升可读性”“修复问题”这类无法追踪意图的描述。
+- 提交前必须分析 diff 中文件名和内容来判断 type/scope。新增 API、模型、路由用 `feat`；修复可复现缺陷用 `fix`；工具迁移或 lock 文件替换用 `chore(deps)` 或 `chore(tools)`；多类变更混在同一提交时选主导意图，并在 body 逐条说明。
+- 多处变更必须在标题下空一行，用 `- ` 列表写 body；每条说明具体文件、规则或行为变化，避免只写“完善流程”。
+- 示例：
+  - `ci(release): 发布包内置 Xray geodata`
+  - `fix(auth): 修复 JWT 过期时间校验`
+  - `chore(deps): 从 poetry 迁移到 uv`
 - 不把无关改动混入同一个 commit。
 
 ## 常用命令

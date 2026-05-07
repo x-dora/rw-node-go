@@ -23,22 +23,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      - name: Read project version
+        id: version
+        shell: bash
+        run: echo "project_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-
-      - name: Read project version
-        id: version
-        shell: bash
-        run: echo "project_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+            type=raw,value=latest
+            type=raw,value=v${{ steps.version.outputs.project_version }}
 
       - name: Build and push
         uses: docker/build-push-action@v7

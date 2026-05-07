@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   contents: write
   packages: write
 
@@ -39,7 +40,6 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       release_tag: ${{ steps.version.outputs.release_tag }}
       project_version: ${{ steps.version.outputs.project_version }}
-      major_minor: ${{ steps.version.outputs.major_minor }}
       baseline_tag: ${{ steps.plan.outputs.baseline_tag }}
       release_exists: ${{ steps.plan.outputs.release_exists }}
     steps:
@@ -60,10 +60,8 @@ jobs:
             exit 1
           fi
 
-          major_minor="$(printf '%s\n' "$project_version" | awk -F. '{print $1 "." $2}')"
           echo "project_version=$project_version" >> "$GITHUB_OUTPUT"
           echo "release_tag=v$project_version" >> "$GITHUB_OUTPUT"
-          echo "major_minor=$major_minor" >> "$GITHUB_OUTPUT"
 
       - name: Plan release mode
         id: plan
@@ -171,13 +169,16 @@ jobs:
             echo
             if [[ "$MODE" == "formal" || "$MODE" == "republish" ]]; then
               echo "- \`$IMAGE_NAME:latest\`"
-              echo "- \`$IMAGE_NAME:$PROJECT_VERSION\`"
               echo "- \`$IMAGE_NAME:$RELEASE_TAG\`"
-              echo "- \`$IMAGE_NAME:${{ steps.version.outputs.major_minor }}\`"
-              echo "- \`$IMAGE_NAME:sha-${GITHUB_SHA::7}\`"
             else
               echo "- 正式 release 镜像会在 \`VERSION\` 变更并通过门禁后发布。"
             fi
+            echo
+            echo "## Binary assets"
+            echo
+            echo "- Linux release packages include \`rw-node-go\`, \`geoip.dat\`, \`geosite.dat\`, \`README.md\`, and \`LICENSE\`."
+            echo "- Xray geodata source: \`Loyalsoldier/v2ray-rules-dat\` release branch."
+            echo "- Default Xray asset directory: \`/usr/local/share/xray\`."
             echo
             cat release-notes.generated.md
           } > release-notes.md
@@ -187,6 +188,136 @@ jobs:
         with:
           name: release-notes
           path: release-notes.md
+
+  check-assets:
+    needs: prepare
+    if: needs.prepare.outputs.mode != 'republish'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore Geodat Cache
+        uses: actions/cache/restore@v5
+        with:
+          path: resources
+          key: xray-geodat-
+
+      - name: Check Assets Existence
+        id: check-assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p resources
+          for file_name in geoip.dat geosite.dat
+          do
+            echo "Checking ${file_name}..."
+            if [ -s "./resources/${file_name}" ]; then
+              echo "${file_name} exists."
+            else
+              echo "${file_name} does not exist."
+              echo "missing=true" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+
+      - name: Trigger Asset Update Workflow if Assets Missing
+        if: steps.check-assets.outputs.missing == 'true'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: 'scheduled-assets-update.yml',
+              ref: context.ref
+            });
+            console.log('Triggered scheduled-assets-update.yml due to missing geodat assets on branch:', context.ref);
+
+      - name: Sleep for 90 seconds if Assets Missing
+        if: steps.check-assets.outputs.missing == 'true'
+        run: sleep 90
+
+  binaries:
+    needs:
+      - prepare
+      - check-assets
+    if: needs.prepare.outputs.mode != 'republish'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            asset_name: linux-64
+          - goos: linux
+            goarch: arm64
+            asset_name: linux-arm64-v8a
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Restore Geodat Cache
+        uses: actions/cache/restore@v5
+        with:
+          path: resources
+          key: xray-geodat-
+
+      - name: Check geodat
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s resources/geoip.dat
+          test -s resources/geosite.dat
+
+      - name: Build release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build_assets dist
+          build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          go build \
+            -trimpath \
+            -buildvcs=false \
+            -ldflags "-s -w -buildid= -X github.com/x-dora/rw-node-go/internal/version.ProjectVersion=${{ needs.prepare.outputs.project_version }} -X github.com/x-dora/rw-node-go/internal/version.NodeVersion=${NODE_VERSION} -X github.com/x-dora/rw-node-go/internal/version.Commit=${GITHUB_SHA} -X github.com/x-dora/rw-node-go/internal/version.BuildDate=${build_date}" \
+            -o build_assets/rw-node-go ./cmd/rw-node-go
+          cp resources/geoip.dat build_assets/geoip.dat
+          cp resources/geosite.dat build_assets/geosite.dat
+          cp README.md build_assets/README.md
+          cp LICENSE build_assets/LICENSE
+          pushd build_assets
+          touch -mt "$(date +%Y01010000)" *
+          tar -czf "../dist/rw-node-go-${{ matrix.asset_name }}.tar.gz" .
+          popd
+          file="./dist/rw-node-go-${{ matrix.asset_name }}.tar.gz"
+          dgst="${file}.dgst"
+          for method in md5 sha1 sha256 sha512
+          do
+            openssl dgst "-${method}" "$file" | sed 's/([^)]*)//g' >> "$dgst"
+          done
+
+      - name: Upload release assets artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.asset_name }}
+          path: |
+            dist/rw-node-go-${{ matrix.asset_name }}.tar.gz
+            dist/rw-node-go-${{ matrix.asset_name }}.tar.gz.dgst
 
   docker:
     needs: prepare
@@ -232,10 +363,7 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ needs.prepare.outputs.project_version }}
             type=raw,value=${{ needs.prepare.outputs.release_tag }}
-            type=raw,value=${{ needs.prepare.outputs.major_minor }}
-            type=sha,format=short
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -261,13 +389,14 @@ jobs:
   publish-release:
     needs:
       - prepare
+      - binaries
       - docker
     if: >
       always() &&
       needs.prepare.result == 'success' &&
       (
-        needs.prepare.outputs.mode == 'prerelease' ||
-        (needs.prepare.outputs.mode == 'formal' && needs.docker.result == 'success') ||
+        (needs.prepare.outputs.mode == 'prerelease' && needs.binaries.result == 'success') ||
+        (needs.prepare.outputs.mode == 'formal' && needs.binaries.result == 'success' && needs.docker.result == 'success') ||
         (needs.prepare.outputs.mode == 'republish' && needs.docker.result == 'success')
       )
     runs-on: ubuntu-latest
@@ -284,6 +413,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release-notes
+
+      - name: Download release assets
+        if: needs.prepare.outputs.mode != 'republish'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
 
       - name: Update rolling pre-release
         if: needs.prepare.outputs.mode == 'prerelease'
@@ -309,6 +446,7 @@ jobs:
               --notes-file release-notes.md \
               --prerelease
           fi
+          gh release upload "$PRERELEASE_TAG" release-assets/* --clobber
 
       - name: Publish formal release
         if: needs.prepare.outputs.mode == 'formal'
@@ -333,12 +471,7 @@ jobs:
             --title "rw-node-go $RELEASE_TAG" \
             --notes-file release-notes.md \
             --latest
-
-          if gh release view "$PRERELEASE_TAG" >/dev/null 2>&1; then
-            gh release delete "$PRERELEASE_TAG" --yes --cleanup-tag || true
-          elif git ls-remote --exit-code --tags origin "refs/tags/$PRERELEASE_TAG" >/dev/null 2>&1; then
-            git push origin ":refs/tags/$PRERELEASE_TAG" || true
-          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
 
       - name: Report image republish
         if: needs.prepare.outputs.mode == 'republish'
