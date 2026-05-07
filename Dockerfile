@@ -2,7 +2,7 @@
 
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 
-ARG PROJECT_VERSION=1.0.0
+ARG PROJECT_VERSION=unknown
 ARG NODE_VERSION=2.7.0
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
