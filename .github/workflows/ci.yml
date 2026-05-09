@@ -19,6 +19,17 @@ jobs:
         with:
           install: true
 
+      - name: Restore Go cache
+        id: go-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('.mise.toml', 'go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
       - name: Download modules
         run: mise exec -- go mod download
 
@@ -30,3 +41,12 @@ jobs:
           COMMIT: ${{ github.sha }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
         run: mise run build
+
+      - name: Save Go cache
+        if: steps.go-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('.mise.toml', 'go.sum') }}

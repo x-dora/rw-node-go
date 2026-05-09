@@ -140,6 +140,8 @@ GitHub Actions 发布流程：
 - `Scheduled assets update`：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
 - `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
 
+CI、Preflight 和 Contract Diff workflow 会缓存 Go module 与 build cache；Release 的二进制构建继续使用 `actions/setup-go` 内置缓存，并以 `go.sum` 作为依赖缓存依据。Docker build 和 geodat 仍使用各自独立的 Actions cache。
+
 正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。发布资产包命名为 `rw-node-go-linux-64.tar.gz` 和 `rw-node-go-linux-arm64-v8a.tar.gz`，包内包含 `rw-node-go`、`geoip.dat`、`geosite.dat`、`README.md` 和 `LICENSE`，并附带 `.dgst` 校验文件。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret，但还需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予本仓库的写入或继承权限，否则 workflow 会在 Docker push 阶段失败并提示 `write_package` 问题。
 
 本地发布前验证：

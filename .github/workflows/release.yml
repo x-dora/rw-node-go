@@ -323,6 +323,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+          cache-dependency-path: go.sum
 
       - name: Download modules
         run: go mod download

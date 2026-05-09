@@ -33,6 +33,17 @@ jobs:
         with:
           install: true
 
+      - name: Restore Go cache
+        id: go-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('.mise.toml', 'go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
       - name: Format check
         run: |
           mise exec -- go fmt ./...
@@ -49,6 +60,15 @@ jobs:
 
       - name: Contract diff
         run: mise run contract-diff
+
+      - name: Save Go cache
+        if: steps.go-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('.mise.toml', 'go.sum') }}
 
       - name: Real Panel live harness
         if: ${{ inputs.run_panel_integration == true || inputs.run_panel_integration == 'true' }}
