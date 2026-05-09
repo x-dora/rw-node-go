@@ -99,6 +99,30 @@ func TestPanelLogsRedactFreeFormText(t *testing.T) {
 	}
 }
 
+func TestExtendedSmokeUsesConfiguredPaths(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"ok": true}})
+	}))
+	defer server.Close()
+
+	t.Setenv(scriptGateEnv, "1")
+	t.Setenv("PANEL_BASE_URL", server.URL)
+	t.Setenv("PANEL_API_KEY", "test-api-key")
+	t.Setenv("PANEL_EXTENDED_SMOKE", "/api/system/metadata,/api/nodes")
+
+	var stdout strings.Builder
+	var stderr strings.Builder
+	code := run([]string{"extended-smoke"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run(extended-smoke) code = %d, want 0\nstdout=%s\nstderr=%s", code, stdout.String(), stderr.String())
+	}
+	if strings.Join(paths, ",") != "/api/system/metadata,/api/nodes" {
+		t.Fatalf("paths = %#v", paths)
+	}
+}
+
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }

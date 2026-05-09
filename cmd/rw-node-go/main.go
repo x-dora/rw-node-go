@@ -29,7 +29,7 @@ func main() {
 	}
 
 	runtimeState := state.NewRuntimeState()
-	controllers := controller.NewRegistry(cfg, runtimeState, logger)
+	controllers := controller.NewRegistry(runtimeState, logger)
 	defer func() {
 		if controllers.Snapshot != nil {
 			if err := controllers.Snapshot.Close(); err != nil {

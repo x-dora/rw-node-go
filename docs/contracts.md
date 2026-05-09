@@ -89,6 +89,12 @@ testdata/contracts/official-2.7.0/upstream-contract.sha256.json
 mise run contract-diff
 ```
 
+网络不可用但本地已有官方 checkout 时：
+
+```sh
+CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
+```
+
 检查其他官方 tag：
 
 ```sh

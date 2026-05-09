@@ -73,6 +73,7 @@
 ```sh
 mise install
 mise run test
+mise run lint
 mise run build
 ```
 
@@ -99,6 +100,7 @@ mise run preflight
 ```sh
 mise run fmt
 mise run test
+mise run lint
 mise run build
 mise run contract-diff
 ```

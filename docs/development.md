@@ -20,7 +20,7 @@ mise run docker-build
 mise run preflight
 ```
 
-`mise run lint` 依赖本地已安装 `golangci-lint`。
+`mise install` 会安装固定版本的 Go；`mise run lint` 通过当前 Go toolchain 运行固定版本的 `golangci-lint`，CI 和 Preflight 也会执行该检查。
 
 `mise run build` 通过 `cmd/rw-build` 读取根目录 `VERSION`，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。CI、Docker 和 release workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
 
@@ -62,7 +62,14 @@ flowchart LR
 mise run fmt
 mise run test
 mise run build
+mise run lint
 mise run contract-diff
+```
+
+`mise run contract-diff` 默认下载官方 `remnawave/node` tag。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
+
+```sh
+CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
 ```
 
 涉及 Docker 的改动再运行：
@@ -96,11 +103,14 @@ bash scripts/panel-integration.sh enable
 bash scripts/panel-integration.sh disable
 bash scripts/panel-integration.sh status
 bash scripts/panel-integration.sh stop
+bash scripts/panel-integration.sh extended-smoke
 ```
 
 `summary` 会输出脱敏配置摘要，并标记 `geoip.dat` 和 `geosite.dat` 是否存在。`node` 只读取 Panel 上当前节点的状态摘要，重点看 `connected`、`connecting`、`disabled` 和 `last_status_message`。
 
-`run` 是完整 live harness：它先构建本地二进制到 `runtime/bin/`，启动本地节点，然后调用 Panel API `POST /api/nodes/{uuid}/actions/enable` 启用当前节点，并轮询 `GET /api/nodes/{uuid}`，直到 Panel 返回 `isConnected=true` 且 `isDisabled=false`。如果 Panel 没有连上节点，`run` 会失败并打印脱敏后的最后一次 `lastStatusMessage`。正常结束时脚本会显式调用 `POST /api/nodes/{uuid}/actions/disable` 并轮询确认 `isDisabled=true`；如果 disable 失败，`run` 返回非零。失败或中断时 EXIT trap 仍会兜底尝试 disable 和 stop，并在清理失败时输出 `panel_node_disable_cleanup_failed` 或 `node_stop_cleanup_failed`。
+`run` 是完整 live harness：它先构建本地二进制到 `runtime/bin/`，启动本地节点，然后调用 Panel API `POST /api/nodes/{uuid}/actions/enable` 启用当前节点，并轮询 `GET /api/nodes/{uuid}`，直到 Panel 返回 `isConnected=true` 且 `isDisabled=false`。如果 Panel 没有连上节点，`run` 会失败并打印脱敏后的最后一次 `lastStatusMessage`。正常结束时脚本会显式调用 `POST /api/nodes/{uuid}/actions/disable` 并轮询确认 `isDisabled=true`；如果 disable 失败，`run` 返回非零。失败或中断时 EXIT trap 仍会兜底尝试 disable 和 stop，并在清理失败时输出 `panel_node_disable_cleanup_failed` 或 `node_stop_cleanup_failed`。设置 `PANEL_EXTENDED_SMOKE` 后，`run` 会在基础 smoke 后执行额外只读 Panel API 路径；多个路径可用逗号、分号或换行分隔。
+
+`extended-smoke` 只读取 `PANEL_EXTENDED_SMOKE` 指定的 Panel API 路径，不会 enable/disable 节点，也不会直接调用节点 API。它用于把当前 Panel 版本已知稳定的只读检查加入 live harness 日志；不要把会修改 Panel 状态的接口放进去。
 
 `enable` 和 `disable` 是单独的调试入口。`enable` 会启用 Panel 节点并等待 Panel 报告已连接；`disable` 会禁用 Panel 节点。手动使用 `start` 后，应在结束前执行 `disable` 和 `stop`。
 
@@ -136,7 +146,7 @@ GitHub Actions 发布流程：
 
 - `CI`：push 和 pull request 跑测试与二进制构建。
 - `Docker`：push、pull request 和手动触发时只构建多架构镜像，不推送，不发布 `latest` 或版本 tag。
-- `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
+- `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run lint`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
 - `Scheduled assets update`：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
 - `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
 
@@ -163,6 +173,7 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 - HTTP 层使用 Gin，main route 和 internal route 注册集中在 `internal/httpapi/router.go`。
 - Panel-facing response 使用 `httpapi.WriteEnvelope`。
 - Internal API 可以直接返回 JSON 对象，不套 Panel envelope。
+- `/node/xray/start` 失败后会把 running 和 health cached 标记为 false，但保留上一份内存 config、hash 和版本用于 internal 诊断。
 - 新增公开请求或响应类型放在 `internal/contracts`。
 - 当前唯一 Xray runtime 是内嵌 `xray-core`；不要重新引入外部进程模式、Xray gRPC API、internal mTLS 或配置落盘主路径。
 - Xray 相关能力优先通过 `internal/xray` 抽象实现。

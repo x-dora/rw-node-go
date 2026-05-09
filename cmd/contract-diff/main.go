@@ -36,7 +36,7 @@ func run(args []string, stdout io.Writer) error {
 	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", "2.7.0"), "official remnawave/node tag to check")
 	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-2.7.0/upstream-contract.sha256.json", "baseline manifest path")
 	flags.StringVar(&repo, "repo", "remnawave/node", "GitHub repository in owner/name form")
-	flags.StringVar(&sourceDir, "source-dir", "", "local remnawave/node checkout to scan instead of downloading a GitHub tarball")
+	flags.StringVar(&sourceDir, "source-dir", getenvDefault("CONTRACT_SOURCE_DIR", ""), "local remnawave/node checkout to scan instead of downloading a GitHub tarball")
 	flags.BoolVar(&writeBaseline, "write-baseline", false, "write the scanned manifest to -baseline instead of comparing")
 	if err := flags.Parse(args); err != nil {
 		return err

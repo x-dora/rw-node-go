@@ -159,6 +159,45 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	}
 }
 
+func TestStartXrayFailureKeepsLastConfigForDiagnostics(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	versionValue := "25.1.1"
+	lastConfig := map[string]any{"inbounds": []any{map[string]any{"tag": "VLESS_INBOUND"}}}
+	lastHashes := state.Hashes{EmptyConfig: "old"}
+	runtimeState.SetXrayStarted(&versionValue, lastConfig, lastHashes)
+	controller := XrayController{
+		state:    runtimeState,
+		logger:   slog.Default(),
+		core:     &fakeCore{started: true, startErr: errors.New("boom")},
+		builder:  xray.ConfigBuilder{},
+		snapshot: fixedSystemSnapshotter(),
+	}
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/node/xray/start", strings.NewReader(`{
+		"internals":{"forceRestart":true,"hashes":{"emptyConfig":"new","inbounds":[]}},
+		"xrayConfig":{}
+	}`))
+
+	controller.Start(ctx)
+
+	snapshot := runtimeState.Snapshot()
+	if snapshot.XrayRunning || snapshot.XrayInternalStatusCached {
+		t.Fatalf("running=%v cached=%v, want both false", snapshot.XrayRunning, snapshot.XrayInternalStatusCached)
+	}
+	if snapshot.XrayVersion == nil || *snapshot.XrayVersion != versionValue {
+		t.Fatalf("XrayVersion = %v, want previous version", snapshot.XrayVersion)
+	}
+	if snapshot.LastHashes.EmptyConfig != lastHashes.EmptyConfig {
+		t.Fatalf("LastHashes = %#v, want previous hashes %#v", snapshot.LastHashes, lastHashes)
+	}
+	inbounds, ok := snapshot.CurrentConfig["inbounds"].([]any)
+	if !ok || len(inbounds) != 1 {
+		t.Fatalf("CurrentConfig = %#v, want previous config", snapshot.CurrentConfig)
+	}
+}
+
 func TestStopXrayClearsHealthcheckInternalStatus(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	runtimeState := state.NewRuntimeState()

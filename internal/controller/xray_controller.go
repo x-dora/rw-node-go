@@ -43,11 +43,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		err := ctrl.core.Health(ctx)
 		cancel()
-		if err != nil {
-			ctrl.logger.Warn("xray internal health check failed, restarting", "error", err)
-			ctrl.state.SetXrayInternalStatusCached(false)
-			shouldRestart = true
-		} else {
+		if err == nil {
 			ctrl.state.SetXrayInternalStatusCached(true)
 			snapshot := ctrl.state.Snapshot()
 			httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
@@ -59,10 +55,10 @@ func (ctrl XrayController) Start(c *gin.Context) {
 			})
 			return
 		}
-	}
-
-	if !shouldRestart {
-		return
+		if err != nil {
+			ctrl.logger.Warn("xray internal health check failed, restarting", "error", err)
+			ctrl.state.SetXrayInternalStatusCached(false)
+		}
 	}
 
 	fullConfig, err := ctrl.builder.Build(request.XrayConfig)

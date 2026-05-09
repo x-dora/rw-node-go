@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -72,18 +73,42 @@ func visionJWTExemptPaths() map[string]struct{} {
 }
 
 func (s *Server) ListenAndServe() error {
+	errCh := make(chan error, 2)
 	if s.internalServer != nil {
 		go func() {
-			_ = s.internalServer.ListenAndServe()
+			if err := s.internalServer.ListenAndServe(); err != nil {
+				if errors.Is(err, http.ErrServerClosed) {
+					errCh <- nil
+					return
+				}
+				errCh <- fmt.Errorf("internal server: %w", err)
+			}
+			errCh <- nil
 		}()
 	}
-	if s.useTLS {
-		if s.httpServer.TLSConfig == nil {
-			return fmt.Errorf("TLS enabled without TLS config")
+
+	go func() {
+		var err error
+		if s.useTLS {
+			if s.httpServer.TLSConfig == nil {
+				errCh <- fmt.Errorf("TLS enabled without TLS config")
+				return
+			}
+			err = s.httpServer.ListenAndServeTLS("", "")
+		} else {
+			err = s.httpServer.ListenAndServe()
 		}
-		return s.httpServer.ListenAndServeTLS("", "")
-	}
-	return s.httpServer.ListenAndServe()
+		if err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				errCh <- nil
+				return
+			}
+			errCh <- err
+		}
+		errCh <- nil
+	}()
+
+	return <-errCh
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

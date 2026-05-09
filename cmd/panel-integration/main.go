@@ -18,6 +18,7 @@ import (
 const (
 	scriptGateEnv        = "RW_PANEL_INTEGRATION_SCRIPT"
 	panelSmokePathEnv    = "PANEL_SMOKE_PATH"
+	extendedSmokeEnv     = "PANEL_EXTENDED_SMOKE"
 	defaultPanelSmokeAPI = "/api/system/metadata"
 )
 
@@ -62,6 +63,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	switch command {
 	case "smoke":
 		err = runSmoke(ctx, logger, client)
+	case "extended-smoke":
+		err = runExtendedSmoke(ctx, logger, client)
 	case "node":
 		err = runNode(ctx, logger, client)
 	case "enable":
@@ -87,10 +90,11 @@ Internal script-only Remnawave Panel live harness.
 Use bash scripts/panel-integration.sh <command> instead of running this command directly.
 
 Commands:
-  smoke    Run the live Panel smoke request.
-  node     Query Panel for the configured node status summary.
-  enable   Enable the configured Panel node and wait for isConnected=true.
-  disable  Disable the configured Panel node and wait for isDisabled=true.`)
+  smoke           Run the live Panel smoke request.
+  extended-smoke  Run optional read-only Panel smoke requests configured by environment.
+  node            Query Panel for the configured node status summary.
+  enable          Enable the configured Panel node and wait for isConnected=true.
+  disable         Disable the configured Panel node and wait for isDisabled=true.`)
 }
 
 func commandTimeout(command string, enableTimeout time.Duration, disableTimeout time.Duration) time.Duration {
@@ -99,6 +103,8 @@ func commandTimeout(command string, enableTimeout time.Duration, disableTimeout 
 		return enableTimeout + 30*time.Second
 	case "disable":
 		return disableTimeout + 30*time.Second
+	case "extended-smoke":
+		return 2 * time.Minute
 	default:
 		return 30 * time.Second
 	}
@@ -133,6 +139,36 @@ func runSmoke(ctx context.Context, logger *slog.Logger, client *testkit.PanelCli
 	return nil
 }
 
+func runExtendedSmoke(ctx context.Context, logger *slog.Logger, client *testkit.PanelClient) error {
+	rawPaths := strings.TrimSpace(os.Getenv(extendedSmokeEnv))
+	if rawPaths == "" {
+		logEvent(logger, "info", "panel_extended_smoke_skipped", extendedSmokeEnv+" is empty")
+		return nil
+	}
+
+	paths := splitSmokePaths(rawPaths)
+	if len(paths) == 0 {
+		logEvent(logger, "info", "panel_extended_smoke_skipped", extendedSmokeEnv+" has no usable paths")
+		return nil
+	}
+
+	for _, path := range paths {
+		resp, err := client.Get(ctx, path)
+		if err != nil {
+			logPanelResponse(logger, "panel_extended_smoke_response", resp)
+			return fmt.Errorf("panel extended smoke request %s failed: %w", path, err)
+		}
+		logger.Info("panel extended smoke",
+			"event", "panel_extended_smoke",
+			"path", path,
+			"status", resp.StatusCode,
+			"category", resp.ErrorCategory,
+			"duration_ms", resp.Duration.Milliseconds(),
+		)
+	}
+	return nil
+}
+
 func runNode(ctx context.Context, logger *slog.Logger, client *testkit.PanelClient) error {
 	nodeHint := strings.TrimSpace(os.Getenv(testkit.PanelNodeIDEnv))
 	if nodeHint == "" {
@@ -152,6 +188,21 @@ func runNode(ctx context.Context, logger *slog.Logger, client *testkit.PanelClie
 	)
 	logNodeSummary(logger, "panel_node", summary)
 	return nil
+}
+
+func splitSmokePaths(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '\n' || r == ';'
+	})
+	paths := make([]string, 0, len(fields))
+	for _, field := range fields {
+		path := strings.TrimSpace(field)
+		if path == "" {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	return paths
 }
 
 func runEnable(ctx context.Context, logger *slog.Logger, client *testkit.PanelClient, timeout time.Duration, pollInterval time.Duration) error {

@@ -27,6 +27,8 @@ Commands:
   stop        Stop the background rw-node-go started by this script.
   status      Show process and local endpoint status.
   smoke       Run only the live Panel smoke test.
+  extended-smoke
+              Run optional read-only Panel smoke requests from PANEL_EXTENDED_SMOKE.
   node        Query Panel for the current node status summary.
   enable      Enable Panel node and wait until Panel reports it connected.
   disable     Disable Panel node.
@@ -36,8 +38,9 @@ Configuration:
   PANEL_BASE_URL, PANEL_API_KEY, PANEL_NODE_ID, SECRET_KEY.
 
 Optional:
-  PANEL_SMOKE_PATH, PANEL_NODE_ID, NODE_PORT, INTERNAL_REST_PORT, XRAY_ASSET_DIR,
-  PANEL_INTEGRATION_LOG_DIR, PANEL_INTEGRATION_BIN_DIR.
+  PANEL_SMOKE_PATH, PANEL_EXTENDED_SMOKE, PANEL_NODE_ID, NODE_PORT,
+  INTERNAL_REST_PORT, XRAY_ASSET_DIR, PANEL_INTEGRATION_LOG_DIR,
+  PANEL_INTEGRATION_BIN_DIR.
 USAGE
 }
 
@@ -410,6 +413,13 @@ run_smoke() {
   run_panel_harness smoke
 }
 
+run_extended_smoke() {
+  init_runtime
+  require_env PANEL_BASE_URL PANEL_API_KEY
+  log_event "info" "panel_extended_smoke" "running optional live Panel extended smoke requests"
+  run_panel_harness extended-smoke
+}
+
 enable_panel_node() {
   init_runtime
   require_env PANEL_BASE_URL PANEL_API_KEY
@@ -467,6 +477,9 @@ run_all() {
   enable_panel_node
   PANEL_NODE_ENABLED_BY_RUN=1
   run_smoke
+  if [[ -n "${PANEL_EXTENDED_SMOKE:-}" ]]; then
+    run_extended_smoke
+  fi
   disable_panel_node
   PANEL_NODE_ENABLED_BY_RUN=0
 }
@@ -485,6 +498,7 @@ main() {
     stop) stop_node ;;
     status) status_node ;;
     smoke) run_smoke ;;
+    extended-smoke) run_extended_smoke ;;
     node) panel_node_status ;;
     enable) enable_panel_node standalone ;;
     disable) disable_panel_node ;;

@@ -72,6 +72,7 @@
 ## 常用命令
 
 - `mise run fmt`
+- `mise run lint`
 - `mise run test`
 - `mise run build`
 - `mise run preflight`

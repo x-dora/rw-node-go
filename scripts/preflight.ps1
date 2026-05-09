@@ -7,6 +7,7 @@ Push-Location $repoRoot
 try {
     mise run fmt
     mise run test
+    mise run lint
     mise run build
     mise run contract-diff
 

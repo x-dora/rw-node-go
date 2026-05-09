@@ -3,7 +3,6 @@ package controller
 import (
 	"log/slog"
 
-	"github.com/x-dora/rw-node-go/internal/config"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/system"
 	"github.com/x-dora/rw-node-go/internal/xray"
@@ -19,7 +18,7 @@ type Registry struct {
 	Snapshot system.Snapshotter
 }
 
-func NewRegistry(cfg config.Config, runtimeState *state.RuntimeState, logger *slog.Logger) Registry {
+func NewRegistry(runtimeState *state.RuntimeState, logger *slog.Logger) Registry {
 	core := xray.NewEmbeddedCore()
 	builder := xray.ConfigBuilder{StatsUserOnline: system.HasNetAdmin()}
 	return NewRegistryWithXrayAndSnapshotter(runtimeState, logger, core, builder, system.NewSnapshotter())

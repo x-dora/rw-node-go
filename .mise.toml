@@ -10,7 +10,7 @@ run = "go fmt ./..."
 
 [tasks.lint]
 description = "Run golangci-lint"
-run = "golangci-lint run"
+run = "go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run"
 
 [tasks.test]
 description = "Run Go tests"

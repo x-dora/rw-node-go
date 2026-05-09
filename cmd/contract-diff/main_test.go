@@ -69,6 +69,30 @@ func TestRunReportsLocalDrift(t *testing.T) {
 	}
 }
 
+func TestRunUsesContractSourceDirEnv(t *testing.T) {
+	root := t.TempDir()
+	writeFixtureContract(t, root, "libs/contract/api/routes.ts", "routes")
+	writeFixtureContract(t, root, "libs/contract/commands/handler/add-user.command.ts", "add")
+	writeFixtureContract(t, root, "libs/contract/constants/errors/errors.ts", "errors")
+	writeFixtureContract(t, root, "libs/contract/constants/xray/stats.ts", "stats")
+	writeFixtureContract(t, root, "libs/contract/models/xray-webhook.schema.ts", "webhook")
+
+	baseline := filepath.Join(t.TempDir(), "baseline.json")
+	if err := run([]string{"-source-dir", root, "-baseline", baseline, "-write-baseline"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("write baseline: %v", err)
+	}
+
+	t.Setenv("CONTRACT_SOURCE_DIR", root)
+	var output bytes.Buffer
+	err := run([]string{"-baseline", baseline}, &output)
+	if err != nil {
+		t.Fatalf("check baseline from env source dir: %v", err)
+	}
+	if !strings.Contains(output.String(), "contract unchanged") {
+		t.Fatalf("unexpected check output: %s", output.String())
+	}
+}
+
 func writeFixtureContract(t *testing.T, root string, rel string, data string) {
 	t.Helper()
 
