@@ -79,10 +79,11 @@ mise run build
 启动本地服务：
 
 ```sh
-NODE_PORT=2222 INTERNAL_REST_PORT=61001 mise exec -- go run ./cmd/rw-node-go
+cp .env.example .env
+mise exec -- go run ./cmd/rw-node-go
 ```
 
-开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
+主服务启动时会自动读取当前工作目录的 `.env`，真实系统环境变量优先级更高。开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
 
 发布前验证：
 
@@ -111,6 +112,8 @@ mise run docker-build
 </details>
 
 ## 运行配置
+
+裸进程启动时会先读取当前工作目录的 `.env`；`.env` 不存在时按环境变量和默认值启动。`.env.example` 只用于主服务本地配置，真实 Panel live harness 使用独立的 `.env.integration.local`。
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |

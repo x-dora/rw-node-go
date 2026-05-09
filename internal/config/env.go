@@ -3,11 +3,14 @@ package config
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -30,6 +33,10 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	if err := loadDotEnv(); err != nil {
+		return Config{}, err
+	}
+
 	cfg := Config{
 		NodePort:              envInt("NODE_PORT", DefaultNodePort),
 		InternalRESTPort:      envInt("INTERNAL_REST_PORT", DefaultInternalRESTPort),
@@ -49,6 +56,13 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func loadDotEnv() error {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("load .env: %w", err)
+	}
+	return nil
 }
 
 func (c Config) ListenAddress() string {
