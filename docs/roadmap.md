@@ -61,7 +61,7 @@
 ## M6: 发布与跟随上游
 
 - [x] CI test/build。
-- [x] Dockerfile 和 Docker multi-arch workflow；镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`。
+- [x] Dockerfile 和 Docker multi-arch workflow；runtime 镜像使用 `scratch`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`。
 - [x] 项目发布版本和 Panel 兼容版本已拆分：`VERSION` 当前从 `1.0.1` 开始，Panel-facing `nodeVersion` 继续默认上报 `2.7.0`。
 - [x] 本地 `mise run build`、CI、Docker 和 release 已统一到同一个构建入口读取 `VERSION` 并注入 `ProjectVersion`。
 - [x] Release workflow 已接入：普通 `main` push 更新滚动 `pre-release` 和 Linux `tar.gz` 资产；`VERSION` 变更后先推 GHCR 多架构镜像，成功后再创建正式 release 并上传 Linux `tar.gz` 资产，支持已有正式 release 的手动镜像补推恢复入口。
@@ -71,4 +71,3 @@
 - [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow 和本地 `mise run contract-diff`；尚未接入自动 release 监控。
 - [~] 真实 Panel + Xray 脚本验收：已建立可重复执行的 live harness 和结构化日志，当前覆盖 Panel 连通、节点 enable/disable、Panel 侧连接状态断言和最小 smoke；仍需补齐 handler、stats、Vision 和失败路径覆盖。
 - [x] 镜像发布前的基础兼容性验收清单已固化为 `mise run preflight` 和 Preflight workflow；更完整真实 Panel 场景仍需继续扩展。
-

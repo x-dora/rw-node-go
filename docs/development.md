@@ -130,12 +130,12 @@ bash scripts/panel-integration.sh stop
 - `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
 - `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.7.0`，只代表兼容官方 `remnawave/node` 2.7.x contract。除非明确跟随上游 contract 升级，否则不要改它。
 
-`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 `.mise.toml` 的 Go 版本对齐；release 流程仍按 `go.mod` 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
+`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 `.mise.toml` 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、非 root 用户信息和 Xray geodata。release 流程仍按 `go.mod` 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 
 GitHub Actions 发布流程：
 
 - `CI`：push 和 pull request 跑测试与二进制构建。
-- `Docker`：push、pull request 和手动触发时只构建多架构镜像，不推送。
+- `Docker`：push、pull request 和手动触发时只构建多架构镜像，不推送，不发布 `latest` 或版本 tag。
 - `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
 - `Scheduled assets update`：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
 - `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。

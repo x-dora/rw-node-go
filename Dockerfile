@@ -24,24 +24,27 @@ ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosi
 
 FROM --platform=$BUILDPLATFORM alpine:3.23 AS runtime-files
 
-RUN addgroup -S -g 10001 rw-node \
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S -g 10001 rw-node \
     && adduser -S -D -H -u 10001 -G rw-node rw-node \
-    && mkdir -p /opt/rw-node-go/xray /usr/local/share/xray \
+    && mkdir -p /opt/rw-node-go/xray /usr/local/share/xray /tmp \
+    && chmod 1777 /tmp \
     && chown -R 10001:10001 /opt/rw-node-go /usr/local/share/xray
 
-FROM alpine:3.23
+FROM scratch
 
 COPY --from=runtime-files /etc/passwd /etc/passwd
 COPY --from=runtime-files /etc/group /etc/group
+COPY --from=runtime-files /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=runtime-files /tmp /tmp
 COPY --from=runtime-files --chown=10001:10001 /opt/rw-node-go /opt/rw-node-go
 COPY --from=runtime-files --chown=10001:10001 /usr/local/share/xray /usr/local/share/xray
 COPY --from=build --chown=10001:10001 --chmod=644 /tmp/geodat/*.dat /usr/local/share/xray/
 COPY --from=build --chmod=755 /out/rw-node-go /usr/local/bin/rw-node-go
-COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/rw-node-go-entrypoint
 
 ENV REQUIRE_SECRET_KEY=true
 ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
 USER 10001:10001
 EXPOSE 2222
-ENTRYPOINT ["/usr/local/bin/rw-node-go-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/rw-node-go"]
