@@ -3,8 +3,10 @@ package xray
 import (
 	"context"
 	"testing"
+	"time"
 
 	appstats "github.com/xtls/xray-core/app/stats"
+	xcore "github.com/xtls/xray-core/core"
 )
 
 func TestParseTrafficStatName(t *testing.T) {
@@ -81,6 +83,84 @@ func TestEmbeddedStatsOnlineMap(t *testing.T) {
 	}
 	if len(users[0].IPs) != 2 || users[0].IPs[0].IP != "203.0.113.10" || users[0].IPs[1].IP != "203.0.113.20" {
 		t.Fatalf("onlineUsersIPList() IPs = %#v", users[0].IPs)
+	}
+}
+
+func TestEmbeddedCoreUptime(t *testing.T) {
+	core := &EmbeddedCore{
+		instance:  &xcore.Instance{},
+		startedAt: time.Now().Add(-3 * time.Second),
+	}
+	stats, err := (&embeddedStatsClient{core: core}).SysStats(context.Background())
+	if err != nil {
+		t.Fatalf("SysStats() error = %v", err)
+	}
+	if stats.Uptime < 3 {
+		t.Fatalf("SysStats().Uptime = %d, want at least 3", stats.Uptime)
+	}
+}
+
+func TestEmbeddedCoreUptimeStopsWhenCoreIsStopped(t *testing.T) {
+	core := &EmbeddedCore{
+		instance:  &xcore.Instance{},
+		startedAt: time.Now().Add(-3 * time.Second),
+	}
+	if uptime := core.uptime(time.Now()); uptime == 0 {
+		t.Fatalf("uptime before stop = 0, want non-zero")
+	}
+
+	if err := core.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if uptime := core.uptime(time.Now().Add(3 * time.Second)); uptime != 0 {
+		t.Fatalf("uptime after stop = %d, want 0", uptime)
+	}
+	if !core.startedAt.IsZero() {
+		t.Fatalf("startedAt after stop = %v, want zero", core.startedAt)
+	}
+}
+
+func TestEmbeddedCoreUptimeUsesLatestStartTime(t *testing.T) {
+	core := &EmbeddedCore{
+		instance:  &xcore.Instance{},
+		startedAt: time.Now().Add(-30 * time.Second),
+	}
+	core.mu.Lock()
+	core.instance = &xcore.Instance{}
+	core.startedAt = time.Now().Add(-2 * time.Second)
+	core.mu.Unlock()
+
+	uptime := core.uptime(time.Now())
+	if uptime < 2 || uptime >= 30 {
+		t.Fatalf("uptime = %d, want latest start time", uptime)
+	}
+}
+
+func TestEmbeddedCoreUptimeFallsBackToZero(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name string
+		core *EmbeddedCore
+	}{
+		{
+			name: "not running",
+			core: &EmbeddedCore{startedAt: now.Add(-3 * time.Second)},
+		},
+		{
+			name: "missing start time",
+			core: &EmbeddedCore{instance: &xcore.Instance{}},
+		},
+		{
+			name: "future start time",
+			core: &EmbeddedCore{instance: &xcore.Instance{}, startedAt: now.Add(time.Second)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if uptime := tt.core.uptime(now); uptime != 0 {
+				t.Fatalf("uptime = %d, want 0", uptime)
+			}
+		})
 	}
 }
 

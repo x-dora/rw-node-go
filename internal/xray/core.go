@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	appstats "github.com/xtls/xray-core/app/stats"
 	xcore "github.com/xtls/xray-core/core"
@@ -29,9 +30,10 @@ type Core interface {
 }
 
 type EmbeddedCore struct {
-	mu       sync.RWMutex
-	instance *xcore.Instance
-	version  string
+	mu        sync.RWMutex
+	instance  *xcore.Instance
+	version   string
+	startedAt time.Time
 }
 
 func NewEmbeddedCore() *EmbeddedCore {
@@ -55,6 +57,7 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 	c.mu.Lock()
 	old := c.instance
 	c.instance = nil
+	c.startedAt = time.Time{}
 	c.mu.Unlock()
 	if old != nil {
 		old.Close()
@@ -68,6 +71,7 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 	c.mu.Lock()
 	c.instance = instance
 	c.version = xcore.Version()
+	c.startedAt = time.Now()
 	c.mu.Unlock()
 	return nil
 }
@@ -76,6 +80,7 @@ func (c *EmbeddedCore) Stop(ctx context.Context) error {
 	c.mu.Lock()
 	instance := c.instance
 	c.instance = nil
+	c.startedAt = time.Time{}
 	c.mu.Unlock()
 	if instance == nil {
 		return nil
@@ -96,6 +101,19 @@ func (c *EmbeddedCore) Instance() *xcore.Instance {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.instance
+}
+
+func (c *EmbeddedCore) uptime(now time.Time) uint32 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.instance == nil || c.startedAt.IsZero() || now.Before(c.startedAt) {
+		return 0
+	}
+	uptime := now.Sub(c.startedAt).Seconds()
+	if uptime > float64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(uptime)
 }
 
 func (c *EmbeddedCore) Health(ctx context.Context) error {
@@ -265,6 +283,7 @@ func (c *embeddedStatsClient) SysStats(ctx context.Context) (SysStats, error) {
 		Frees:        stats.Frees,
 		LiveObjects:  stats.Mallocs - stats.Frees,
 		PauseTotalNs: stats.PauseTotalNs,
+		Uptime:       c.core.uptime(time.Now()),
 	}, nil
 }
 
