@@ -84,7 +84,7 @@ cp .env.example .env
 mise exec -- go run ./cmd/rw-node-go
 ```
 
-主服务启动时会自动读取当前工作目录的 `.env`，真实系统环境变量优先级更高。开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
+主服务启动时会自动读取当前工作目录的 `.env`，真实系统环境变量优先级更高。启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态和内嵌 Xray 运行模式。开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
 
 发布前验证：
 
@@ -129,6 +129,8 @@ mise run docker-build
 | `XRAY_LOCATION_ASSET` | 空 | Xray geodata 目录；Docker 镜像固定设置为 `/usr/local/share/xray`。 |
 
 `INTERNAL_REST_PORT` 只允许本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
+
+日志只展示启动摘要和 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
 
 ## 运行结构
 

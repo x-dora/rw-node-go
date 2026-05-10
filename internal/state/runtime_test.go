@@ -48,3 +48,46 @@ func TestRuntimeStateTracksInboundProtocolsFromConfig(t *testing.T) {
 		t.Fatalf("TROJAN protocol = %q, want trojan", got)
 	}
 }
+
+func TestRestartDecisionReasons(t *testing.T) {
+	runtimeState := NewRuntimeState()
+	if decision := runtimeState.RestartDecision(true, Hashes{}, true); !decision.ShouldRestart || decision.Reason != RestartReasonForce {
+		t.Fatalf("force decision = %#v", decision)
+	}
+	if decision := runtimeState.RestartDecision(false, Hashes{}, false); !decision.ShouldRestart || decision.Reason != RestartReasonCoreNotRunning {
+		t.Fatalf("core not running decision = %#v", decision)
+	}
+
+	runtimeState.SetXrayStarted(nil, map[string]any{}, Hashes{
+		EmptyConfig: "old",
+		Inbounds: []InboundHash{{
+			Tag:        "VLESS_INBOUND",
+			UsersCount: 1,
+			Hash:       "h1",
+		}},
+	})
+
+	if decision := runtimeState.RestartDecision(false, Hashes{EmptyConfig: "new"}, true); !decision.ShouldRestart || decision.Reason != RestartReasonEmptyConfigHashChange {
+		t.Fatalf("empty hash change decision = %#v", decision)
+	}
+	if decision := runtimeState.RestartDecision(false, Hashes{
+		EmptyConfig: "old",
+		Inbounds: []InboundHash{{
+			Tag:        "VLESS_INBOUND",
+			UsersCount: 2,
+			Hash:       "h2",
+		}},
+	}, true); !decision.ShouldRestart || decision.Reason != RestartReasonInboundHashChange || decision.InboundTag != "VLESS_INBOUND" {
+		t.Fatalf("inbound hash change decision = %#v", decision)
+	}
+	if decision := runtimeState.RestartDecision(false, Hashes{
+		EmptyConfig: "old",
+		Inbounds: []InboundHash{{
+			Tag:        "VLESS_INBOUND",
+			UsersCount: 1,
+			Hash:       "h1",
+		}},
+	}, true); decision.ShouldRestart || decision.Reason != RestartReasonNoRestart {
+		t.Fatalf("no restart decision = %#v", decision)
+	}
+}

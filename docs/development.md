@@ -35,6 +35,8 @@ mise exec -- go run ./cmd/rw-node-go
 
 设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT RS256 校验；官方 `/vision/*` route 只豁免 Bearer JWT，仍保留 mTLS。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
+启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。
+
 发布前本地验证：
 
 ```sh
@@ -168,7 +170,19 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 
 真实 Panel harness 会修改测试节点状态，必须使用完整测试节点 UUID，并确认结束时 disable 节点。
 
-## 5. 实现规则
+## 5. 日志与排障
+
+`/node/xray/start` 收到 Panel 下发配置后会输出多段脱敏摘要：
+
+- `Xray start request`：Master IP、force restart、当前 core 是否运行、incoming inbound 数量、用户数量和缩短后的 empty config hash。
+- `Xray start inbound hashes`：每个 inbound 的 tag、usersCount 和缩短 hash。
+- restart 判断日志：force restart、core 未运行、base config hash 变化、inbound 数量变化、inbound 缺失、inbound 用户 hash 变化、hash 未变化且无需重启。
+- `Xray config received`：构建后的配置结构摘要，只包含 inbound/outbound/routing rule 数量、stats/policy 是否存在、Vision `BLOCK` outbound 是否存在。
+- `Xray started` 或 `Xray failed to start`：版本、Master IP、启动/重启动作、internal status、inbound/user 数量、耗时和错误摘要。
+
+`/node/xray/stop` 会记录 `Remnawave requested to stop Xray` 和 `Xray stopped`，包括停止前 running 状态、版本和耗时。日志不会打印完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。启动失败后仍保留上一份内存 config/hash/version 作为 internal 诊断快照，同时把 running 和 cached health 标记为 false。
+
+## 6. 实现规则
 
 - HTTP 层使用 Gin，main route 和 internal route 注册集中在 `internal/httpapi/router.go`。
 - Panel-facing response 使用 `httpapi.WriteEnvelope`。

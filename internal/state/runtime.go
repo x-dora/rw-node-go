@@ -23,6 +23,27 @@ type RuntimeState struct {
 	Plugins                  PluginState
 }
 
+type RestartReason string
+
+const (
+	RestartReasonForce                 RestartReason = "force_restart"
+	RestartReasonCoreNotRunning        RestartReason = "core_not_running"
+	RestartReasonNoPreviousHashes      RestartReason = "no_previous_hashes"
+	RestartReasonEmptyConfigHashChange RestartReason = "empty_config_hash_changed"
+	RestartReasonInboundCountChange    RestartReason = "inbound_count_changed"
+	RestartReasonInboundRemoved        RestartReason = "inbound_removed"
+	RestartReasonInboundHashChange     RestartReason = "inbound_hash_changed"
+	RestartReasonNoRestart             RestartReason = "up_to_date"
+)
+
+type RestartDecision struct {
+	ShouldRestart bool
+	Reason        RestartReason
+	InboundTag    string
+	PreviousHash  string
+	IncomingHash  string
+}
+
 func NewRuntimeState() *RuntimeState {
 	return &RuntimeState{
 		NodeVersion:      version.NodeVersion,
@@ -100,6 +121,60 @@ func (s *RuntimeState) ShouldRestart(force bool, hashes Hashes, coreRunning bool
 		return true
 	}
 	return !sameHashes(s.LastHashes, hashes)
+}
+
+func (s *RuntimeState) RestartDecision(force bool, hashes Hashes, coreRunning bool) RestartDecision {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if force || !coreRunning {
+		if force {
+			return RestartDecision{ShouldRestart: true, Reason: RestartReasonForce}
+		}
+		return RestartDecision{ShouldRestart: true, Reason: RestartReasonCoreNotRunning}
+	}
+	if !s.HasLastHashes {
+		return RestartDecision{ShouldRestart: true, Reason: RestartReasonNoPreviousHashes}
+	}
+	if sameHashes(s.LastHashes, hashes) {
+		return RestartDecision{Reason: RestartReasonNoRestart}
+	}
+	if s.LastHashes.EmptyConfig != hashes.EmptyConfig {
+		return RestartDecision{
+			ShouldRestart: true,
+			Reason:        RestartReasonEmptyConfigHashChange,
+			PreviousHash:  s.LastHashes.EmptyConfig,
+			IncomingHash:  hashes.EmptyConfig,
+		}
+	}
+	if len(s.LastHashes.Inbounds) != len(hashes.Inbounds) {
+		return RestartDecision{ShouldRestart: true, Reason: RestartReasonInboundCountChange}
+	}
+
+	incomingByTag := make(map[string]InboundHash, len(hashes.Inbounds))
+	for _, inbound := range hashes.Inbounds {
+		incomingByTag[inbound.Tag] = inbound
+	}
+	for _, previous := range s.LastHashes.Inbounds {
+		incoming, ok := incomingByTag[previous.Tag]
+		if !ok {
+			return RestartDecision{
+				ShouldRestart: true,
+				Reason:        RestartReasonInboundRemoved,
+				InboundTag:    previous.Tag,
+				PreviousHash:  previous.Hash,
+			}
+		}
+		if previous.Hash != incoming.Hash || previous.UsersCount != incoming.UsersCount {
+			return RestartDecision{
+				ShouldRestart: true,
+				Reason:        RestartReasonInboundHashChange,
+				InboundTag:    previous.Tag,
+				PreviousHash:  previous.Hash,
+				IncomingHash:  incoming.Hash,
+			}
+		}
+	}
+	return RestartDecision{ShouldRestart: true, Reason: RestartReasonInboundHashChange}
 }
 
 type Snapshot struct {

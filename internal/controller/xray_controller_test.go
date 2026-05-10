@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -57,11 +59,12 @@ func TestHealthcheckReturnsCachedStatusAndNodeVersion(t *testing.T) {
 
 func TestStartXrayStartsCore(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
 	runtimeState := state.NewRuntimeState()
 	core := &fakeCore{version: "25.1.1"}
 	controller := XrayController{
 		state:    runtimeState,
-		logger:   slog.Default(),
+		logger:   testLogger(&logBuffer),
 		core:     core,
 		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
@@ -108,14 +111,53 @@ func TestStartXrayStartsCore(t *testing.T) {
 	if !snapshot.XrayInternalStatusCached {
 		t.Fatalf("XrayInternalStatusCached = false, want true")
 	}
+	logs := logBuffer.String()
+	for _, want := range []string{"Xray start request", "Xray config received", "Xray started", "25.1.1"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+}
+
+func TestStartXrayLogsInboundSummary(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
+	runtimeState := state.NewRuntimeState()
+	core := &fakeCore{version: "25.1.1"}
+	controller := XrayController{
+		state:    runtimeState,
+		logger:   testLogger(&logBuffer),
+		core:     core,
+		builder:  xray.ConfigBuilder{},
+		snapshot: fixedSystemSnapshotter(),
+	}
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/node/xray/start", strings.NewReader(`{
+		"internals":{"forceRestart":false,"hashes":{"emptyConfig":"h1","inbounds":[{"tag":"VLESS_INBOUND","usersCount":2,"hash":"1234567890abcdef"}]}},
+		"xrayConfig":{"inbounds":[{"tag":"VLESS_INBOUND","protocol":"vless","settings":{"clients":[{"id":"client-secret"}]}}]}
+	}`))
+
+	controller.Start(ctx)
+
+	logs := logBuffer.String()
+	for _, want := range []string{"VLESS_INBOUND", "users=2", "1234567890ab"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+	if strings.Contains(logs, "client-secret") {
+		t.Fatalf("logs leaked xray client id:\n%s", logs)
+	}
 }
 
 func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
 	runtimeState := state.NewRuntimeState()
 	controller := XrayController{
 		state:    runtimeState,
-		logger:   slog.Default(),
+		logger:   testLogger(&logBuffer),
 		core:     &fakeCore{startErr: errors.New("boom")},
 		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
@@ -156,6 +198,58 @@ func TestStartXrayReturnsErrorWhenCoreFails(t *testing.T) {
 	}
 	if runtimeState.Snapshot().XrayInternalStatusCached {
 		t.Fatalf("XrayInternalStatusCached = true, want false after start failure")
+	}
+	logs := logBuffer.String()
+	for _, want := range []string{"Xray failed to start", "boom"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+}
+
+func TestStartXrayRedactsSensitiveCoreErrorFromLogs(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
+	runtimeState := state.NewRuntimeState()
+	sensitiveErr := errors.New(`parse xray config: clients[0].id="client-secret" password=trojan-password privateKey=super-private-key`)
+	controller := XrayController{
+		state:    runtimeState,
+		logger:   testLogger(&logBuffer),
+		core:     &fakeCore{startErr: sensitiveErr},
+		builder:  xray.ConfigBuilder{},
+		snapshot: fixedSystemSnapshotter(),
+	}
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/node/xray/start", strings.NewReader(`{
+		"internals":{"forceRestart":false,"hashes":{"emptyConfig":"h1","inbounds":[]}},
+		"xrayConfig":{}
+	}`))
+
+	controller.Start(ctx)
+
+	logs := logBuffer.String()
+	for _, leaked := range []string{"client-secret", "trojan-password", "super-private-key"} {
+		if strings.Contains(logs, leaked) {
+			t.Fatalf("logs leaked %q:\n%s", leaked, logs)
+		}
+	}
+	for _, want := range []string{"Xray failed to start", "[REDACTED]"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+
+	var body struct {
+		Response struct {
+			Error *string `json:"error"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.Response.Error == nil || !strings.Contains(*body.Response.Error, "client-secret") {
+		t.Fatalf("response error = %v, want existing raw contract error", body.Response.Error)
 	}
 }
 
@@ -200,13 +294,14 @@ func TestStartXrayFailureKeepsLastConfigForDiagnostics(t *testing.T) {
 
 func TestStopXrayClearsHealthcheckInternalStatus(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
 	runtimeState := state.NewRuntimeState()
 	versionValue := "25.1.1"
 	runtimeState.SetXrayStarted(&versionValue, map[string]any{}, state.Hashes{EmptyConfig: "h1"})
 	core := &fakeCore{started: true}
 	controller := XrayController{
 		state:    runtimeState,
-		logger:   slog.Default(),
+		logger:   testLogger(&logBuffer),
 		core:     core,
 		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
@@ -233,10 +328,17 @@ func TestStopXrayClearsHealthcheckInternalStatus(t *testing.T) {
 	if body.Response.XrayInternalStatusCached {
 		t.Fatalf("XrayInternalStatusCached = true, want false")
 	}
+	logs := logBuffer.String()
+	for _, want := range []string{"Remnawave requested to stop Xray", "Xray stopped"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
 }
 
 func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
 	runtimeState := state.NewRuntimeState()
 	hashes := state.Hashes{EmptyConfig: "h1"}
 	versionValue := "25.1.1"
@@ -244,7 +346,7 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 	core := &fakeCore{started: true, version: "25.1.1"}
 	controller := XrayController{
 		state:    runtimeState,
-		logger:   slog.Default(),
+		logger:   testLogger(&logBuffer),
 		core:     core,
 		builder:  xray.ConfigBuilder{},
 		snapshot: fixedSystemSnapshotter(),
@@ -279,6 +381,12 @@ func TestStartXraySkipsRestartWhenHashesUnchanged(t *testing.T) {
 	}
 	if body.Response.System.Stats.Interface == nil || body.Response.System.Stats.Interface.Interface != "eth0" {
 		t.Fatalf("system = %#v; body=%s", body.Response.System, rec.Body.String())
+	}
+	if core.startCalls != 0 {
+		t.Fatalf("startCalls = %d, want 0", core.startCalls)
+	}
+	if logs := logBuffer.String(); !strings.Contains(logs, "configuration is up-to-date - no restart required") {
+		t.Fatalf("logs missing no-restart message:\n%s", logs)
 	}
 }
 
@@ -319,6 +427,34 @@ func TestStartXrayRestartsWhenHashesUnchangedButHealthFails(t *testing.T) {
 	}
 	if !body.Response.IsStarted || body.Response.Error != nil {
 		t.Fatalf("response = %s", rec.Body.String())
+	}
+}
+
+func TestStartXrayLogsForceRestart(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	var logBuffer bytes.Buffer
+	runtimeState := state.NewRuntimeState()
+	versionValue := "25.1.1"
+	runtimeState.SetXrayStarted(&versionValue, map[string]any{}, state.Hashes{EmptyConfig: "old"})
+	core := &fakeCore{started: true, version: "25.1.1"}
+	controller := XrayController{
+		state:    runtimeState,
+		logger:   testLogger(&logBuffer),
+		core:     core,
+		builder:  xray.ConfigBuilder{},
+		snapshot: fixedSystemSnapshotter(),
+	}
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/node/xray/start", strings.NewReader(`{
+		"internals":{"forceRestart":true,"hashes":{"emptyConfig":"new","inbounds":[]}},
+		"xrayConfig":{}
+	}`))
+
+	controller.Start(ctx)
+
+	if logs := logBuffer.String(); !strings.Contains(logs, "Force restart requested") {
+		t.Fatalf("logs missing force restart message:\n%s", logs)
 	}
 }
 
@@ -376,4 +512,8 @@ func (f *fakeCore) Stats() xray.StatsClient {
 
 func (f *fakeCore) Routing() xray.RoutingClient {
 	return f.routing
+}
+
+func testLogger(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }

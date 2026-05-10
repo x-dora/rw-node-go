@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -14,6 +15,7 @@ import (
 )
 
 func TestServerReportsInternalListenFailure(t *testing.T) {
+	var logBuffer bytes.Buffer
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen occupied port: %v", err)
@@ -34,7 +36,7 @@ func TestServerReportsInternalListenFailure(t *testing.T) {
 		NodePort:              nodePort,
 		InternalRESTPort:      internalPort,
 		RequestBodyLimitBytes: 1 << 20,
-	}, testHandlers(), discardLogger())
+	}, testHandlers(), slog.New(slog.NewTextHandler(&logBuffer, nil)))
 	if err != nil {
 		t.Fatalf("NewServer() error = %v", err)
 	}
@@ -49,6 +51,9 @@ func TestServerReportsInternalListenFailure(t *testing.T) {
 	case err := <-errCh:
 		if err == nil || !strings.Contains(err.Error(), "internal server") {
 			t.Fatalf("ListenAndServe() error = %v, want internal server listen error", err)
+		}
+		if strings.Contains(logBuffer.String(), "internal API listening") {
+			t.Fatalf("logged internal API listening before bind succeeded:\n%s", logBuffer.String())
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("ListenAndServe() did not return internal server listen error")

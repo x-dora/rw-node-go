@@ -6,16 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/x-dora/rw-node-go/internal/config"
+	"github.com/x-dora/rw-node-go/internal/logview"
 )
 
 type Server struct {
 	httpServer     *http.Server
 	internalServer *http.Server
 	useTLS         bool
+	logger         *slog.Logger
 }
 
 func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Server, error) {
@@ -61,6 +64,7 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			IdleTimeout:       60 * time.Second,
 		},
 		useTLS: useTLS,
+		logger: logger,
 	}
 	return server, nil
 }
@@ -76,7 +80,13 @@ func (s *Server) ListenAndServe() error {
 	errCh := make(chan error, 2)
 	if s.internalServer != nil {
 		go func() {
-			if err := s.internalServer.ListenAndServe(); err != nil {
+			listener, err := net.Listen("tcp", s.internalServer.Addr)
+			if err != nil {
+				errCh <- fmt.Errorf("internal server: %w", err)
+				return
+			}
+			logview.InfoTable(s.logger, "internal API listening", logview.ListenSummary("Internal API listening", listener.Addr().String(), "http"))
+			if err := s.internalServer.Serve(listener); err != nil {
 				if errors.Is(err, http.ErrServerClosed) {
 					errCh <- nil
 					return
@@ -89,14 +99,22 @@ func (s *Server) ListenAndServe() error {
 
 	go func() {
 		var err error
+		listener, listenErr := net.Listen("tcp", s.httpServer.Addr)
+		if listenErr != nil {
+			errCh <- listenErr
+			return
+		}
 		if s.useTLS {
 			if s.httpServer.TLSConfig == nil {
+				_ = listener.Close()
 				errCh <- fmt.Errorf("TLS enabled without TLS config")
 				return
 			}
-			err = s.httpServer.ListenAndServeTLS("", "")
+			logview.InfoTable(s.logger, "main API listening", logview.ListenSummary("Main API listening", listener.Addr().String(), "https"))
+			err = s.httpServer.ServeTLS(listener, "", "")
 		} else {
-			err = s.httpServer.ListenAndServe()
+			logview.InfoTable(s.logger, "main API listening", logview.ListenSummary("Main API listening", listener.Addr().String(), "http"))
+			err = s.httpServer.Serve(listener)
 		}
 		if err != nil {
 			if errors.Is(err, http.ErrServerClosed) {

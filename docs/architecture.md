@@ -56,6 +56,8 @@ Internal Gin API
 
 用户动态管理、stats 和 Vision 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；读取失败或 feature 不可用时按 contract 稳定降级为 `false` 或空列表。
 
+Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 Panel live harness 和容器日志中判断运行状态。配置日志只包含 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash；不输出完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。
+
 ## Internal API 边界
 
 `INTERNAL_REST_PORT` 只监听 `127.0.0.1`，不属于 Panel-facing contract，也不走 Panel mTLS/JWT。
@@ -81,4 +83,3 @@ Panel-facing API 统一返回：
 ```
 
 Internal API 可以直接返回 JSON 对象，因为它不是 Panel contract 的一部分。
-

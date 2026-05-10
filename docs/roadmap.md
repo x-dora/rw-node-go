@@ -23,6 +23,7 @@
 - [x] Xray config 最小 stats/policy 注入。
 - [x] `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 已按官方缓存在线状态语义接入基础流程。
 - [x] 启动失败时保留上一份内存 config/hash/version 作为 internal 诊断快照，同时把 running 和 cached health 标记为 false。
+- [x] 启动、服务监听、Xray 配置下发、start/restart/stop 和失败路径已输出官方风格脱敏摘要日志。
 - [~] 真实 Panel + Xray config 脚本验收：live harness 已能启动本地节点、enable Panel 测试节点、等待 `isConnected=true`、结束前 disable 节点；仍需扩大到更多 config/profile/handler/stats 场景。
 
 ## M2: 用户动态管理
