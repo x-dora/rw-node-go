@@ -62,7 +62,7 @@
 ## M6: 发布与跟随上游
 
 - [x] CI test/lint/build。
-- [x] Dockerfile 和 Docker multi-arch workflow；runtime 镜像使用 `scratch`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`。
+- [x] Dockerfile 和 Docker multi-arch workflow；runtime 镜像使用 `scratch`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，`main` push 会推送滚动开发镜像 `ghcr.io/x-dora/rw-node-go:dev`。
 - [x] 项目发布版本和 Panel 兼容版本已拆分：`VERSION` 当前从 `1.0.1` 开始，Panel-facing `nodeVersion` 继续默认上报 `2.7.0`。
 - [x] 本地 `mise run build`、CI、Docker 和 release 已统一到同一个构建入口读取 `VERSION` 并注入 `ProjectVersion`。
 - [x] Release workflow 已接入：普通 `main` push 更新滚动 `pre-release` 和 Linux `tar.gz` 资产；`VERSION` 变更后先推 GHCR 多架构镜像，成功后再创建正式 release 并上传 Linux `tar.gz` 资产，支持已有正式 release 的手动镜像补推恢复入口。
