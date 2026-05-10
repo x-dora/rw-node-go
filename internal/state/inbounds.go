@@ -33,6 +33,35 @@ func (s *RuntimeState) AddKnownInboundTags(tags ...string) {
 	}
 }
 
+func (s *RuntimeState) SetInboundProtocol(tag string, protocol string) {
+	if tag == "" || protocol == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.KnownInboundTag[tag] = struct{}{}
+	s.InboundProtocols[tag] = protocol
+}
+
+func (s *RuntimeState) InboundProtocol(tag string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.InboundProtocols[tag]
+}
+
+func (s *RuntimeState) SetInboundProtocolsFromConfig(config map[string]any) {
+	protocols := inboundProtocolsFromConfig(config)
+	if len(protocols) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for tag, protocol := range protocols {
+		s.KnownInboundTag[tag] = struct{}{}
+		s.InboundProtocols[tag] = protocol
+	}
+}
+
 func (s *RuntimeState) AddUserToInbound(tag string, userHash string) {
 	if tag == "" || userHash == "" {
 		return
@@ -68,4 +97,25 @@ func (s *RuntimeState) InboundUserHashes(tag string) []string {
 	}
 	sort.Strings(hashes)
 	return hashes
+}
+
+func inboundProtocolsFromConfig(config map[string]any) map[string]string {
+	rawInbounds, ok := config["inbounds"].([]any)
+	if !ok {
+		return nil
+	}
+	protocols := map[string]string{}
+	for _, rawInbound := range rawInbounds {
+		inbound, ok := rawInbound.(map[string]any)
+		if !ok {
+			continue
+		}
+		tag, _ := inbound["tag"].(string)
+		protocol, _ := inbound["protocol"].(string)
+		if tag == "" || protocol == "" {
+			continue
+		}
+		protocols[tag] = protocol
+	}
+	return protocols
 }

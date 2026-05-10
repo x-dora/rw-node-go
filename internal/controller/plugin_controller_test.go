@@ -36,6 +36,23 @@ func TestPluginSyncInvalidJSONRejected(t *testing.T) {
 	assertAccepted(t, rec.Body.String(), false)
 }
 
+func TestPluginSyncNullPluginIsAcceptedAdapterOnly(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	core := &fakeCore{started: true}
+	ctrl := PluginController{state: runtimeState, logger: slog.Default(), core: core}
+
+	rec := runPluginRequest(t, ctrl.Sync, `{"plugin":null}`)
+
+	assertAccepted(t, rec.Body.String(), true)
+	if !core.started {
+		t.Fatalf("plugin null sync stopped xray")
+	}
+	if runtimeState.TorrentBlockerReportsCount() != 0 {
+		t.Fatalf("plugin null sync created runtime state")
+	}
+}
+
 func TestCollectTorrentBlockerReportsReturnsEmpty(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	ctrl := PluginController{state: state.NewRuntimeState(), logger: slog.Default()}

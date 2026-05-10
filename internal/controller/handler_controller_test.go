@@ -119,26 +119,34 @@ func TestHandlerRemoveUsersRemovesAllKnownInbounds(t *testing.T) {
 func TestHandlerQueriesReturnEnvelope(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	handler := &recordingHandlerClient{
-		users: []xray.InboundUser{{Username: "user-1", Email: "user-1", Level: 0}},
+		users: []xray.InboundUser{{Username: "user-1", Level: 0, Protocol: xray.ProtocolVLESS}},
 		count: 7,
 	}
 	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{started: true, handler: handler}}
 
 	usersRec := runHandlerRequest(t, ctrl.GetInboundUsers, `{"tag":"VLESS_INBOUND"}`)
+	var rawUsersBody map[string]any
+	if err := json.Unmarshal(usersRec.Body.Bytes(), &rawUsersBody); err != nil {
+		t.Fatalf("unmarshal raw users: %v; body=%s", err, usersRec.Body.String())
+	}
 	var usersBody struct {
 		Response struct {
 			Users []struct {
 				Username string `json:"username"`
-				Email    string `json:"email"`
 				Level    int    `json:"level"`
+				Protocol string `json:"protocol"`
 			} `json:"users"`
 		} `json:"response"`
 	}
 	if err := json.Unmarshal(usersRec.Body.Bytes(), &usersBody); err != nil {
 		t.Fatalf("unmarshal users: %v", err)
 	}
-	if len(usersBody.Response.Users) != 1 || usersBody.Response.Users[0].Username != "user-1" {
+	if len(usersBody.Response.Users) != 1 || usersBody.Response.Users[0].Username != "user-1" || usersBody.Response.Users[0].Protocol != "vless" {
 		t.Fatalf("users body = %s", usersRec.Body.String())
+	}
+	rawUser := rawUsersBody["response"].(map[string]any)["users"].([]any)[0].(map[string]any)
+	if _, ok := rawUser["email"]; ok {
+		t.Fatalf("users body contains official runtime-incompatible email field: %s", usersRec.Body.String())
 	}
 
 	countRec := runHandlerRequest(t, ctrl.GetInboundUsersCount, `{"tag":"VLESS_INBOUND"}`)
@@ -155,6 +163,31 @@ func TestHandlerQueriesReturnEnvelope(t *testing.T) {
 	}
 }
 
+func TestHandlerInboundUsersUseStateProtocolFallback(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	runtimeState.SetInboundProtocol("TROJAN_INBOUND", string(xray.ProtocolTrojan))
+	handler := &recordingHandlerClient{
+		users: []xray.InboundUser{{Username: "user-1", Level: 0}},
+	}
+	ctrl := HandlerController{state: runtimeState, logger: slog.Default(), core: &fakeCore{started: true, handler: handler}}
+
+	rec := runHandlerRequest(t, ctrl.GetInboundUsers, `{"tag":"TROJAN_INBOUND"}`)
+	var body struct {
+		Response struct {
+			Users []struct {
+				Protocol string `json:"protocol"`
+			} `json:"users"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal users: %v; body=%s", err, rec.Body.String())
+	}
+	if len(body.Response.Users) != 1 || body.Response.Users[0].Protocol != "trojan" {
+		t.Fatalf("users body = %s", rec.Body.String())
+	}
+}
+
 func TestHandlerFailureDoesNotReturnHTTP500(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}}
@@ -168,6 +201,21 @@ func TestHandlerFailureDoesNotReturnHTTP500(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	assertGenericSuccess(t, rec.Body.String(), false)
+}
+
+func TestHandlerQueryFailuresReturnOfficialErrorEnvelope(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	ctrl := HandlerController{
+		state:  state.NewRuntimeState(),
+		logger: slog.Default(),
+		core:   &fakeCore{started: true, handler: &recordingHandlerClient{err: fmt.Errorf("boom")}},
+	}
+
+	usersRec := runHandlerRequest(t, ctrl.GetInboundUsers, `{"tag":"VLESS_INBOUND"}`)
+	assertOfficialErrorEnvelope(t, usersRec, http.StatusInternalServerError, "A014", "Failed to get inbound users", "/node/handler/test")
+
+	countRec := runHandlerRequest(t, ctrl.GetInboundUsersCount, `{"tag":"VLESS_INBOUND"}`)
+	assertOfficialErrorEnvelope(t, countRec, http.StatusInternalServerError, "A014", "Failed to get inbound users", "/node/handler/test")
 }
 
 func TestHandlerDropIPsUsesConnectionDropper(t *testing.T) {
@@ -300,6 +348,25 @@ func assertSimpleSuccess(t *testing.T, body string, want bool) {
 	}
 	if decoded.Response.Success != want {
 		t.Fatalf("success = %v, want %v; body=%s", decoded.Response.Success, want, body)
+	}
+}
+
+func assertOfficialErrorEnvelope(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantCode string, wantMessage string, wantPath string) {
+	t.Helper()
+	if rec.Code != wantStatus {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, wantStatus, rec.Body.String())
+	}
+	var body struct {
+		Timestamp string `json:"timestamp"`
+		Path      string `json:"path"`
+		Message   string `json:"message"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal error envelope: %v; body=%s", err, rec.Body.String())
+	}
+	if body.Timestamp == "" || body.Path != wantPath || body.Message != wantMessage || body.ErrorCode != wantCode {
+		t.Fatalf("error body = %#v; raw=%s", body, rec.Body.String())
 	}
 }
 

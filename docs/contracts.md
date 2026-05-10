@@ -29,6 +29,7 @@ testdata/contracts/official-2.7.0/panel-api.json
 - 保持公开路由路径、HTTP method、JSON 字段名和 response envelope 稳定。
 - 已知官方 contract 中的 Panel-facing route 至少要注册，避免 Panel 调用时得到 404。
 - contract 类型无法解释的行为，要继续查看官方仓库中对应 controller/service 的实现。
+- 当官方 `libs/contract` schema 与 2.7.0 runtime model 不一致时，Panel-facing 响应优先跟随官方 runtime model；例如 `get-inbound-users` 返回用户的 `username`、`level`、`protocol`，不输出 schema 中 optional 的 `email`。
 - 未实现的能力必须返回明确的兼容占位数据，不能伪装成真实 Xray、stats、plugin、nftables 或 conntrack 行为。
 - 业务失败优先保持官方风格：Xray start/handler mutation 多数通过 `response.error`、`response.success` 或对应业务字段表达失败；官方 stats 查询失败使用 `{timestamp,path,message,errorCode}` 和对应 HTTP status。
 
@@ -43,9 +44,9 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `POST /node/xray/start` | partial | 已接入内嵌 `xray-core` instance 启动和 config stats/policy 注入；真实 Panel + Xray 验收仍未完成。 |
 | Xray | `GET /node/xray/stop` | partial | 已接入内嵌 instance 关闭。 |
 | Xray | `GET /node/xray/healthcheck` | partial | 当前按官方缓存在线状态和缓存版本返回。 |
-| Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入内嵌 Xray inbound feature 和内存 inbound/user hash 状态；真实 Panel + Xray 验收仍未完成。 |
+| Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入内嵌 Xray inbound feature 和内存 inbound/user hash/protocol 状态；`get-inbound-users` 按官方 runtime model 返回 `username`、`level`、`protocol`；真实 Panel + Xray 验收仍未完成。 |
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | partial | 已通过 conntrack best-effort 清理匹配 IP 的连接；无权限或无系统能力时返回成功 no-op，不操作 nftables。 |
-| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
+| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；`get-users-stats` 按官方行为过滤上下行均为 0 的用户；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
 | Vision | `/vision/block-ip`, `/vision/unblock-ip` | partial | 官方主 API unprefixed route；设置 `SECRET_KEY` 后保留 mTLS、豁免 JWT；已通过内嵌 routing feature 操作 source IP dynamic rule，真实验收仍未完成。 |
 | Plugin | `/node/plugin/sync`, `/node/plugin/torrent-blocker/collect`, `/node/plugin/nftables/*` | adapter stub | routes 保持 Panel-facing contract adapter；feature intentionally unsupported，不保存插件状态、不注入 Xray 配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。 |
 
@@ -64,8 +65,13 @@ testdata/contracts/official-2.7.0
 - HTTP method 和 path。
 - JSON 字段名和可选字段。
 - response envelope。
-- `null`、空数组、空对象行为。
-- 代表性错误或降级响应形状。
+- `null`、空数组、空对象行为，包括 `plugin.sync` 的 `plugin: null` adapter-only 响应。
+- 代表性错误或降级响应形状，包括 stats 和 handler 查询错误的官方 error envelope。
+- 非空响应字段回归，包括 `get-inbound-users` 的 `username`、`level`、`protocol` runtime 字段。
+
+Go 侧请求解析保持兼容解析，不复刻官方 zod 全量强校验；只保留当前业务安全需要的最小校验，例如 drop connections/drop IPs 的空数组返回 `success:false`。Plugin nftables route 仍是 adapter stub，不因 IP 格式执行真实校验或系统操作。
+
+已知 deliberate divergence：官方 2.7.0 `getAllOutboundsStats` 的 catch 分支实际复用了 inbounds 错误常量；Go 侧按 contract 语义返回 outbounds 错误码 `A016`。
 
 ## 官方 Contract Drift 检查
 

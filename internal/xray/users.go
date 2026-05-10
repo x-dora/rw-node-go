@@ -31,8 +31,8 @@ type UserSpec struct {
 
 type InboundUser struct {
 	Username string
-	Email    string
 	Level    int
+	Protocol UserProtocol
 }
 
 func BuildProtocolUser(spec UserSpec) (*protocol.User, error) {

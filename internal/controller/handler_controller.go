@@ -40,6 +40,7 @@ func (ctrl HandlerController) AddUser(c *gin.Context) {
 
 	for _, item := range request.Data {
 		ctrl.state.AddKnownInboundTag(item.Tag)
+		ctrl.state.SetInboundProtocol(item.Tag, item.Type)
 	}
 
 	client, err := ctrl.handlerClient()
@@ -109,6 +110,7 @@ func (ctrl HandlerController) AddUsers(c *gin.Context) {
 		}
 
 		for _, item := range user.InboundData {
+			ctrl.state.SetInboundProtocol(item.Tag, item.Type)
 			spec := bulkUserSpec(item, user.UserData)
 			err := client.AddUser(ctx, spec)
 			if err != nil {
@@ -201,7 +203,7 @@ func (ctrl HandlerController) GetInboundUsers(c *gin.Context) {
 		writeOfficialStatsError(c, "Failed to get inbound users", contracts.ErrFailedToGetInboundUsers)
 		return
 	}
-	httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersResponse{Users: contractInboundUsers(users)})
+	httpapi.WriteEnvelope(c, http.StatusOK, contracts.InboundUsersResponse{Users: ctrl.contractInboundUsers(request.Tag, users)})
 }
 
 func (ctrl HandlerController) GetInboundUsersCount(c *gin.Context) {
@@ -373,13 +375,13 @@ func bulkUserSpec(item contracts.BulkUserInboundData, user contracts.BulkUserDat
 	return spec
 }
 
-func contractInboundUsers(users []xray.InboundUser) []contracts.InboundUser {
+func (ctrl HandlerController) contractInboundUsers(tag string, users []xray.InboundUser) []contracts.InboundUser {
 	output := make([]contracts.InboundUser, 0, len(users))
 	for _, user := range users {
 		output = append(output, contracts.InboundUser{
 			Username: user.Username,
-			Email:    user.Email,
 			Level:    user.Level,
+			Protocol: firstNonEmptyString(string(user.Protocol), ctrl.state.InboundProtocol(tag)),
 		})
 	}
 	return output
@@ -393,4 +395,13 @@ func errIf(condition bool, err error) error {
 		return errors.New("xray handler operation failed")
 	}
 	return nil
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }

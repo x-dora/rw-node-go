@@ -21,6 +21,7 @@ func TestStatsControllerReturnsRealStatsEnvelope(t *testing.T) {
 	stats := &recordingStatsClient{
 		sys: xray.SysStats{NumGoroutine: 2, TotalAlloc: 3, PauseTotalNs: 4},
 		users: []xray.UserTrafficStats{
+			{Username: "zero-traffic", Uplink: 0, Downlink: 0},
 			{Username: "user-1", Uplink: 10, Downlink: 20},
 		},
 		userOnline: true,
@@ -202,6 +203,9 @@ func TestStatsControllerDegradesOnBindAndClientErrors(t *testing.T) {
 
 	allRec := runStatsRequestStatus(t, ctrl.GetAllInboundsStats, http.MethodPost, `{"reset":true}`, http.StatusInternalServerError)
 	assertOfficialError(t, allRec, "A015", "Failed to get inbounds stats")
+
+	allOutRec := runStatsRequestStatus(t, ctrl.GetAllOutboundsStats, http.MethodPost, `{"reset":true}`, http.StatusInternalServerError)
+	assertOfficialError(t, allOutRec, "A016", "Failed to get outbounds stats")
 }
 
 func TestStatsControllerOnlineAndIPDegradeWhenUnavailable(t *testing.T) {

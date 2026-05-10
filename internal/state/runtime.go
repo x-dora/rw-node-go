@@ -19,16 +19,18 @@ type RuntimeState struct {
 	HasLastHashes            bool
 	InboundUsers             map[string]map[string]struct{}
 	KnownInboundTag          map[string]struct{}
+	InboundProtocols         map[string]string
 	Plugins                  PluginState
 }
 
 func NewRuntimeState() *RuntimeState {
 	return &RuntimeState{
-		NodeVersion:     version.NodeVersion,
-		CurrentConfig:   map[string]any{},
-		InboundUsers:    map[string]map[string]struct{}{},
-		KnownInboundTag: map[string]struct{}{},
-		Plugins:         PluginState{},
+		NodeVersion:      version.NodeVersion,
+		CurrentConfig:    map[string]any{},
+		InboundUsers:     map[string]map[string]struct{}{},
+		KnownInboundTag:  map[string]struct{}{},
+		InboundProtocols: map[string]string{},
+		Plugins:          PluginState{},
 	}
 }
 
@@ -57,6 +59,7 @@ func (s *RuntimeState) SetXrayStarted(version *string, currentConfig map[string]
 	s.LastHashes = hashes
 	s.HasLastHashes = true
 	s.KnownInboundTag = map[string]struct{}{}
+	s.InboundProtocols = map[string]string{}
 	for _, inbound := range hashes.Inbounds {
 		if inbound.Tag != "" {
 			s.KnownInboundTag[inbound.Tag] = struct{}{}

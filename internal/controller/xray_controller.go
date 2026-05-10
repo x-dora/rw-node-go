@@ -88,6 +88,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 	}
 
 	ctrl.state.SetXrayStarted(versionPtr, fullConfig, hashes)
+	ctrl.state.SetInboundProtocolsFromConfig(fullConfig)
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
 		IsStarted:       true,
 		Version:         versionPtr,

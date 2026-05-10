@@ -87,6 +87,6 @@ type InboundUsersCountResponse struct {
 
 type InboundUser struct {
 	Username string `json:"username"`
-	Email    string `json:"email"`
 	Level    int    `json:"level"`
+	Protocol string `json:"protocol"`
 }

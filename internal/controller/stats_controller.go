@@ -327,6 +327,9 @@ func contractXraySysStats(stats xray.SysStats) *contracts.XraySysStats {
 func contractUserTrafficStats(users []xray.UserTrafficStats) []contracts.UserTrafficStats {
 	output := make([]contracts.UserTrafficStats, 0, len(users))
 	for _, user := range users {
+		if user.Uplink == 0 && user.Downlink == 0 {
+			continue
+		}
 		output = append(output, contracts.UserTrafficStats{
 			Username: user.Username,
 			Downlink: user.Downlink,

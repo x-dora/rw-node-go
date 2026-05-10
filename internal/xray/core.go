@@ -248,7 +248,6 @@ func (c *embeddedHandlerClient) GetInboundUsers(ctx context.Context, tag string)
 		}
 		output = append(output, InboundUser{
 			Username: user.Email,
-			Email:    user.Email,
 			Level:    int(user.Level),
 		})
 	}
