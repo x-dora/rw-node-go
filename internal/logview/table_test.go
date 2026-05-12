@@ -14,6 +14,9 @@ func TestTableRendersTitleAndRows(t *testing.T) {
 		Field("Internal Status", true),
 	)
 
+	if !strings.HasPrefix(output, "\n") {
+		t.Fatalf("Table() should start with a newline:\n%s", output)
+	}
 	for _, want := range []string{"Xray started", "Version", "25.1.1", "Internal Status", "true"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("Table() missing %q:\n%s", want, output)
@@ -90,19 +93,41 @@ func TestRedactTextMasksSensitiveFragments(t *testing.T) {
 	}
 }
 
-func TestInfoTableLogsTableAsSeparateLines(t *testing.T) {
+func TestInfoTableLogsTableAsLeadingNewlineBlock(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := slog.New(NewTextHandler(&buffer, nil))
+
+	InfoTable(logger, "summary", Table("demo", Field("Value", "ok")))
+
+	logs := buffer.String()
+	for _, want := range []string{"msg=summary", "\n+---------------+", "|     demo      |", "| Value | ok    |"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+	for _, oldLineLog := range []string{"msg=+---------------+", "msg=\"|     demo      |\"", "msg=\"| Value | ok    |\""} {
+		if strings.Contains(logs, oldLineLog) {
+			t.Fatalf("table should not be logged as separate slog lines %q:\n%s", oldLineLog, logs)
+		}
+	}
+	if strings.Contains(logs, `summary="`) {
+		t.Fatalf("table should not be logged as a summary attribute:\n%s", logs)
+	}
+}
+
+func TestInfoTableWithStandardTextHandlerEscapesTableRecord(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buffer, nil))
 
 	InfoTable(logger, "summary", Table("demo", Field("Value", "ok")))
 
 	logs := buffer.String()
-	for _, want := range []string{"msg=summary", "msg=+---------------+", "msg=\"|     demo      |\"", "msg=\"| Value | ok    |\""} {
+	for _, want := range []string{"msg=summary", `msg="\n+---------------+`, tableRecordAttr + "=true"} {
 		if !strings.Contains(logs, want) {
-			t.Fatalf("logs missing %q:\n%s", want, logs)
+			t.Fatalf("standard handler logs missing %q:\n%s", want, logs)
 		}
 	}
-	if strings.Contains(logs, `summary="`) {
-		t.Fatalf("table should not be logged as a summary attribute:\n%s", logs)
+	if strings.Contains(logs, "\n+---------------+") {
+		t.Fatalf("standard handler should escape table newlines instead of rendering raw blocks:\n%s", logs)
 	}
 }

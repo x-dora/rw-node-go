@@ -116,12 +116,10 @@ func LogTable(logger *slog.Logger, level slog.Level, message string, table strin
 		return
 	}
 	logger.Log(context.Background(), level, message, args...)
-	for _, line := range strings.Split(strings.Trim(table, "\n"), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		logger.Log(context.Background(), level, line)
+	if strings.TrimSpace(table) == "" {
+		return
 	}
+	logger.Log(context.Background(), level, ensureLeadingNewline(table), slog.Bool(tableRecordAttr, true))
 }
 
 type InboundRow struct {
@@ -225,6 +223,13 @@ func padRight(value string, width int) string {
 		return value
 	}
 	return value + strings.Repeat(" ", width-len(value))
+}
+
+func ensureLeadingNewline(value string) string {
+	if strings.HasPrefix(value, "\n") {
+		return value
+	}
+	return "\n" + value
 }
 
 var (
