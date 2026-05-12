@@ -52,6 +52,7 @@
 - `docs/roadmap.md` 写需要实现的能力和详细完成情况；README 和 AGENTS 不维护完整进度矩阵。
 - 新增功能、改变运行方式、改变公开 API/contract、改变测试/联调流程或改变配置项时，必须同步更新对应文档；至少检查 `README.md`、`docs/development.md`、`docs/contracts.md`、`docs/roadmap.md`、`.env*.example` 和本文件是否需要调整。
 - 文档更新要和实际行为一致：如果代码会 enable/disable 真实 Panel 节点、修改运行端口、读取 `geoip.dat`/`geosite.dat`、改变日志或清理策略，文档必须明确风险、前置条件、命令和清理行为。
+- 文档更新时优先对照当前代码、`VERSION`、`.mise.toml`、`.env*.example`、`scripts/` 和 `.github/workflows/` 的实际行为，避免写入会随版本或 workflow 漂移的硬编码状态。
 - 修改 GitHub Actions、release 流程、镜像发布或恢复入口时，必须同步验证 release 顺序、GHCR 权限说明和相关文档，不能只改 workflow 不改说明。
 - 不在 README 或 AGENTS 里写临时准备步骤、参考仓库拉取命令或忽略规则。
 

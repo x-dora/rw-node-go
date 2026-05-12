@@ -10,7 +10,7 @@
 - [x] 注册官方 2.7.x 计划内 Panel-facing routes。
 - [x] 建立 `internal/contracts` 请求和响应类型。
 - [x] 统一 response envelope。
-- [~] 官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试已建立，已覆盖 plugin null、非空 inbound users 字段和代表性错误 envelope；官方 release contract diff 自动提醒仍未完成。
+- [~] 官方 2.7.0 Panel-facing route manifest、代表性 JSON golden fixture 和 Go contract 形状测试已建立，已覆盖 plugin null、非空 inbound users 字段和代表性错误 envelope；手动 contract drift 检查已接入，自动 release 监控仍未完成。
 
 ## M1: 节点握手与内嵌 Xray 生命周期
 
@@ -64,12 +64,12 @@
 
 - [x] CI test/lint/build。
 - [x] Dockerfile 和 Docker multi-arch workflow；runtime 镜像使用 `scratch`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，`main` push 会推送滚动开发镜像 `ghcr.io/x-dora/rw-node-go:dev`。
-- [x] 项目发布版本和 Panel 兼容版本已拆分：`VERSION` 当前从 `1.0.1` 开始，Panel-facing `nodeVersion` 继续默认上报 `2.7.0`。
+- [x] 项目发布版本和 Panel 兼容版本已拆分：项目版本由根目录 `VERSION` 管理，Panel-facing `nodeVersion` 继续默认上报 `2.7.0`。
 - [x] 本地 `mise run build`、CI、Docker 和 release 已统一到同一个构建入口读取 `VERSION` 并注入 `ProjectVersion`。
 - [x] Release workflow 已接入：普通 `main` push 更新滚动 `pre-release` 和 Linux `tar.gz` 资产；`VERSION` 变更后先推 GHCR 多架构镜像，成功后再创建正式 release 并上传 Linux `tar.gz` 资产，支持已有正式 release 的手动镜像补推恢复入口。
 - [x] Xray geodata 已按 Xray-core 的 `Loyalsoldier/v2ray-rules-dat` release 资产流程接入定时下载、sha256 校验和 Actions cache。
 - [x] 发布前门禁已接入：Preflight workflow 覆盖格式检查、测试、lint、构建和 contract diff，并支持受控运行真实 Panel live harness。
 - [~] contract golden 回归矩阵已有官方 2.7.0 route/request/response fixture、非空 inbound users 字段、plugin null 和代表性错误 envelope；已补官方 contract hash baseline，仍需继续扩展更多 fixture 变体。
-- [~] 官方 `remnawave/node` release contract diff 提醒已支持手动 workflow、本地 `mise run contract-diff` 和 `CONTRACT_SOURCE_DIR` 本地源码 fallback；尚未接入自动 release 监控。
+- [~] 官方 `remnawave/node` contract drift 检查已支持手动 workflow、本地 `mise run contract-diff`、`CONTRACT_TAG` 和 `CONTRACT_SOURCE_DIR` 本地源码 fallback；尚未接入自动 release 监控。
 - [~] 真实 Panel + Xray 脚本验收：已建立可重复执行的 live harness 和结构化日志，当前覆盖 Panel 连通、节点 enable/disable、Panel 侧连接状态断言、最小 smoke 和可选只读 extended smoke；仍需补齐 handler、stats、Vision 和失败路径覆盖。
 - [x] 镜像发布前的基础兼容性验收清单已固化为 `mise run preflight` 和 Preflight workflow；更完整真实 Panel 场景仍需继续扩展。

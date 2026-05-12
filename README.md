@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/x-dora/rw-node-go?include_prereleases&label=release)](https://github.com/x-dora/rw-node-go/releases)
 [![License](https://img.shields.io/github/license/x-dora/rw-node-go)](LICENSE)
 
-`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前主线运行模式是内嵌 `xray-core`：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` 2.7.x 面向 Panel 的 API contract。当前唯一运行模式是内嵌 `xray-core`：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
 
 这不是外部 `xray` 进程包装器，也不把 Xray 配置作为主路径落盘。Plugin 相关路由只保留 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
 
@@ -24,9 +24,9 @@
 | 维度 | 当前状态 |
 | --- | --- |
 | 面向对象 | Remnawave Panel 和需要兼容官方 Node contract 的部署环境 |
-| 当前主线 | 内嵌 `xray-core`、Gin HTTP 层、Panel-facing contract、真实 Panel live harness |
+| 当前主线 | 内嵌 `xray-core`、Gin HTTP 层、Panel-facing contract、受控真实 Panel live harness |
 | 明确支持 | 主 API、internal API、Vision route、基础统计、用户管理、Xray 生命周期 |
-| 明确降级 | conntrack、系统能力、Xray feature 读取失败时会稳定退化 |
+| 明确降级 | Xray feature、conntrack 或系统能力不可用时稳定退化 |
 | 明确不做 | 外部 `xray` 进程、内部 gRPC inbound、internal mTLS、plugin 运行时状态、nftables 真实现 |
 
 详细进度矩阵见 [docs/roadmap.md](docs/roadmap.md)。
@@ -35,7 +35,7 @@
 
 | 面向 | 入口 | 说明 |
 | --- | --- | --- |
-| 主 API | `NODE_PORT` | 面向 Panel 的主服务，走 HTTPS、mTLS 和可选 JWT 校验。 |
+| 主 API | `NODE_PORT` | 面向 Panel 的主服务。设置 `SECRET_KEY` 后走 HTTPS、mTLS 和 JWT 校验；未设置时只用于本地 HTTP 开发。 |
 | Internal API | `INTERNAL_REST_PORT` | 仅本机可见的 internal REST API。 |
 | Vision | `/vision/block-ip`、`/vision/unblock-ip` | 官方主 API 上的 unprefixed Panel-facing route。 |
 | Live Harness | `scripts/panel-integration.sh` | 唯一真实 Panel 联调入口。 |
@@ -44,19 +44,19 @@
 ## 能力快照
 
 <details open>
-<summary>当前仓库已经覆盖</summary>
+<summary>当前能力</summary>
 
 - Gin HTTP 层、公开路由注册、contract struct、response envelope。
 - `SECRET_KEY` 解析、PEM normalize、mTLS、JWT RS256、zstd request body。
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期。
 - handler、stats、Vision 和连接清理的部分接入。
 - Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取，失败时稳定降级为 `false` 或空列表。
-- Docker 构建、CI、release 流程和真实 Panel live harness。
+- Docker 构建、CI、release 流程和受控真实 Panel live harness。
 
 </details>
 
 <details>
-<summary>当前仍然明确不做</summary>
+<summary>当前明确不做</summary>
 
 - 外部 `xray` 进程模式。
 - Xray 配置落盘主路径。
@@ -84,7 +84,7 @@ cp .env.example .env
 mise exec -- go run ./cmd/rw-node-go
 ```
 
-主服务启动时会自动读取当前工作目录的 `.env`，真实系统环境变量优先级更高。启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态和内嵌 Xray 运行模式。开发模式下不设置 `SECRET_KEY` 时，主服务会以本地 HTTP 模式启动，便于 route 和 contract 测试。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
+主服务启动时会自动读取当前工作目录的 `.env`，真实系统环境变量优先级更高。开发模式下不设置 `SECRET_KEY` 时，主服务以本地 HTTP 模式启动，便于 route 和 contract 测试；设置 `SECRET_KEY` 后，主 API 启用 HTTPS、mTLS 和 JWT RS256 校验，官方 `/vision/*` route 仍保留 mTLS 但豁免 Bearer JWT。生产部署应提供 `SECRET_KEY`，或使用默认启用 `REQUIRE_SECRET_KEY=true` 的 Docker 镜像，让缺少密钥的容器直接启动失败。
 
 发布前验证：
 
@@ -126,11 +126,11 @@ mise run docker-build
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
 | `LOG_LEVEL` | `info` | 日志级别。 |
 | `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |
-| `XRAY_LOCATION_ASSET` | 空 | Xray geodata 目录；Docker 镜像固定设置为 `/usr/local/share/xray`。 |
+| `XRAY_LOCATION_ASSET` | 空 | 主服务实际读取的 Xray geodata 目录；Docker 镜像固定设置为 `/usr/local/share/xray`。 |
 
 `INTERNAL_REST_PORT` 只允许本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
-日志只展示启动摘要和 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
+启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。普通主服务读取 `XRAY_LOCATION_ASSET`；真实 Panel live harness 的 `.env.integration.local` 使用 `XRAY_ASSET_DIR`，脚本启动节点时会转换为 `XRAY_LOCATION_ASSET`。日志只展示 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
 
 ## 运行结构
 

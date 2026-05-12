@@ -24,10 +24,12 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Vision | `partial` | 已接入内嵌 routing feature。 |
 | Plugin | `adapter stub` | 只保留 Panel-facing contract adapter。 |
 
-## 覆盖原则
+## 边界和覆盖原则
 
 - 保持公开路由路径、HTTP method、JSON 字段名和 response envelope 稳定。
 - 已知官方 contract 中的 Panel-facing route 至少要注册，避免 Panel 调用时得到 404。
+- Panel-facing contract 只覆盖主 API 路由；Internal REST API 不属于官方 Panel contract。
+- Adapter stub 只表示为了兼容 Panel 调用而保留路由和响应形状，不表示有真实 plugin、torrent blocker 或 nftables side effects。
 - contract 类型无法解释的行为，要继续查看官方仓库中对应 controller/service 的实现。
 - 当官方 `libs/contract` schema 与 2.7.0 runtime model 不一致时，Panel-facing 响应优先跟随官方 runtime model；例如 `get-inbound-users` 返回用户的 `username`、`level`、`protocol`，不输出 schema 中 optional 的 `email`。
 - 未实现的能力必须返回明确的兼容占位数据，不能伪装成真实 Xray、stats、plugin、nftables 或 conntrack 行为。
@@ -89,19 +91,19 @@ testdata/contracts/official-2.7.0/upstream-contract.sha256.json
 - `libs/contract/constants/xray`
 - `libs/contract/models`
 
-本地检查当前基线：
+本地检查当前基线。默认检查保存的官方 tag baseline：
 
 ```sh
 mise run contract-diff
 ```
 
-网络不可用但本地已有官方 checkout 时：
+网络不可用但本地已有官方 checkout 时，显式指定本地源码目录：
 
 ```sh
 CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
 ```
 
-检查其他官方 tag：
+临时检查其他官方 tag 时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：
 
 ```sh
 CONTRACT_TAG=2.7.1 mise run contract-diff

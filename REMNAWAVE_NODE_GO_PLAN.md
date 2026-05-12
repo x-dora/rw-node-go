@@ -1,6 +1,6 @@
 # Remnawave Node Go 自研实现方案
 
-> 历史设计备忘：本文档保留早期外部 Xray 进程、内部 gRPC API、plugin 和可选内嵌模式的完整讨论，不再作为当前实现规范。当前主线以 `README.md`、`docs/architecture.md`、`docs/contracts.md`、`docs/roadmap.md` 和官方 `tmp/remnawave-node` 为准。
+> 历史设计备忘：本文档保留早期外部 Xray 进程、内部 gRPC API、plugin 和可选内嵌模式的完整讨论，不再作为当前实现规范。当前协作规则、运行边界、contract 要求和功能状态以 `AGENTS.md`、`README.md`、`docs/*.md` 和实际代码为准。本文中关于外部 `xray` 进程、内部 gRPC、nftables 或未来能力的旧设想不应作为当前实现依据。
 
 本文档整理一个用 Go 自研 Remnawave Node 兼容实现的技术方案。目标不是简单复刻已有的 `hteppl/remnawave-node-go`，而是以官方 `remnawave/node` 当前协议和行为为基准，做一个可维护、可测试、可长期跟随上游变化的轻量节点实现。
 

@@ -33,7 +33,7 @@ CONTRACT_TAG=2.7.1 mise run contract-diff
 重新生成 baseline 时，先人工确认 Go contract、route 和 golden fixture 已按官方变化更新，再运行：
 
 ```sh
-go run ./cmd/contract-diff -tag 2.7.0 -source-dir tmp/remnawave-node -baseline testdata/contracts/official-2.7.0/upstream-contract.sha256.json -write-baseline
+mise exec -- go run ./cmd/contract-diff -tag 2.7.0 -source-dir tmp/remnawave-node -baseline testdata/contracts/official-2.7.0/upstream-contract.sha256.json -write-baseline
 ```
 
 不要把官方 TypeScript contract 包整体复制进仓库。这里只保存必要的小型 JSON fixture 和 hash baseline。

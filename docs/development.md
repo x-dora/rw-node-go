@@ -20,7 +20,7 @@ mise run docker-build
 mise run preflight
 ```
 
-`mise install` 会安装固定版本的 Go；`mise run lint` 通过当前 Go toolchain 运行固定版本的 `golangci-lint`，CI 和 Preflight 也会执行该检查。
+`mise install` 会安装固定版本的 Go；`mise run lint` 通过当前 Go toolchain 运行固定版本的 `golangci-lint`，CI 和 Preflight 也会执行该检查。需要直接运行 Go 命令时，优先使用 `mise exec -- go ...`，确保本地工具链和 CI 一致。
 
 `mise run build` 通过 `cmd/rw-build` 读取根目录 `VERSION`，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。CI、Docker 和 release workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
 
@@ -82,7 +82,7 @@ mise run docker-build
 
 ## 3. 真实 Panel harness
 
-真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只应指向专门用于联调的测试节点。
+真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只能指向专门用于联调的测试节点。
 
 先把根目录 `.env.integration.example` 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
 
@@ -93,7 +93,7 @@ runtime/xray/geoip.dat
 runtime/xray/geosite.dat
 ```
 
-`runtime/` 是本地私有运行目录，不提交到 git。Docker 镜像内已预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，并设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray`，这也是 Xray 官方常用的 asset 位置。
+`runtime/` 是本地私有运行目录，不提交到 git。普通主服务读取 `XRAY_LOCATION_ASSET`；live harness 使用 `XRAY_ASSET_DIR` 配置本地 geodata 目录，并在启动节点时转换为 `XRAY_LOCATION_ASSET`。Docker 镜像内已预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，并设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray`，这也是 Xray 官方常用的 asset 位置。
 
 常用命令：
 
@@ -120,7 +120,7 @@ bash scripts/panel-integration.sh extended-smoke
 
 脚本会在日志目录写入 `rw-node-go.pid.json`，其中记录 pid、二进制路径、启动时间和 harness marker。`stop` 只会停止能验证为该 harness 启动的进程；发现旧格式或陈旧 pid 文件时会拒绝发送 SIGTERM，并提示人工确认后删除 pid 文件。
 
-脚本内部会调用 `cmd/panel-integration`。这个 Go 命令是脚本专用 harness，不是公开入口；直接 `go run ./cmd/panel-integration ...` 会失败并提示改用 `scripts/panel-integration.sh`。普通 `go test ./...` 不会连接真实 Panel。
+脚本内部会调用 `cmd/panel-integration`。这个 Go 命令是脚本专用 harness，不是公开入口；绕过脚本直接运行该命令会失败并提示改用 `scripts/panel-integration.sh`。普通 `go test ./...` 不会连接真实 Panel。
 
 <details>
 <summary>联调前检查</summary>
@@ -138,7 +138,7 @@ bash scripts/panel-integration.sh extended-smoke
 
 项目发布版本和 Panel 兼容版本必须分开维护：
 
-- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本，当前从 `1.0.1` 开始。
+- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本；当前项目版本以该文件内容为准。
 - `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
 - `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.7.0`，只代表兼容官方 `remnawave/node` 2.7.x contract。除非明确跟随上游 contract 升级，否则不要改它。
 
@@ -148,7 +148,7 @@ GitHub Actions 发布流程：
 
 - `CI`：push 和 pull request 跑测试与二进制构建。
 - `Docker`：`main` push 构建并推送滚动开发镜像 `ghcr.io/x-dora/rw-node-go:dev`；pull request 和手动触发只构建多架构镜像，不推送，不发布 `latest` 或版本 tag。
-- `Preflight`：手动或 release 调用，执行 `go fmt` 检查、`mise run test`、`mise run lint`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
+- `Preflight`：手动或 release 调用，执行格式检查、`mise run test`、`mise run lint`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
 - `Scheduled assets update`：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
 - `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
 

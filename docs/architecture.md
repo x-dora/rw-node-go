@@ -1,6 +1,6 @@
 # 架构说明
 
-`rw-node-go` 将 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步把 stub 替换为真实运行时能力。
+`rw-node-go` 将 Remnawave Panel-facing API 兼容层和内嵌 `xray-core` 运行时分开。公开 API 的路由、method、JSON 字段和 response envelope 必须稳定；内部实现可以逐步把明确标注的 stub 替换为真实运行时能力。
 
 详细功能进度由 [docs/roadmap.md](roadmap.md) 维护。本文只描述当前架构边界和运行路径。
 
@@ -46,7 +46,7 @@ Internal Gin API
 
 ## Xray 运行时边界
 
-当前唯一 Xray runtime 是内嵌 `xray-core`：
+当前唯一 Xray runtime 是内嵌 `xray-core`。不要重新引入外部 `xray` 进程、Xray 配置落盘主路径、内部 gRPC API inbound 或 internal mTLS：
 
 - `/node/xray/start` 从 Panel 下发的 JSON config 构建内嵌可加载的 Xray config，并启动新的 `xray-core` instance。
 - 重复 start 会关闭旧 instance，再替换为新 instance。
@@ -60,7 +60,7 @@ Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 P
 
 ## Internal API 边界
 
-`INTERNAL_REST_PORT` 只监听 `127.0.0.1`，不属于 Panel-facing contract，也不走 Panel mTLS/JWT。
+`INTERNAL_REST_PORT` 只监听 `127.0.0.1`，不属于 Panel-facing contract，也不走 Panel mTLS/JWT。不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
 - `GET /internal/get-config`：返回当前内存 Xray config；没有 config 时返回 `{}`。
 
