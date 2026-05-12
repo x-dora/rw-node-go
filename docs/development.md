@@ -33,7 +33,7 @@ mise exec -- go run ./cmd/rw-node-go
 
 主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 `scripts/panel-integration.sh` 触发。
 
-设置 `SECRET_KEY` 后会启用 HTTPS、mTLS 和 JWT RS256 校验；官方 `/vision/*` route 只豁免 Bearer JWT，仍保留 mTLS。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
+设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 Cloudflare API Shield mTLS 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有 Panel-facing route 都强制校验 Bearer JWT，包括官方 `/vision/*` route；已拉取的 `tmp/remnawave-backend` 显示 Panel backend 在 `AxiosService.setJwt()` 中给共享 axios instance 设置全局 `Authorization: Bearer <node jwt>`，Vision 请求也会携带 JWT。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
 启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。
 
@@ -54,7 +54,7 @@ flowchart LR
 
 - 新增 route、公开 contract struct 或 response shape 时必须补单元测试。
 - 从 stub 进入真实 Xray 行为时，应补 integration test 或明确记录无法在 CI 中验证的原因。
-- mTLS/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
+- TLS client auth/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
 - contract golden 应只保存必要 fixture，避免复制大段上游源码。
 - 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以官方仓库为准，并同步修正文档中的错误假设。
 
@@ -84,7 +84,7 @@ mise run docker-build
 
 真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只能指向专门用于联调的测试节点。
 
-先把根目录 `.env.integration.example` 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
+先把根目录 `.env.integration.example` 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。`NODE_TLS_CLIENT_AUTH` 默认是 `mtls`；只有在前置代理已经校验 Panel 客户端证书且源站访问被限制时，才应在联调环境显式改为 `none`。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
 
 内嵌 `xray-core` 需要 `geoip.dat` 和 `geosite.dat`。本地联调默认从 `runtime/xray/` 读取，也可以通过 `XRAY_ASSET_DIR` 指到其他目录。Release 和 Docker workflow 会按 Xray-core 的方式从 `Loyalsoldier/v2ray-rules-dat` release 分支下载并校验这两个文件；本地手动联调时也应保持文件名不变：
 
@@ -130,6 +130,7 @@ bash scripts/panel-integration.sh extended-smoke
 - `PANEL_NODE_ID`
 - `SECRET_KEY`
 - `NODE_PORT`
+- `NODE_TLS_CLIENT_AUTH`
 - `XRAY_ASSET_DIR`
 
 </details>

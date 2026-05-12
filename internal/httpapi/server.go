@@ -33,7 +33,7 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			return nil, err
 		}
 
-		tlsConfig, err = TLSConfigFromSecret(payload)
+		tlsConfig, err = TLSConfigFromSecretWithClientAuth(payload, cfg.TLSClientAuthMode())
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +42,7 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		if err != nil {
 			return nil, err
 		}
-		handler = JWTMiddlewareWithExemptPaths(publicKey, visionJWTExemptPaths())(handler)
+		handler = JWTMiddleware(publicKey)(handler)
 	}
 
 	server := &Server{
@@ -67,13 +67,6 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		logger: logger,
 	}
 	return server, nil
-}
-
-func visionJWTExemptPaths() map[string]struct{} {
-	return map[string]struct{}{
-		"/vision/block-ip":   {},
-		"/vision/unblock-ip": {},
-	}
 }
 
 func (s *Server) ListenAndServe() error {

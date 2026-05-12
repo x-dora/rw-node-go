@@ -8,7 +8,7 @@
 
 - `cmd/rw-node-go`：进程入口，负责加载配置、初始化运行状态、注册 controller 并启动 HTTP 服务。
 - `internal/config`：环境变量、`SECRET_KEY` 解码、PEM normalize 和运行配置。
-- `internal/httpapi`：Gin main router、internal router、response envelope、body limit、panic recovery、zstd request body、mTLS 和 JWT RS256 middleware。
+- `internal/httpapi`：Gin main router、internal router、response envelope、body limit、panic recovery、zstd request body、TLS client auth 和 JWT RS256 middleware。
 - `internal/contracts`：Panel-facing API 的请求和响应类型。
 - `internal/controller`：路由处理器。Xray controller 管理内嵌 instance；handler、stats 和 vision 通过内嵌 Xray feature 访问运行时；plugin 当前是接口适配 stub。
 - `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash 和 inbound 用户集合。
@@ -21,7 +21,7 @@
 ```text
 Remnawave Panel
     |
-    | HTTPS + mTLS + Bearer JWT
+    | HTTPS + TLS client auth + Bearer JWT
     v
 Main Gin API on 0.0.0.0:NODE_PORT
     |
@@ -40,7 +40,9 @@ Local tooling
 Internal Gin API
 ```
 
-设置 `SECRET_KEY` 后，主 API 通过 TLS server config、mTLS 和 JWT public key 校验 Panel 请求。官方 `/vision/*` route 仍走主 API 的 HTTPS/mTLS，但按官方 2.7.0 行为豁免 Bearer JWT。
+设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求。默认 `NODE_TLS_CLIENT_AUTH=mtls` 会要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS 和 JWT，适用于前置可信代理已经完成客户端证书校验的部署。
+
+官方 `/vision/*` route 仍走主 API 的 HTTPS/TLS client auth，并在 Go 侧强制校验 Bearer JWT。已拉取的 `tmp/remnawave-backend` 显示 Panel backend 在 `AxiosService.setJwt()` 中给共享 axios instance 设置全局 `Authorization: Bearer <node jwt>`，因此 Vision 请求也会携带 JWT。使用 `NODE_TLS_CLIENT_AUTH=none` 时，前置代理仍必须限制源站访问并完成客户端证书校验，但 Node 层会继续用 JWT 保护所有 Panel-facing route。
 
 不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
 

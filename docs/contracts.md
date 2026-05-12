@@ -49,7 +49,7 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入内嵌 Xray inbound feature 和内存 inbound/user hash/protocol 状态；`get-inbound-users` 按官方 runtime model 返回 `username`、`level`、`protocol`；真实 Panel + Xray 验收仍未完成。 |
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | partial | 已通过 conntrack best-effort 清理匹配 IP 的连接；无权限或无系统能力时返回成功 no-op，不操作 nftables。 |
 | Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；`get-users-stats` 按官方行为过滤上下行均为 0 的用户；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
-| Vision | `/vision/block-ip`, `/vision/unblock-ip` | partial | 官方主 API unprefixed route；设置 `SECRET_KEY` 后保留 mTLS、豁免 JWT；已通过内嵌 routing feature 操作 source IP dynamic rule，真实验收仍未完成。 |
+| Vision | `/vision/block-ip`, `/vision/unblock-ip` | partial | 官方主 API unprefixed route；设置 `SECRET_KEY` 后走 HTTPS、TLS client auth 和 JWT；已通过内嵌 routing feature 操作 source IP dynamic rule，真实验收仍未完成。 |
 | Plugin | `/node/plugin/sync`, `/node/plugin/torrent-blocker/collect`, `/node/plugin/nftables/*` | adapter stub | routes 保持 Panel-facing contract adapter；feature intentionally unsupported，不保存插件状态、不注入 Xray 配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。 |
 
 Internal REST API 不是 Panel-facing contract，边界说明见 [docs/architecture.md](architecture.md)。

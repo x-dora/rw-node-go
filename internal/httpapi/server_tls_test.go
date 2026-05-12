@@ -83,12 +83,97 @@ func TestSecureServerRequiresMTLSAndJWT(t *testing.T) {
 		t.Fatalf("new vision request: %v", err)
 	}
 	resp, err = client.Do(req)
+	assertRejected(t, resp, err, "vision request without JWT")
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
 	if err != nil {
-		t.Fatalf("vision request without JWT: %v", err)
+		t.Fatalf("new vision request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("vision request with JWT: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("vision status without JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+		t.Fatalf("vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
+}
+
+func TestSecureServerCanDisableTLSClientCertificateAuth(t *testing.T) {
+	bundle := testkit.NewCertBundle(t)
+	raw, err := json.Marshal(bundle.Payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	cfg := config.Config{
+		SecretKey:             base64.StdEncoding.EncodeToString(raw),
+		NodeTLSClientAuth:     "none",
+		InternalRESTPort:      61001,
+		RequestBodyLimitBytes: 1 << 20,
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server, err := NewServer(cfg, Handlers{
+		Xray:     tlsTestHandlers{},
+		Handler:  tlsTestHandlers{},
+		Stats:    tlsTestHandlers{},
+		Vision:   tlsTestHandlers{},
+		Plugin:   tlsTestHandlers{},
+		Internal: tlsTestHandlers{},
+	}, logger)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	ts := httptest.NewUnstartedServer(server.httpServer.Handler)
+	ts.TLS = server.httpServer.TLSConfig
+	ts.StartTLS()
+	defer ts.Close()
+
+	client := ts.Client()
+	client.Transport = &http.Transport{TLSClientConfig: serverTrustTLSConfig(t, bundle)}
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/node/xray/healthcheck", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := client.Do(req)
+	assertRejected(t, resp, err, "request without JWT")
+
+	req, err = http.NewRequest(http.MethodGet, ts.URL+"/node/xray/healthcheck", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("request with JWT and without client certificate: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status with JWT = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	if err != nil {
+		t.Fatalf("new vision request: %v", err)
+	}
+	resp, err = client.Do(req)
+	assertRejected(t, resp, err, "vision request without JWT")
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	if err != nil {
+		t.Fatalf("new vision request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("vision request with JWT and without client certificate: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
 	}
 }
 
@@ -138,5 +223,28 @@ func clientTLSConfig(t *testing.T, bundle testkit.CertBundle) *tls.Config {
 		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      roots,
+	}
+}
+
+func serverTrustTLSConfig(t *testing.T, bundle testkit.CertBundle) *tls.Config {
+	t.Helper()
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(bundle.Payload.CACertPEM)) {
+		t.Fatalf("append CA")
+	}
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    roots,
+	}
+}
+
+func assertRejected(t *testing.T, resp *http.Response, err error, label string) {
+	t.Helper()
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("%s status = %d, want %d", label, resp.StatusCode, http.StatusUnauthorized)
 	}
 }

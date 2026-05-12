@@ -31,6 +31,7 @@
 - 优先标准库和必要的小依赖；新增依赖要有明确理由。
 - 不要打印 `SECRET_KEY`、JWT、节点私钥、客户端证书或 bearer token。
 - `INTERNAL_REST_PORT` 只允许本机访问，不要在 Docker 示例里暴露。
+- `NODE_TLS_CLIENT_AUTH` 默认必须保持 `mtls`；只有前置可信代理已完成客户端证书校验且源站访问被限制时，才允许显式设为 `none`。Go 侧所有 Panel-facing route，包括 `/vision/*`，都必须校验 JWT。
 - 不做无关重构，不移动公开 API 边界，不把参考仓库结构复制进本项目。
 
 ## 测试要求

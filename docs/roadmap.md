@@ -16,7 +16,7 @@
 
 - [x] `SECRET_KEY` base64 JSON 解析和 PEM normalize。
 - [x] 主服务启动时读取当前工作目录 `.env`，且不覆盖已存在的系统环境变量。
-- [x] HTTPS mTLS server config。
+- [x] HTTPS TLS client auth server config。
 - [x] JWT RS256 校验。
 - [x] zstd request body。
 - [x] 内嵌 `xray-core` instance 启动、停止和重复 start 替换旧 instance。

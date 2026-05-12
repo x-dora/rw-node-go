@@ -19,12 +19,14 @@ const (
 	DefaultLogLevel              = "info"
 	DefaultRWNodeDir             = "/opt/rw-node-go"
 	DefaultRequestBodyLimitBytes = int64(1 << 30)
+	DefaultNodeTLSClientAuth     = "mtls"
 )
 
 type Config struct {
 	NodePort                int
 	InternalRESTPort        int
 	SecretKey               string
+	NodeTLSClientAuth       string
 	LogLevel                string
 	RWNodeDir               string
 	RequestBodyLimitBytes   int64
@@ -41,6 +43,7 @@ func Load() (Config, error) {
 		NodePort:              envInt("NODE_PORT", DefaultNodePort),
 		InternalRESTPort:      envInt("INTERNAL_REST_PORT", DefaultInternalRESTPort),
 		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
+		NodeTLSClientAuth:     normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
 		LogLevel:              envString("LOG_LEVEL", DefaultLogLevel),
 		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
 		RequestBodyLimitBytes: envInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes),
@@ -53,6 +56,9 @@ func Load() (Config, error) {
 
 	if cfg.RequireSecretKey && cfg.SecretKey == "" {
 		return Config{}, fmt.Errorf("SECRET_KEY is required")
+	}
+	if !validNodeTLSClientAuth(cfg.NodeTLSClientAuth) {
+		return Config{}, fmt.Errorf("NODE_TLS_CLIENT_AUTH must be one of: mtls, optional, none")
 	}
 
 	return cfg, nil
@@ -71,6 +77,27 @@ func (c Config) ListenAddress() string {
 
 func (c Config) InternalListenAddress() string {
 	return net.JoinHostPort("127.0.0.1", strconv.Itoa(c.InternalRESTPort))
+}
+
+func (c Config) TLSClientAuthMode() string {
+	mode := normalizeNodeTLSClientAuth(c.NodeTLSClientAuth)
+	if mode == "" {
+		return DefaultNodeTLSClientAuth
+	}
+	return mode
+}
+
+func validNodeTLSClientAuth(value string) bool {
+	switch normalizeNodeTLSClientAuth(value) {
+	case "mtls", "optional", "none":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeNodeTLSClientAuth(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 type NodePayload struct {

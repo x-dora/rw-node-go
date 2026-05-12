@@ -20,6 +20,7 @@ func TestLoadDefaults(t *testing.T) {
 		"REQUEST_BODY_LIMIT_BYTES",
 		"REQUIRE_SECRET_KEY",
 		"ALLOW_INSECURE_HTTP_TARGET",
+		"NODE_TLS_CLIENT_AUTH",
 	)
 
 	cfg, err := Load()
@@ -36,6 +37,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.RWNodeDir != DefaultRWNodeDir {
 		t.Fatalf("RWNodeDir = %q, want %q", cfg.RWNodeDir, DefaultRWNodeDir)
 	}
+	if cfg.TLSClientAuthMode() != DefaultNodeTLSClientAuth {
+		t.Fatalf("TLSClientAuthMode() = %q, want %q", cfg.TLSClientAuthMode(), DefaultNodeTLSClientAuth)
+	}
 }
 
 func TestLoadReadsDotEnv(t *testing.T) {
@@ -50,12 +54,14 @@ func TestLoadReadsDotEnv(t *testing.T) {
 		"REQUEST_BODY_LIMIT_BYTES",
 		"REQUIRE_SECRET_KEY",
 		"ALLOW_INSECURE_HTTP_TARGET",
+		"NODE_TLS_CLIENT_AUTH",
 	)
 	writeFile(t, filepath.Join(dir, ".env"), strings.Join([]string{
 		"NODE_PORT=3333",
 		"INTERNAL_REST_PORT=62000",
 		"LOG_LEVEL=debug",
 		"SECRET_KEY=dotenv-secret",
+		"NODE_TLS_CLIENT_AUTH=none",
 		"",
 	}, "\n"))
 
@@ -76,12 +82,15 @@ func TestLoadReadsDotEnv(t *testing.T) {
 	if cfg.SecretKey != "dotenv-secret" {
 		t.Fatalf("SecretKey was not loaded from .env")
 	}
+	if cfg.TLSClientAuthMode() != "none" {
+		t.Fatalf("TLSClientAuthMode() = %q, want none", cfg.TLSClientAuthMode())
+	}
 }
 
 func TestLoadEnvOverridesDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	clearEnv(t, "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET")
+	clearEnv(t, "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
 	t.Setenv("NODE_PORT", "4444")
 	writeFile(t, filepath.Join(dir, ".env"), "NODE_PORT=3333\n")
 
@@ -98,7 +107,7 @@ func TestLoadEnvOverridesDotEnv(t *testing.T) {
 func TestLoadRejectsMalformedDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET")
+	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
 	writeFile(t, filepath.Join(dir, ".env"), "NODE_PORT=\"unterminated\n")
 
 	_, err := Load()
@@ -107,6 +116,28 @@ func TestLoadRejectsMalformedDotEnv(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "load .env") {
 		t.Fatalf("Load() error = %v, want load .env error", err)
+	}
+}
+
+func TestLoadRejectsInvalidNodeTLSClientAuth(t *testing.T) {
+	dir := t.TempDir()
+	chdir(t, dir)
+	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
+	writeFile(t, filepath.Join(dir, ".env"), "NODE_TLS_CLIENT_AUTH=disabled\n")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatalf("Load() error = nil, want invalid NODE_TLS_CLIENT_AUTH error")
+	}
+	if !strings.Contains(err.Error(), "NODE_TLS_CLIENT_AUTH") {
+		t.Fatalf("Load() error = %v, want NODE_TLS_CLIENT_AUTH error", err)
+	}
+}
+
+func TestTLSClientAuthModeTrimsManualConfig(t *testing.T) {
+	cfg := Config{NodeTLSClientAuth: " NoNe "}
+	if cfg.TLSClientAuthMode() != "none" {
+		t.Fatalf("TLSClientAuthMode() = %q, want none", cfg.TLSClientAuthMode())
 	}
 }
 

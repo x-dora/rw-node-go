@@ -39,7 +39,7 @@ Configuration:
 
 Optional:
   PANEL_SMOKE_PATH, PANEL_EXTENDED_SMOKE, PANEL_NODE_ID, NODE_PORT,
-  INTERNAL_REST_PORT, XRAY_ASSET_DIR, PANEL_INTEGRATION_LOG_DIR,
+  INTERNAL_REST_PORT, NODE_TLS_CLIENT_AUTH, XRAY_ASSET_DIR, PANEL_INTEGRATION_LOG_DIR,
   PANEL_INTEGRATION_BIN_DIR.
 USAGE
 }
@@ -102,6 +102,7 @@ init_runtime() {
 
   NODE_PORT="${NODE_PORT:-2222}"
   INTERNAL_REST_PORT="${INTERNAL_REST_PORT:-61001}"
+  NODE_TLS_CLIENT_AUTH="${NODE_TLS_CLIENT_AUTH:-mtls}"
   PANEL_SMOKE_PATH="${PANEL_SMOKE_PATH:-/api/system/metadata}"
   PANEL_INTEGRATION_LOG_DIR="${PANEL_INTEGRATION_LOG_DIR:-logs/panel-integration}"
   PANEL_INTEGRATION_BIN_DIR="${PANEL_INTEGRATION_BIN_DIR:-runtime/bin}"
@@ -143,6 +144,7 @@ print_summary() {
   "panel_smoke_path": "$(json_escape "${PANEL_SMOKE_PATH:-}")",
   "secret_key": "$(json_escape "$(redact "${SECRET_KEY:-}")")",
   "node_port": "$(json_escape "${NODE_PORT:-}")",
+  "node_tls_client_auth": "$(json_escape "${NODE_TLS_CLIENT_AUTH:-}")",
   "internal_rest_port": "$(json_escape "${INTERNAL_REST_PORT:-}")",
   "xray_asset_dir": "$(json_escape "$XRAY_ASSET_DIR")",
   "xray_asset_env": "$(json_escape "$XRAY_ASSET_ENV")",
@@ -314,6 +316,7 @@ start_node() {
       "XRAY_LOCATION_ASSET=$XRAY_ASSET_ENV" \
       "xray.location.asset=$XRAY_ASSET_ENV" \
       "NODE_PORT=$NODE_PORT" \
+      "NODE_TLS_CLIENT_AUTH=$NODE_TLS_CLIENT_AUTH" \
       "INTERNAL_REST_PORT=$INTERNAL_REST_PORT" \
       "SECRET_KEY=$SECRET_KEY" \
       "LOG_LEVEL=$LOG_LEVEL" \
