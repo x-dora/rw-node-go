@@ -10,7 +10,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.4
 	github.com/vishvananda/netlink v1.3.1
 	github.com/xtls/xray-core v1.260327.0
-	golang.org/x/sys v0.42.0
+	golang.org/x/sys v0.44.0
 	google.golang.org/protobuf v1.36.11
 )
 
