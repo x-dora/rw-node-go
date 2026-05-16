@@ -33,7 +33,7 @@ mise exec -- go run ./cmd/rw-node-go
 
 主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 `scripts/panel-integration.sh` 触发。
 
-设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 Cloudflare API Shield mTLS 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有 Panel-facing route 都强制校验 Bearer JWT，包括官方 `/vision/*` route；已拉取的 `tmp/remnawave-backend` 显示 Panel backend 在 `AxiosService.setJwt()` 中给共享 axios instance 设置全局 `Authorization: Bearer <node jwt>`，Vision 请求也会携带 JWT。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
+设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 Cloudflare API Shield mTLS 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方 dev/2.8.0 已移除 `/vision/*` route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
 启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。
 
@@ -68,7 +68,7 @@ mise run lint
 mise run contract-diff
 ```
 
-`mise run contract-diff` 默认下载官方 `remnawave/node` tag。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
+`mise run contract-diff` 默认下载官方 `remnawave/node` dev 分支。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
 
 ```sh
 CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
@@ -141,7 +141,7 @@ bash scripts/panel-integration.sh extended-smoke
 
 - 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本；当前项目版本以该文件内容为准。
 - `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
-- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.7.0`，只代表兼容官方 `remnawave/node` 2.7.x contract。除非明确跟随上游 contract 升级，否则不要改它。
+- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.8.0`，只代表兼容官方 `remnawave/node` dev/2.8.0 contract。除非明确跟随上游 contract 升级，否则不要改它。
 
 `golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 `.mise.toml` 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、非 root 用户信息和 Xray geodata。release 流程仍按 `go.mod` 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 
@@ -178,7 +178,7 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 - `Xray start request`：Master IP、force restart、当前 core 是否运行、incoming inbound 数量、用户数量和缩短后的 empty config hash。
 - `Xray start inbound hashes`：每个 inbound 的 tag、usersCount 和缩短 hash。
 - restart 判断日志：force restart、core 未运行、base config hash 变化、inbound 数量变化、inbound 缺失、inbound 用户 hash 变化、hash 未变化且无需重启。
-- `Xray config received`：构建后的配置结构摘要，只包含 inbound/outbound/routing rule 数量、stats/policy 是否存在、Vision `BLOCK` outbound 是否存在。
+- `Xray config received`：构建后的配置结构摘要，只包含 inbound/outbound/routing rule 数量、stats/policy 是否存在。
 - `Xray started` 或 `Xray failed to start`：版本、Master IP、启动/重启动作、internal status、inbound/user 数量、耗时和错误摘要。
 
 `/node/xray/stop` 会记录 `Remnawave requested to stop Xray` 和 `Xray stopped`，包括停止前 running 状态、版本和耗时。日志不会打印完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。启动失败后仍保留上一份内存 config/hash/version 作为 internal 诊断快照，同时把 running 和 cached health 标记为 false。
@@ -190,9 +190,8 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 - Internal API 可以直接返回 JSON 对象，不套 Panel envelope。
 - `/node/xray/start` 失败后会把 running 和 health cached 标记为 false，但保留上一份内存 config、hash 和版本用于 internal 诊断。
 - 新增公开请求或响应类型放在 `internal/contracts`。
-- 当前唯一 Xray runtime 是内嵌 `xray-core`；不要重新引入外部进程模式、Xray gRPC API、internal mTLS 或配置落盘主路径。
+- 当前唯一 Xray runtime 是内嵌 `xray-core`；不要重新引入外部进程模式、Xray gRPC API、internal mTLS、官方 dev 的 `XTLS_API_SOCKET_PATH` 外部进程控制面或配置落盘主路径。
 - Xray 相关能力优先通过 `internal/xray` 抽象实现。
 - system、conntrack、nftables 能力放在 `internal/system`，权限不足时应稳定降级。
-- Vision block/unblock 通过内嵌 routing feature 实现 source IP dynamic rule，不通过 Xray gRPC RoutingService。
 - plugin 只做 contract adapter；不要保存 plugin runtime state、注入 Xray plugin config、接收 webhook、触发 Xray restart 或执行 nftables。
 - 不新增公开 `pkg` API，除非明确决定把项目的一部分作为 Go library 发布。

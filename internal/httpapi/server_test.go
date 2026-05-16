@@ -96,7 +96,6 @@ func testHandlers() Handlers {
 		Xray:     tlsTestHandlers{},
 		Handler:  tlsTestHandlers{},
 		Stats:    tlsTestHandlers{},
-		Vision:   tlsTestHandlers{},
 		Plugin:   tlsTestHandlers{},
 		Internal: tlsTestHandlers{},
 	}

@@ -212,7 +212,6 @@ func (ctrl XrayController) logConfigReceived(config map[string]any) {
 		logview.Field("Routing Rules", routingRulesLen(config)),
 		logview.Field("Stats Enabled", hasMap(config["stats"])),
 		logview.Field("Policy Enabled", hasMap(config["policy"])),
-		logview.Field("Vision BLOCK Outbound", hasOutboundTag(config, xray.BlockOutboundTag)),
 	))
 }
 
@@ -297,21 +296,4 @@ func routingRulesLen(config map[string]any) int {
 		return 0
 	}
 	return arrayLen(routing["rules"])
-}
-
-func hasOutboundTag(config map[string]any, tag string) bool {
-	outbounds, ok := config["outbounds"].([]any)
-	if !ok {
-		return false
-	}
-	for _, raw := range outbounds {
-		outbound, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		if outbound["tag"] == tag {
-			return true
-		}
-	}
-	return false
 }

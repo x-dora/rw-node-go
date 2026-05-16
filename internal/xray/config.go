@@ -7,7 +7,6 @@ import (
 const (
 	APITag                    = "REMNAWAVE_API"
 	APIInboundTag             = "REMNAWAVE_API_INBOUND"
-	BlockOutboundTag          = "BLOCK"
 	TorrentBlockerOutboundTag = "RW_TB_OUTBOUND_BLOCK"
 )
 
@@ -32,8 +31,6 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	}
 
 	config["stats"] = ensureMap(config["stats"])
-	config["outbounds"] = ensureBlockOutbound(config["outbounds"])
-
 	policy := ensureMap(config["policy"])
 	levels := ensureMap(policy["levels"])
 	level0 := ensureMap(levels["0"])
@@ -52,20 +49,6 @@ func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error)
 	config["policy"] = policy
 
 	return config, nil
-}
-
-func ensureBlockOutbound(value any) []any {
-	outbounds := ensureArray(value)
-	for _, item := range outbounds {
-		itemMap, ok := item.(map[string]any)
-		if ok && itemMap["tag"] == BlockOutboundTag {
-			return outbounds
-		}
-	}
-	return append(outbounds, map[string]any{
-		"tag":      BlockOutboundTag,
-		"protocol": "blackhole",
-	})
 }
 
 func cloneMap(input map[string]any) map[string]any {

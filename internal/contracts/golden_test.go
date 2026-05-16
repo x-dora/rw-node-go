@@ -59,8 +59,6 @@ func decodeOfficialRequest(t *testing.T, name string, data json.RawMessage) {
 		testkit.MustStrictDecode[contracts.UserIPListRequest](t, data)
 	case "stats.get-inbound-stats", "stats.get-outbound-stats":
 		testkit.MustStrictDecode[contracts.TaggedStatsRequest](t, data)
-	case "vision.block-ip", "vision.unblock-ip":
-		testkit.MustStrictDecode[contracts.VisionIPRequest](t, data)
 	case "plugin.sync":
 		testkit.MustStrictDecode[contracts.PluginSyncRequest](t, data)
 	case "plugin.nftables.block-ips":
@@ -78,7 +76,7 @@ func officialResponseValue(t *testing.T, name string) any {
 	switch name {
 	case "xray.start":
 		version := "25.1.1"
-		nodeVersion := "2.7.0"
+		nodeVersion := "2.8.0"
 		return httpapi.Envelope{Response: contracts.StartXrayResponse{
 			IsStarted:       true,
 			Version:         &version,
@@ -93,9 +91,9 @@ func officialResponseValue(t *testing.T, name string) any {
 			IsAlive:                  true,
 			XrayInternalStatusCached: false,
 			XrayVersion:              nil,
-			NodeVersion:              "2.7.0",
+			NodeVersion:              "2.8.0",
 		}}
-	case "handler.add-user", "handler.add-users", "handler.remove-user", "handler.remove-users", "vision.block-ip", "vision.unblock-ip":
+	case "handler.add-user", "handler.add-users", "handler.remove-user", "handler.remove-users":
 		return httpapi.Envelope{Response: contracts.SuccessResponse()}
 	case "handler.get-inbound-users":
 		return httpapi.Envelope{Response: contracts.InboundUsersResponse{Users: []contracts.InboundUser{}}}

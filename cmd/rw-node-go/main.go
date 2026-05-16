@@ -41,7 +41,6 @@ func main() {
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,
 		Stats:    controllers.Stats,
-		Vision:   controllers.Vision,
 		Plugin:   controllers.Plugin,
 		Internal: controllers.Internal,
 	}, logger)

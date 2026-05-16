@@ -1,15 +1,15 @@
 # Contract 说明
 
-兼容性来源以官方 `remnawave/node` 2.7.x 面向 Panel 的 contract 和实际实现为准。Go 侧公开类型放在 `internal/contracts`，HTTP route 注册放在 `internal/httpapi/router.go`。
+兼容性来源以官方 `remnawave/node` dev/2.8.0 面向 Panel 的 contract 和实际实现为准。Go 侧公开类型放在 `internal/contracts`，HTTP route 注册放在 `internal/httpapi/router.go`。
 
-`tmp/remnawave-node` 是官方 2.7.0 仓库，必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。`tmp/remnawave-node-go` 只作为内嵌 `xray-core` 结构参考。
+`tmp/remnawave-node` 用作官方仓库参考，当前对齐目标是 dev 提交 `a5acdeb28840e21c2622a6362dc6824b6e70eea5`。必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。`tmp/remnawave-node-go` 只作为内嵌 `xray-core` 结构参考。
 
-本仓库的 `nodeVersion` 仍固定为 `2.7.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
+本仓库的 `nodeVersion` 固定为 `2.8.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
 
-当前已从官方 2.7.0 contract 手工整理小型 golden manifest：
+当前已从官方 dev/2.8.0 contract 手工整理小型 golden manifest：
 
 ```text
-testdata/contracts/official-2.7.0/panel-api.json
+testdata/contracts/official-2.8.0/panel-api.json
 ```
 
 该 manifest 覆盖官方 Panel-facing route、代表性请求和响应 envelope，用于 Go contract struct 的 strict decode、响应 JSON 形状和路由注册测试。它不包含 internal REST API，也不复制官方 TypeScript contract 包。
@@ -21,7 +21,6 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `partial` | 已接入内嵌 `xray-core` instance 生命周期。 |
 | Handler | `partial` | 已接入内嵌 inbound feature 和 best-effort 清理。 |
 | Stats | `partial` | 已接入基础 stats、流量统计和 OnlineMap 降级。 |
-| Vision | `partial` | 已接入内嵌 routing feature。 |
 | Plugin | `adapter stub` | 只保留 Panel-facing contract adapter。 |
 
 ## 边界和覆盖原则
@@ -31,7 +30,7 @@ testdata/contracts/official-2.7.0/panel-api.json
 - Panel-facing contract 只覆盖主 API 路由；Internal REST API 不属于官方 Panel contract。
 - Adapter stub 只表示为了兼容 Panel 调用而保留路由和响应形状，不表示有真实 plugin、torrent blocker 或 nftables side effects。
 - contract 类型无法解释的行为，要继续查看官方仓库中对应 controller/service 的实现。
-- 当官方 `libs/contract` schema 与 2.7.0 runtime model 不一致时，Panel-facing 响应优先跟随官方 runtime model；例如 `get-inbound-users` 返回用户的 `username`、`level`、`protocol`，不输出 schema 中 optional 的 `email`。
+- 当官方 `libs/contract` schema 与 runtime model 不一致时，Panel-facing 响应优先跟随官方 runtime model；例如 `get-inbound-users` 返回用户的 `username`、`level`、`protocol`，不输出 schema 中 optional 的 `email`。
 - 未实现的能力必须返回明确的兼容占位数据，不能伪装成真实 Xray、stats、plugin、nftables 或 conntrack 行为。
 - 业务失败优先保持官方风格：Xray start/handler mutation 多数通过 `response.error`、`response.success` 或对应业务字段表达失败；官方 stats 查询失败使用 `{timestamp,path,message,errorCode}` 和对应 HTTP status。
 
@@ -48,8 +47,8 @@ testdata/contracts/official-2.7.0/panel-api.json
 | Xray | `GET /node/xray/healthcheck` | partial | 当前按官方缓存在线状态和缓存版本返回。 |
 | Handler | `/node/handler/add-user`, `/node/handler/add-users`, `/node/handler/remove-user`, `/node/handler/remove-users`, `/node/handler/get-inbound-users`, `/node/handler/get-inbound-users-count` | partial | 已接入内嵌 Xray inbound feature 和内存 inbound/user hash/protocol 状态；`get-inbound-users` 按官方 runtime model 返回 `username`、`level`、`protocol`；真实 Panel + Xray 验收仍未完成。 |
 | Handler | `/node/handler/drop-users-connections`, `/node/handler/drop-ips` | partial | 已通过 conntrack best-effort 清理匹配 IP 的连接；无权限或无系统能力时返回成功 no-op，不操作 nftables。 |
-| Stats | `/node/stats/*` | partial | system stats 已按官方 2.7.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；`get-users-stats` 按官方行为过滤上下行均为 0 的用户；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
-| Vision | `/vision/block-ip`, `/vision/unblock-ip` | partial | 官方主 API unprefixed route；设置 `SECRET_KEY` 后走 HTTPS、TLS client auth 和 JWT；已通过内嵌 routing feature 操作 source IP dynamic rule，真实验收仍未完成。 |
+| Stats | `/node/stats/*` | partial | system stats 已按官方 dev/2.8.0 响应形状返回宿主机 CPU、memory、uptime、load、network interface 和 Xray sys stats；users、inbound、outbound、combined 和 online status/IP 已接入内嵌 stats feature；`get-users-stats` 按官方行为过滤上下行均为 0 的用户；OnlineMap 不可用或读取失败时降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。 |
+| Vision | `/vision/block-ip`, `/vision/unblock-ip` | removed | 官方 dev/2.8.0 已移除 Vision public contract；Go 侧同步不注册这些 route，访问返回 404。 |
 | Plugin | `/node/plugin/sync`, `/node/plugin/torrent-blocker/collect`, `/node/plugin/nftables/*` | adapter stub | routes 保持 Panel-facing contract adapter；feature intentionally unsupported，不保存插件状态、不注入 Xray 配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。 |
 
 Internal REST API 不是 Panel-facing contract，边界说明见 [docs/architecture.md](architecture.md)。
@@ -59,7 +58,7 @@ Internal REST API 不是 Panel-facing contract，边界说明见 [docs/architect
 Golden fixture 目录：
 
 ```text
-testdata/contracts/official-2.7.0
+testdata/contracts/official-2.8.0
 ```
 
 当前 contract 测试已覆盖：
@@ -73,14 +72,14 @@ testdata/contracts/official-2.7.0
 
 Go 侧请求解析保持兼容解析，不复刻官方 zod 全量强校验；只保留当前业务安全需要的最小校验，例如 drop connections/drop IPs 的空数组返回 `success:false`。Plugin nftables route 仍是 adapter stub，不因 IP 格式执行真实校验或系统操作。
 
-已知 deliberate divergence：官方 2.7.0 `getAllOutboundsStats` 的 catch 分支实际复用了 inbounds 错误常量；Go 侧按 contract 语义返回 outbounds 错误码 `A016`。
+已知 deliberate divergence：官方 2.7.0 历史实现中 `getAllOutboundsStats` 的 catch 分支实际复用了 inbounds 错误常量；Go 侧按 contract 语义返回 outbounds 错误码 `A016`。
 
 ## 官方 Contract Drift 检查
 
-本仓库保存官方 `remnawave/node 2.7.0` 的 contract hash baseline：
+本仓库保存官方 `remnawave/node` dev/2.8.0 的 contract hash baseline：
 
 ```text
-testdata/contracts/official-2.7.0/upstream-contract.sha256.json
+testdata/contracts/official-2.8.0/upstream-contract.sha256.json
 ```
 
 该 baseline 只保存 `libs/contract` 中 Panel-facing contract 相关 TypeScript 文件的路径和 SHA-256，不保存官方源码正文。检查范围包括：
@@ -91,7 +90,7 @@ testdata/contracts/official-2.7.0/upstream-contract.sha256.json
 - `libs/contract/constants/xray`
 - `libs/contract/models`
 
-本地检查当前基线。默认检查保存的官方 tag baseline：
+本地检查当前基线。默认检查官方 `dev` 分支：
 
 ```sh
 mise run contract-diff
@@ -103,10 +102,10 @@ mise run contract-diff
 CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
 ```
 
-临时检查其他官方 tag 时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：
+临时检查其他官方 tag 或 branch ref 时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：
 
 ```sh
-CONTRACT_TAG=2.7.1 mise run contract-diff
+CONTRACT_TAG=main mise run contract-diff
 ```
 
 如果检查失败，先查看新增、删除或 hash 变化的文件列表，再对照官方仓库更新 Go contract、route 注册和 golden fixture。

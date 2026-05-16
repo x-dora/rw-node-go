@@ -12,7 +12,6 @@ type Handlers struct {
 	Xray     XrayHandlers
 	Handler  HandlerHandlers
 	Stats    StatsHandlers
-	Vision   VisionHandlers
 	Plugin   PluginHandlers
 	Internal InternalHandlers
 }
@@ -45,11 +44,6 @@ type StatsHandlers interface {
 	GetAllInboundsStats(*gin.Context)
 	GetAllOutboundsStats(*gin.Context)
 	GetCombinedStats(*gin.Context)
-}
-
-type VisionHandlers interface {
-	BlockIP(*gin.Context)
-	UnblockIP(*gin.Context)
 }
 
 type PluginHandlers interface {
@@ -112,9 +106,6 @@ func registerRoutes(router gin.IRoutes, handlers Handlers) {
 	router.POST("/node/stats/get-all-inbounds-stats", handlers.Stats.GetAllInboundsStats)
 	router.POST("/node/stats/get-all-outbounds-stats", handlers.Stats.GetAllOutboundsStats)
 	router.POST("/node/stats/get-combined-stats", handlers.Stats.GetCombinedStats)
-
-	router.POST("/vision/block-ip", handlers.Vision.BlockIP)
-	router.POST("/vision/unblock-ip", handlers.Vision.UnblockIP)
 
 	router.POST("/node/plugin/sync", handlers.Plugin.Sync)
 	router.POST("/node/plugin/torrent-blocker/collect", handlers.Plugin.CollectTorrentBlockerReports)

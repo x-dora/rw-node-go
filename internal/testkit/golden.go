@@ -28,7 +28,7 @@ type RouteFixture struct {
 func LoadPanelAPIFixture(t testing.TB) PanelAPIFixture {
 	t.Helper()
 
-	path := filepath.Join(ProjectRoot(t), "testdata", "contracts", "official-2.7.0", "panel-api.json")
+	path := filepath.Join(ProjectRoot(t), "testdata", "contracts", "official-2.8.0", "panel-api.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read panel api fixture: %v", err)

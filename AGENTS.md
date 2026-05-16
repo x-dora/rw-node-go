@@ -1,23 +1,23 @@
 # Agent 协作说明
 
-本仓库是 Remnawave Node 兼容服务的 Go 实现，目标 contract 是官方 `remnawave/node` 2.7.x 面向 Panel 的 API。协作时优先保持公开接口稳定，再逐步把 stub 替换为真实运行时能力。
+本仓库是 Remnawave Node 兼容服务的 Go 实现，目标 contract 是官方 `remnawave/node` dev/2.8.0 面向 Panel 的 API。协作时优先保持公开接口稳定，再逐步把 stub 替换为真实运行时能力。
 
 详细功能进度只在 `docs/roadmap.md` 维护；本文件只记录协作规则和不可违背的工程约束。
 
 ## 当前阶段
 
 - 当前唯一运行模式是内嵌 `xray-core`；不要重新引入外部 `xray` 进程、Xray 配置落盘、内部 gRPC API inbound 或 internal mTLS。
-- Panel-facing contract 必须稳定：路由路径、HTTP method、JSON 字段名和 response envelope 变更前必须对照官方 `remnawave/node` 2.7.x。
-- Handler、stats、Vision 和连接清理已部分接入内嵌 Xray feature 或系统能力；真实 Panel + Xray 的完整验收仍在推进。
+- Panel-facing contract 必须稳定：路由路径、HTTP method、JSON 字段名和 response envelope 变更前必须对照官方 `remnawave/node` dev/2.8.0。
+- Handler、stats 和连接清理已部分接入内嵌 Xray feature 或系统能力；真实 Panel + Xray 的完整验收仍在推进。
 - Stats online status/IP 已通过内嵌 Xray stats `OnlineMap` 接入；不可用或读取失败时稳定降级为 `false` 或空列表。
 - 真实 Panel live harness 只能通过 `scripts/panel-integration.sh` 触发。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，必须使用完整节点 UUID，只能指向测试节点，并在结束或失败清理时 disable 节点和停止本地进程。
-- 项目自身发布版本由根目录 `VERSION` 管理；Panel-facing `nodeVersion` 是兼容性版本，默认继续上报官方 2.7.x 的 `2.7.0`。
+- 项目自身发布版本由根目录 `VERSION` 管理；Panel-facing `nodeVersion` 是兼容性版本，默认继续上报官方 dev/2.8.0 的 `2.8.0`。
 - Plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。
 
 ## 必须参考
 
-- `tmp/remnawave-node` 是官方 2.7.0 仓库，必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现。
-- `tmp/remnawave-node/libs/contract` 是官方 2.7.0 contract 入口。
+- `tmp/remnawave-node` 是官方仓库参考，当前对齐目标是 dev 提交 `a5acdeb28840e21c2622a6362dc6824b6e70eea5`，必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现。
+- `tmp/remnawave-node/libs/contract` 是官方 dev/2.8.0 contract 入口。
 - `tmp/remnawave-node-go` 只用于内嵌 `xray-core` 结构和行为对照，不复制它的 contract 或框架结构。
 - `REMNAWAVE_NODE_GO_PLAN.md` 是历史设计备忘，不是当前实现规范。
 - 不要修改 `tmp/` 下的参考仓库。
@@ -31,7 +31,7 @@
 - 优先标准库和必要的小依赖；新增依赖要有明确理由。
 - 不要打印 `SECRET_KEY`、JWT、节点私钥、客户端证书或 bearer token。
 - `INTERNAL_REST_PORT` 只允许本机访问，不要在 Docker 示例里暴露。
-- `NODE_TLS_CLIENT_AUTH` 默认必须保持 `mtls`；只有前置可信代理已完成客户端证书校验且源站访问被限制时，才允许显式设为 `none`。Go 侧所有 Panel-facing route，包括 `/vision/*`，都必须校验 JWT。
+- `NODE_TLS_CLIENT_AUTH` 默认必须保持 `mtls`；只有前置可信代理已完成客户端证书校验且源站访问被限制时，才允许显式设为 `none`。Go 侧所有已注册 Panel-facing route 都必须校验 JWT。官方 dev/2.8.0 已移除 `/vision/*` public contract，Go 侧不得重新注册这些 route，除非明确记录 deliberate divergence。
 - 不做无关重构，不移动公开 API 边界，不把参考仓库结构复制进本项目。
 
 ## 测试要求

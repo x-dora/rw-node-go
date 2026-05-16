@@ -33,8 +33,8 @@ func run(args []string, stdout io.Writer) error {
 
 	flags := flag.NewFlagSet("contract-diff", flag.ContinueOnError)
 	flags.SetOutput(stdout)
-	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", "2.7.0"), "official remnawave/node tag to check")
-	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-2.7.0/upstream-contract.sha256.json", "baseline manifest path")
+	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", "dev"), "official remnawave/node tag or branch ref to check")
+	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-2.8.0/upstream-contract.sha256.json", "baseline manifest path")
 	flags.StringVar(&repo, "repo", "remnawave/node", "GitHub repository in owner/name form")
 	flags.StringVar(&sourceDir, "source-dir", getenvDefault("CONTRACT_SOURCE_DIR", ""), "local remnawave/node checkout to scan instead of downloading a GitHub tarball")
 	flags.BoolVar(&writeBaseline, "write-baseline", false, "write the scanned manifest to -baseline instead of comparing")
@@ -129,17 +129,31 @@ func downloadRepository(tag string, repo string) (string, func(), error) {
 		_ = os.RemoveAll(tmp)
 	}
 
-	url := fmt.Sprintf("https://github.com/%s/archive/refs/tags/%s.tar.gz", strings.TrimPrefix(repo, "github.com/"), tag)
-	resp, err := http.Get(url)
-	if err != nil {
+	repo = strings.TrimPrefix(repo, "github.com/")
+	urls := []string{
+		fmt.Sprintf("https://github.com/%s/archive/refs/tags/%s.tar.gz", repo, tag),
+		fmt.Sprintf("https://github.com/%s/archive/refs/heads/%s.tar.gz", repo, tag),
+	}
+
+	var resp *http.Response
+	for _, candidate := range urls {
+		var err error
+		resp, err = http.Get(candidate)
+		if err != nil {
+			cleanup()
+			return "", nil, fmt.Errorf("download GitHub tarball %s: %w", candidate, err)
+		}
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
+		_ = resp.Body.Close()
+		resp = nil
+	}
+	if resp == nil {
 		cleanup()
-		return "", nil, fmt.Errorf("download GitHub tarball %s: %w", url, err)
+		return "", nil, fmt.Errorf("download GitHub tarball for %s ref %s: no tag or branch archive returned HTTP 200", repo, tag)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		cleanup()
-		return "", nil, fmt.Errorf("download GitHub tarball %s: HTTP %d", url, resp.StatusCode)
-	}
 
 	root, err := extractTarGzip(tmp, resp.Body)
 	if err != nil {

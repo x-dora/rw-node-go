@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/config"
 	"github.com/x-dora/rw-node-go/internal/controller"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
@@ -62,6 +64,31 @@ func TestInternalRoutesAreRegistered(t *testing.T) {
 				t.Fatalf("route returned 405")
 			}
 		})
+	}
+}
+
+func TestOfficialDevRemovedVisionRoutes(t *testing.T) {
+	router := newTestRouter(t)
+	engine, ok := router.(interface {
+		Routes() gin.RoutesInfo
+	})
+	if !ok {
+		t.Fatalf("router does not expose gin routes")
+	}
+	registered := map[string]bool{}
+	for _, route := range engine.Routes() {
+		registered[route.Method+" "+route.Path] = true
+	}
+
+	for _, route := range []string{"POST /vision/block-ip", "POST /vision/unblock-ip"} {
+		if registered[route] {
+			routes := make([]string, 0, len(registered))
+			for item := range registered {
+				routes = append(routes, item)
+			}
+			sort.Strings(routes)
+			t.Fatalf("%s is still registered; routes=%v", route, routes)
+		}
 	}
 }
 
@@ -131,7 +158,6 @@ func newTestRouter(t *testing.T) http.Handler {
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,
 		Stats:    controllers.Stats,
-		Vision:   controllers.Vision,
 		Plugin:   controllers.Plugin,
 		Internal: controllers.Internal,
 	}, logger)
@@ -153,7 +179,6 @@ func newInternalTestRouter(t *testing.T) http.Handler {
 		Xray:     controllers.Xray,
 		Handler:  controllers.Handler,
 		Stats:    controllers.Stats,
-		Vision:   controllers.Vision,
 		Plugin:   controllers.Plugin,
 		Internal: controllers.Internal,
 	}, logger)

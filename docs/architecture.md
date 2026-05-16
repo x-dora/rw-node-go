@@ -10,7 +10,7 @@
 - `internal/config`：环境变量、`SECRET_KEY` 解码、PEM normalize 和运行配置。
 - `internal/httpapi`：Gin main router、internal router、response envelope、body limit、panic recovery、zstd request body、TLS client auth 和 JWT RS256 middleware。
 - `internal/contracts`：Panel-facing API 的请求和响应类型。
-- `internal/controller`：路由处理器。Xray controller 管理内嵌 instance；handler、stats 和 vision 通过内嵌 Xray feature 访问运行时；plugin 当前是接口适配 stub。
+- `internal/controller`：路由处理器。Xray controller 管理内嵌 instance；handler 和 stats 通过内嵌 Xray feature 访问运行时；plugin 当前是接口适配 stub。
 - `internal/state`：内存运行状态，包括 Xray 状态、当前 config、hash 和 inbound 用户集合。
 - `internal/xray`：内嵌 `xray-core` core、config builder、用户构建、stats 读取和 feature client 抽象。
 - `internal/system`：系统统计、网络能力检测、conntrack 连接清理和 nftables 未来集成入口。
@@ -42,7 +42,7 @@ Internal Gin API
 
 设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求。默认 `NODE_TLS_CLIENT_AUTH=mtls` 会要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS 和 JWT，适用于前置可信代理已经完成客户端证书校验的部署。
 
-官方 `/vision/*` route 仍走主 API 的 HTTPS/TLS client auth，并在 Go 侧强制校验 Bearer JWT。已拉取的 `tmp/remnawave-backend` 显示 Panel backend 在 `AxiosService.setJwt()` 中给共享 axios instance 设置全局 `Authorization: Bearer <node jwt>`，因此 Vision 请求也会携带 JWT。使用 `NODE_TLS_CLIENT_AUTH=none` 时，前置代理仍必须限制源站访问并完成客户端证书校验，但 Node 层会继续用 JWT 保护所有 Panel-facing route。
+官方 dev/2.8.0 已移除 `/vision/*` Panel-facing route，Go 侧同步不注册这些入口。使用 `NODE_TLS_CLIENT_AUTH=none` 时，前置代理仍必须限制源站访问并完成客户端证书校验，但 Node 层会继续用 JWT 保护所有已注册的 Panel-facing route。
 
 不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
 
@@ -54,9 +54,11 @@ Internal Gin API
 - 重复 start 会关闭旧 instance，再替换为新 instance。
 - `/node/xray/stop` 会关闭当前内嵌 instance。
 - `/node/xray/healthcheck` 按官方 Node 行为返回缓存状态：节点 API 可响应时 `isAlive=true`，`xrayInternalStatusCached` 来自 start/stop 或内部健康检查结果。
-- Config builder 只补齐 stats/policy 和 Vision 所需 `BLOCK` outbound，不注入 Remnawave API inbound、API service、internal mTLS 或 plugin webhook。
+- Config builder 只补齐 stats/policy，不注入 Remnawave API inbound、API service、internal mTLS、Vision `BLOCK` outbound 或 plugin webhook。
 
-用户动态管理、stats 和 Vision 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；读取失败或 feature 不可用时按 contract 稳定降级为 `false` 或空列表。
+用户动态管理和 stats 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；读取失败或 feature 不可用时按 contract 稳定降级为 `false` 或空列表。
+
+官方 dev 把外部进程模式下的 Xray internal API 从 TCP+mTLS 改为 abstract Unix socket。Go 版当前唯一运行模式是内嵌 `xray-core`，因此不新增 `XTLS_API_SOCKET_PATH`，也不恢复外部进程、internal gRPC inbound 或 internal mTLS。
 
 Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 Panel live harness 和容器日志中判断运行状态。配置日志只包含 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash；不输出完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。
 
@@ -66,7 +68,7 @@ Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 P
 
 - `GET /internal/get-config`：返回当前内存 Xray config；没有 config 时返回 `{}`。
 
-`/vision/block-ip` 和 `/vision/unblock-ip` 是官方主 API 上的 unprefixed Panel-facing route，不属于 internal API。它们通过内嵌 routing feature 添加或删除 source IP dynamic rule。
+官方 dev/2.8.0 已移除 `/vision/block-ip` 和 `/vision/unblock-ip` public contract；Go 侧访问这些路径会按未注册 route 返回 404。
 
 ## 降级和不支持能力
 

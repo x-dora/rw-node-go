@@ -32,7 +32,7 @@ func TestConfigBuilderInjectsOnlyEmbeddedStatsPolicy(t *testing.T) {
 		t.Fatalf("inbounds = %#v", inbounds)
 	}
 	outbounds := config["outbounds"].([]any)
-	if len(outbounds) != 2 || outbounds[0].(map[string]any)["tag"] != "DIRECT" || outbounds[1].(map[string]any)["tag"] != BlockOutboundTag {
+	if len(outbounds) != 1 || outbounds[0].(map[string]any)["tag"] != "DIRECT" {
 		t.Fatalf("outbounds = %#v", outbounds)
 	}
 	rules := config["routing"].(map[string]any)["rules"].([]any)
@@ -68,31 +68,6 @@ func TestConfigBuilderInjectsOnlyEmbeddedStatsPolicy(t *testing.T) {
 
 	if _, ok := input["stats"]; ok {
 		t.Fatalf("input map was mutated: %#v", input)
-	}
-}
-
-func TestConfigBuilderPreservesExistingBlockOutbound(t *testing.T) {
-	config, err := ConfigBuilder{}.Build(map[string]any{
-		"outbounds": []any{
-			map[string]any{
-				"tag":      BlockOutboundTag,
-				"protocol": "blackhole",
-				"settings": map[string]any{
-					"response": map[string]any{"type": "http"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
-	}
-	outbounds := config["outbounds"].([]any)
-	if len(outbounds) != 1 {
-		t.Fatalf("outbounds = %#v", outbounds)
-	}
-	settings := outbounds[0].(map[string]any)["settings"].(map[string]any)
-	if settings["response"] == nil {
-		t.Fatalf("existing BLOCK outbound was overwritten: %#v", outbounds[0])
 	}
 }
 

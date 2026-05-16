@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Official remnawave/node tag to check
+        description: Official remnawave/node tag or branch ref to check
         required: true
-        default: "2.7.0"
+        default: "dev"
 
 permissions:
   contents: read

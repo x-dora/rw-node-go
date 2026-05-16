@@ -33,7 +33,6 @@ func TestSecureServerRequiresMTLSAndJWT(t *testing.T) {
 		Xray:     tlsTestHandlers{},
 		Handler:  tlsTestHandlers{},
 		Stats:    tlsTestHandlers{},
-		Vision:   tlsTestHandlers{},
 		Plugin:   tlsTestHandlers{},
 		Internal: tlsTestHandlers{},
 	}, logger)
@@ -78,25 +77,39 @@ func TestSecureServerRequiresMTLSAndJWT(t *testing.T) {
 		t.Fatalf("status with JWT = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/node/handler/drop-ips", nil)
 	if err != nil {
-		t.Fatalf("new vision request: %v", err)
+		t.Fatalf("new protected route request: %v", err)
 	}
 	resp, err = client.Do(req)
-	assertRejected(t, resp, err, "vision request without JWT")
+	assertRejected(t, resp, err, "protected route request without JWT")
 
-	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/node/handler/drop-ips", nil)
 	if err != nil {
-		t.Fatalf("new vision request: %v", err)
+		t.Fatalf("new protected route request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("vision request with JWT: %v", err)
+		t.Fatalf("protected route request with JWT: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+		t.Fatalf("protected route status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	if err != nil {
+		t.Fatalf("new removed vision request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+	resp, err = client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("removed vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNotFound)
 	}
 }
 
@@ -118,7 +131,6 @@ func TestSecureServerCanDisableTLSClientCertificateAuth(t *testing.T) {
 		Xray:     tlsTestHandlers{},
 		Handler:  tlsTestHandlers{},
 		Stats:    tlsTestHandlers{},
-		Vision:   tlsTestHandlers{},
 		Plugin:   tlsTestHandlers{},
 		Internal: tlsTestHandlers{},
 	}, logger)
@@ -155,25 +167,39 @@ func TestSecureServerCanDisableTLSClientCertificateAuth(t *testing.T) {
 		t.Fatalf("status with JWT = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/node/handler/drop-ips", nil)
 	if err != nil {
-		t.Fatalf("new vision request: %v", err)
+		t.Fatalf("new protected route request: %v", err)
 	}
 	resp, err = client.Do(req)
-	assertRejected(t, resp, err, "vision request without JWT")
+	assertRejected(t, resp, err, "protected route request without JWT")
 
-	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/node/handler/drop-ips", nil)
 	if err != nil {
-		t.Fatalf("new vision request: %v", err)
+		t.Fatalf("new protected route request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("vision request with JWT and without client certificate: %v", err)
+		t.Fatalf("protected route request with JWT and without client certificate: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+		t.Fatalf("protected route status with JWT = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
+
+	req, err = http.NewRequest(http.MethodPost, ts.URL+"/vision/block-ip", nil)
+	if err != nil {
+		t.Fatalf("new removed vision request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+	resp, err = client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("removed vision status with JWT = %d, want %d", resp.StatusCode, http.StatusNotFound)
 	}
 }
 
@@ -200,8 +226,6 @@ func (tlsTestHandlers) GetOutboundStats(c *gin.Context)             { c.Status(h
 func (tlsTestHandlers) GetAllInboundsStats(c *gin.Context)          { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetAllOutboundsStats(c *gin.Context)         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetCombinedStats(c *gin.Context)             { c.Status(http.StatusNoContent) }
-func (tlsTestHandlers) BlockIP(c *gin.Context)                      { c.Status(http.StatusNoContent) }
-func (tlsTestHandlers) UnblockIP(c *gin.Context)                    { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) Sync(c *gin.Context)                         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) CollectTorrentBlockerReports(c *gin.Context) { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) BlockIPs(c *gin.Context)                     { c.Status(http.StatusNoContent) }

@@ -15,9 +15,9 @@ func TestStartupSummaryRendersRuntimeMetadataWithoutSecret(t *testing.T) {
 		RequestBodyLimitBytes: 1024,
 	}
 
-	output := StartupSummary(cfg, "2.7.0")
+	output := StartupSummary(cfg, "2.8.0")
 
-	for _, want := range []string{"rw-node-go starting", "Project Version", "Panel Node Version", "2.7.0", "embedded xray-core", "0.0.0.0:2222", "127.0.0.1:61001", "TLS Enabled", "TLS Client Auth", "mtls", "JWT Enabled"} {
+	for _, want := range []string{"rw-node-go starting", "Project Version", "Panel Node Version", "2.8.0", "embedded xray-core", "0.0.0.0:2222", "127.0.0.1:61001", "TLS Enabled", "TLS Client Auth", "mtls", "JWT Enabled"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("StartupSummary() missing %q:\n%s", want, output)
 		}

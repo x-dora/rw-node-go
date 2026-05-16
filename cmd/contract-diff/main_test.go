@@ -19,7 +19,7 @@ func TestRunWritesAndChecksLocalBaseline(t *testing.T) {
 	baseline := filepath.Join(t.TempDir(), "baseline.json")
 	var output bytes.Buffer
 	err := run([]string{
-		"-tag", "2.7.0",
+		"-tag", "dev",
 		"-source-dir", root,
 		"-baseline", baseline,
 		"-write-baseline",
@@ -33,7 +33,7 @@ func TestRunWritesAndChecksLocalBaseline(t *testing.T) {
 
 	output.Reset()
 	err = run([]string{
-		"-tag", "2.7.0",
+		"-tag", "dev",
 		"-source-dir", root,
 		"-baseline", baseline,
 	}, &output)

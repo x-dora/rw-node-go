@@ -12,7 +12,6 @@ type Registry struct {
 	Xray     XrayController
 	Handler  HandlerController
 	Stats    StatsController
-	Vision   VisionController
 	Plugin   PluginController
 	Internal InternalController
 	Snapshot system.Snapshotter
@@ -33,7 +32,6 @@ func NewRegistryWithXrayAndSnapshotter(runtimeState *state.RuntimeState, logger 
 		Xray:     XrayController{state: runtimeState, logger: logger, core: core, builder: builder, snapshot: snapshotter},
 		Handler:  HandlerController{state: runtimeState, logger: logger, core: core, dropper: system.Conntrack{}},
 		Stats:    StatsController{state: runtimeState, logger: logger, core: core, snapshot: snapshotter},
-		Vision:   VisionController{state: runtimeState, logger: logger, core: core},
 		Plugin:   PluginController{state: runtimeState, logger: logger, core: core},
 		Internal: InternalController{state: runtimeState, logger: logger},
 		Snapshot: snapshotter,
