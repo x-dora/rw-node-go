@@ -462,13 +462,13 @@ jobs:
           fetch-tags: true
 
       - name: Download release notes
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-notes
 
       - name: Download release assets
         if: needs.prepare.outputs.mode != 'republish'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-assets-*
           path: release-assets
