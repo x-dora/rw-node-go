@@ -134,6 +134,116 @@ func TestLoadRejectsInvalidNodeTLSClientAuth(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidNumericAndBooleanEnv(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		value    string
+		contains string
+	}{
+		{name: "node port is not integer", key: "NODE_PORT", value: "abc", contains: "NODE_PORT"},
+		{name: "internal port is not integer", key: "INTERNAL_REST_PORT", value: "abc", contains: "INTERNAL_REST_PORT"},
+		{name: "request body limit is not integer", key: "REQUEST_BODY_LIMIT_BYTES", value: "abc", contains: "REQUEST_BODY_LIMIT_BYTES"},
+		{name: "require secret key is not bool", key: "REQUIRE_SECRET_KEY", value: "sometimes", contains: "REQUIRE_SECRET_KEY"},
+		{name: "allow insecure target is not bool", key: "ALLOW_INSECURE_HTTP_TARGET", value: "sometimes", contains: "ALLOW_INSECURE_HTTP_TARGET"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			chdir(t, dir)
+			clearEnv(t,
+				"NODE_PORT",
+				"INTERNAL_REST_PORT",
+				"SECRET_KEY",
+				"RW_NODE_DIR",
+				"LOG_LEVEL",
+				"REQUEST_BODY_LIMIT_BYTES",
+				"REQUIRE_SECRET_KEY",
+				"ALLOW_INSECURE_HTTP_TARGET",
+				"NODE_TLS_CLIENT_AUTH",
+			)
+			t.Setenv(tt.key, tt.value)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("Load() error = nil, want %s error", tt.key)
+			}
+			if !strings.Contains(err.Error(), tt.contains) {
+				t.Fatalf("Load() error = %v, want %q", err, tt.contains)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidPortsAndNegativeBodyLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		env      map[string]string
+		contains string
+	}{
+		{name: "node port below range", env: map[string]string{"NODE_PORT": "0"}, contains: "NODE_PORT"},
+		{name: "node port above range", env: map[string]string{"NODE_PORT": "65536"}, contains: "NODE_PORT"},
+		{name: "internal port below range", env: map[string]string{"INTERNAL_REST_PORT": "0"}, contains: "INTERNAL_REST_PORT"},
+		{name: "same ports", env: map[string]string{"NODE_PORT": "3333", "INTERNAL_REST_PORT": "3333"}, contains: "must be different"},
+		{name: "negative body limit", env: map[string]string{"REQUEST_BODY_LIMIT_BYTES": "-1"}, contains: "REQUEST_BODY_LIMIT_BYTES"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			chdir(t, dir)
+			clearEnv(t,
+				"NODE_PORT",
+				"INTERNAL_REST_PORT",
+				"SECRET_KEY",
+				"RW_NODE_DIR",
+				"LOG_LEVEL",
+				"REQUEST_BODY_LIMIT_BYTES",
+				"REQUIRE_SECRET_KEY",
+				"ALLOW_INSECURE_HTTP_TARGET",
+				"NODE_TLS_CLIENT_AUTH",
+			)
+			for key, value := range tt.env {
+				t.Setenv(key, value)
+			}
+
+			_, err := Load()
+			if err == nil {
+				t.Fatalf("Load() error = nil, want %s", tt.contains)
+			}
+			if !strings.Contains(err.Error(), tt.contains) {
+				t.Fatalf("Load() error = %v, want %q", err, tt.contains)
+			}
+		})
+	}
+}
+
+func TestLoadAllowsUnlimitedRequestBodyLimit(t *testing.T) {
+	dir := t.TempDir()
+	chdir(t, dir)
+	clearEnv(t,
+		"NODE_PORT",
+		"INTERNAL_REST_PORT",
+		"SECRET_KEY",
+		"RW_NODE_DIR",
+		"LOG_LEVEL",
+		"REQUEST_BODY_LIMIT_BYTES",
+		"REQUIRE_SECRET_KEY",
+		"ALLOW_INSECURE_HTTP_TARGET",
+		"NODE_TLS_CLIENT_AUTH",
+	)
+	t.Setenv("REQUEST_BODY_LIMIT_BYTES", "0")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.RequestBodyLimitBytes != 0 {
+		t.Fatalf("RequestBodyLimitBytes = %d, want 0", cfg.RequestBodyLimitBytes)
+	}
+}
+
 func TestTLSClientAuthModeTrimsManualConfig(t *testing.T) {
 	cfg := Config{NodeTLSClientAuth: " NoNe "}
 	if cfg.TLSClientAuthMode() != "none" {

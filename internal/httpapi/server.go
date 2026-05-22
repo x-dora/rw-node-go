@@ -21,6 +21,13 @@ type Server struct {
 	logger         *slog.Logger
 }
 
+type listenerEntry struct {
+	name     string
+	server   *http.Server
+	listener net.Listener
+	scheme   string
+}
+
 func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Server, error) {
 	handler := http.Handler(NewRouter(cfg, handlers, logger))
 	handler = ZstdMiddlewareWithLimit(handler, cfg.RequestBodyLimitBytes)
@@ -70,61 +77,110 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 }
 
 func (s *Server) ListenAndServe() error {
-	errCh := make(chan error, 2)
+	entries := make([]listenerEntry, 0, 2)
 	if s.internalServer != nil {
+		listener, err := net.Listen("tcp", s.internalServer.Addr)
+		if err != nil {
+			return fmt.Errorf("internal server: %w", err)
+		}
+		entries = append(entries, listenerEntry{
+			name:     "internal server",
+			server:   s.internalServer,
+			listener: listener,
+			scheme:   "http",
+		})
+	}
+
+	if s.useTLS && s.httpServer.TLSConfig == nil {
+		closeListeners(entries)
+		return fmt.Errorf("TLS enabled without TLS config")
+	}
+	mainListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		closeListeners(entries)
+		return fmt.Errorf("main server: %w", err)
+	}
+	mainScheme := "http"
+	if s.useTLS {
+		mainScheme = "https"
+	}
+	entries = append(entries, listenerEntry{
+		name:     "main server",
+		server:   s.httpServer,
+		listener: mainListener,
+		scheme:   mainScheme,
+	})
+
+	errCh := make(chan error, len(entries))
+	for _, entry := range entries {
+		entry := entry
+		title := "Main API listening"
+		message := "main API listening"
+		if entry.server == s.internalServer {
+			title = "Internal API listening"
+			message = "internal API listening"
+		}
+		logview.InfoTable(s.logger, message, logview.ListenSummary(title, entry.listener.Addr().String(), entry.scheme))
 		go func() {
-			listener, err := net.Listen("tcp", s.internalServer.Addr)
-			if err != nil {
-				errCh <- fmt.Errorf("internal server: %w", err)
-				return
+			var serveErr error
+			if entry.server == s.httpServer && s.useTLS {
+				serveErr = entry.server.ServeTLS(entry.listener, "", "")
+			} else {
+				serveErr = entry.server.Serve(entry.listener)
 			}
-			logview.InfoTable(s.logger, "internal API listening", logview.ListenSummary("Internal API listening", listener.Addr().String(), "http"))
-			if err := s.internalServer.Serve(listener); err != nil {
-				if errors.Is(err, http.ErrServerClosed) {
-					errCh <- nil
-					return
-				}
-				errCh <- fmt.Errorf("internal server: %w", err)
+			if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s: %w", entry.name, serveErr)
+				return
 			}
 			errCh <- nil
 		}()
 	}
 
-	go func() {
-		var err error
-		listener, listenErr := net.Listen("tcp", s.httpServer.Addr)
-		if listenErr != nil {
-			errCh <- listenErr
-			return
+	var firstErr error
+	for range entries {
+		err := <-errCh
+		if err != nil && firstErr == nil {
+			firstErr = err
+			_ = s.close()
 		}
-		if s.useTLS {
-			if s.httpServer.TLSConfig == nil {
-				_ = listener.Close()
-				errCh <- fmt.Errorf("TLS enabled without TLS config")
-				return
-			}
-			logview.InfoTable(s.logger, "main API listening", logview.ListenSummary("Main API listening", listener.Addr().String(), "https"))
-			err = s.httpServer.ServeTLS(listener, "", "")
-		} else {
-			logview.InfoTable(s.logger, "main API listening", logview.ListenSummary("Main API listening", listener.Addr().String(), "http"))
-			err = s.httpServer.Serve(listener)
-		}
-		if err != nil {
-			if errors.Is(err, http.ErrServerClosed) {
-				errCh <- nil
-				return
-			}
-			errCh <- err
-		}
-		errCh <- nil
-	}()
+	}
+	return firstErr
+}
 
-	return <-errCh
+func closeListeners(entries []listenerEntry) {
+	for _, entry := range entries {
+		_ = entry.listener.Close()
+	}
+}
+
+func (s *Server) close() error {
+	var errs []error
+	if s.internalServer != nil {
+		if err := s.internalServer.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("internal server: %w", err))
+		}
+	}
+	if err := s.httpServer.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("main server: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	return s.shutdown(ctx, func(server *http.Server, ctx context.Context) error {
+		return server.Shutdown(ctx)
+	})
+}
+
+func (s *Server) shutdown(ctx context.Context, shutdown func(*http.Server, context.Context) error) error {
+	var errs []error
 	if s.internalServer != nil {
-		_ = s.internalServer.Shutdown(ctx)
+		if err := shutdown(s.internalServer, ctx); err != nil {
+			errs = append(errs, fmt.Errorf("internal server: %w", err))
+		}
 	}
-	return s.httpServer.Shutdown(ctx)
+	if err := shutdown(s.httpServer, ctx); err != nil {
+		errs = append(errs, fmt.Errorf("main server: %w", err))
+	}
+	return errors.Join(errs...)
 }

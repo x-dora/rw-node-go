@@ -39,21 +39,42 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	cfg := Config{
-		NodePort:              envInt("NODE_PORT", DefaultNodePort),
-		InternalRESTPort:      envInt("INTERNAL_REST_PORT", DefaultInternalRESTPort),
-		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
-		NodeTLSClientAuth:     normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
-		LogLevel:              envString("LOG_LEVEL", DefaultLogLevel),
-		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
-		RequestBodyLimitBytes: envInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes),
-		RequireSecretKey:      envBool("REQUIRE_SECRET_KEY", false),
-		AllowInsecureHTTPTarget: envBool(
-			"ALLOW_INSECURE_HTTP_TARGET",
-			true,
-		),
+	nodePort, err := envPort("NODE_PORT", DefaultNodePort)
+	if err != nil {
+		return Config{}, err
+	}
+	internalRESTPort, err := envPort("INTERNAL_REST_PORT", DefaultInternalRESTPort)
+	if err != nil {
+		return Config{}, err
+	}
+	requestBodyLimitBytes, err := envNonNegativeInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes)
+	if err != nil {
+		return Config{}, err
+	}
+	requireSecretKey, err := envBool("REQUIRE_SECRET_KEY", false)
+	if err != nil {
+		return Config{}, err
+	}
+	allowInsecureHTTPTarget, err := envBool("ALLOW_INSECURE_HTTP_TARGET", true)
+	if err != nil {
+		return Config{}, err
 	}
 
+	cfg := Config{
+		NodePort:                nodePort,
+		InternalRESTPort:        internalRESTPort,
+		SecretKey:               strings.TrimSpace(os.Getenv("SECRET_KEY")),
+		NodeTLSClientAuth:       normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
+		LogLevel:                envString("LOG_LEVEL", DefaultLogLevel),
+		RWNodeDir:               envString("RW_NODE_DIR", DefaultRWNodeDir),
+		RequestBodyLimitBytes:   requestBodyLimitBytes,
+		RequireSecretKey:        requireSecretKey,
+		AllowInsecureHTTPTarget: allowInsecureHTTPTarget,
+	}
+
+	if cfg.NodePort == cfg.InternalRESTPort {
+		return Config{}, fmt.Errorf("NODE_PORT and INTERNAL_REST_PORT must be different")
+	}
 	if cfg.RequireSecretKey && cfg.SecretKey == "" {
 		return Config{}, fmt.Errorf("SECRET_KEY is required")
 	}
@@ -169,38 +190,44 @@ func envString(key, fallback string) string {
 	return fallback
 }
 
-func envBool(key string, fallback bool) bool {
+func envBool(key string, fallback bool) (bool, error) {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 	parsed, err := strconv.ParseBool(value)
 	if err != nil {
-		return fallback
+		return false, fmt.Errorf("%s must be a boolean: %w", key, err)
 	}
-	return parsed
+	return parsed, nil
 }
 
-func envInt(key string, fallback int) int {
+func envPort(key string, fallback int) (int, error) {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 	parsed, err := strconv.Atoi(value)
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be an integer: %w", key, err)
 	}
-	return parsed
+	if parsed < 1 || parsed > 65535 {
+		return 0, fmt.Errorf("%s must be between 1 and 65535", key)
+	}
+	return parsed, nil
 }
 
-func envInt64(key string, fallback int64) int64 {
+func envNonNegativeInt64(key string, fallback int64) (int64, error) {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 	parsed, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be an integer: %w", key, err)
 	}
-	return parsed
+	if parsed < 0 {
+		return 0, fmt.Errorf("%s must be greater than or equal to 0", key)
+	}
+	return parsed, nil
 }

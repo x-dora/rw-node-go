@@ -91,3 +91,52 @@ func TestRestartDecisionReasons(t *testing.T) {
 		t.Fatalf("no restart decision = %#v", decision)
 	}
 }
+
+func TestRuntimeStateSnapshotsAreIsolated(t *testing.T) {
+	runtimeState := NewRuntimeState()
+	version := "1.2.3"
+	currentConfig := map[string]any{
+		"inbounds": []any{
+			map[string]any{"tag": "VLESS_INBOUND", "protocol": "vless"},
+		},
+	}
+	hashes := Hashes{
+		EmptyConfig: "empty",
+		Inbounds: []InboundHash{{
+			Tag:        "VLESS_INBOUND",
+			UsersCount: 1,
+			Hash:       "h1",
+		}},
+	}
+
+	runtimeState.SetXrayStarted(&version, currentConfig, hashes)
+	currentConfig["inbounds"].([]any)[0].(map[string]any)["tag"] = "MUTATED"
+	hashes.Inbounds[0].Tag = "MUTATED"
+	version = "mutated"
+
+	snapshot := runtimeState.Snapshot()
+	if got := snapshot.CurrentConfig["inbounds"].([]any)[0].(map[string]any)["tag"]; got != "VLESS_INBOUND" {
+		t.Fatalf("snapshot config tag = %q, want VLESS_INBOUND", got)
+	}
+	if snapshot.LastHashes.Inbounds[0].Tag != "VLESS_INBOUND" {
+		t.Fatalf("snapshot hash tag = %q, want VLESS_INBOUND", snapshot.LastHashes.Inbounds[0].Tag)
+	}
+	if snapshot.XrayVersion == nil || *snapshot.XrayVersion != "1.2.3" {
+		t.Fatalf("snapshot version = %v, want 1.2.3", snapshot.XrayVersion)
+	}
+
+	snapshot.CurrentConfig["inbounds"].([]any)[0].(map[string]any)["tag"] = "SNAPSHOT_MUTATED"
+	snapshot.LastHashes.Inbounds[0].Tag = "SNAPSHOT_MUTATED"
+	*snapshot.XrayVersion = "snapshot-mutated"
+
+	next := runtimeState.Snapshot()
+	if got := next.CurrentConfig["inbounds"].([]any)[0].(map[string]any)["tag"]; got != "VLESS_INBOUND" {
+		t.Fatalf("next snapshot config tag = %q, want VLESS_INBOUND", got)
+	}
+	if next.LastHashes.Inbounds[0].Tag != "VLESS_INBOUND" {
+		t.Fatalf("next snapshot hash tag = %q, want VLESS_INBOUND", next.LastHashes.Inbounds[0].Tag)
+	}
+	if next.XrayVersion == nil || *next.XrayVersion != "1.2.3" {
+		t.Fatalf("next snapshot version = %v, want 1.2.3", next.XrayVersion)
+	}
+}

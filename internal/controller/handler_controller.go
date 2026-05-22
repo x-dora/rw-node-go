@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/contracts"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
+	"github.com/x-dora/rw-node-go/internal/logview"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/system"
 	"github.com/x-dora/rw-node-go/internal/xray"
@@ -76,7 +77,7 @@ func (ctrl HandlerController) AddUser(c *gin.Context) {
 			if firstErr == nil {
 				firstErr = err
 			}
-			ctrl.logger.Warn("add xray user", "tag", item.Tag, "type", item.Type, "error", err)
+			ctrl.logger.Warn("add xray user", "tag", item.Tag, "type", item.Type, "error", redactedError(err))
 			continue
 		}
 		success = true
@@ -93,6 +94,11 @@ func (ctrl HandlerController) AddUsers(c *gin.Context) {
 		return
 	}
 	ctrl.state.AddKnownInboundTags(request.AffectedInboundTags...)
+	for _, user := range request.Users {
+		for _, item := range user.InboundData {
+			ctrl.state.AddKnownInboundTag(item.Tag)
+		}
+	}
 
 	client, err := ctrl.handlerClient()
 	if err != nil {
@@ -117,7 +123,7 @@ func (ctrl HandlerController) AddUsers(c *gin.Context) {
 				if firstErr == nil {
 					firstErr = err
 				}
-				ctrl.logger.Warn("add xray user", "tag", item.Tag, "type", item.Type, "error", err)
+				ctrl.logger.Warn("add xray user", "tag", item.Tag, "type", item.Type, "error", redactedError(err))
 				continue
 			}
 			success = true
@@ -318,7 +324,7 @@ func (ctrl HandlerController) dropConnectionIP(ctx context.Context, ip string) e
 func (ctrl HandlerController) removeUser(ctx context.Context, client xray.HandlerClient, tag string, username string) error {
 	err := client.RemoveUser(ctx, tag, username)
 	if err != nil {
-		ctrl.logger.Debug("remove xray user", "tag", tag, "error", err)
+		ctrl.logger.Debug("remove xray user", "tag", tag, "error", redactedError(err))
 	}
 	return err
 }
@@ -404,4 +410,11 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func redactedError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return logview.RedactText(err.Error())
 }

@@ -82,6 +82,34 @@ func TestHandlerAddUsersUsesBulkMappings(t *testing.T) {
 	}
 }
 
+func TestHandlerAddUsersTracksInboundDataTagsWhenAffectedTagsMissing(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	runtimeState := state.NewRuntimeState()
+	handler := &recordingHandlerClient{}
+	ctrl := HandlerController{state: runtimeState, logger: slog.Default(), core: &fakeCore{started: true, handler: handler}}
+
+	rec := runHandlerRequest(t, ctrl.AddUsers, `{
+		"affectedInboundTags":[],
+		"users":[{
+			"inboundData":[{"type":"vless","tag":"VLESS_INBOUND"}],
+			"userData":{
+				"userId":"user-1",
+				"hashUuid":"33333333-3333-4333-8333-333333333333",
+				"vlessUuid":"11111111-1111-4111-8111-111111111111"
+			}
+		}]
+	}`)
+
+	assertGenericSuccess(t, rec.Body.String(), true)
+	tags := runtimeState.KnownInboundTags()
+	if len(tags) != 1 || tags[0] != "VLESS_INBOUND" {
+		t.Fatalf("KnownInboundTags = %#v, want VLESS_INBOUND", tags)
+	}
+	if got := runtimeState.InboundProtocol("VLESS_INBOUND"); got != "vless" {
+		t.Fatalf("InboundProtocol = %q, want vless", got)
+	}
+}
+
 func TestHandlerRemoveUserNoKnownInboundSucceedsWithoutCore(t *testing.T) {
 	gin.SetMode(gin.ReleaseMode)
 	ctrl := HandlerController{state: state.NewRuntimeState(), logger: slog.Default(), core: &fakeCore{}}

@@ -33,6 +33,8 @@ mise exec -- go run ./cmd/rw-node-go
 
 主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 `scripts/panel-integration.sh` 触发。
 
+配置加载会尽早拒绝明显错误的环境变量：`NODE_PORT` 和 `INTERNAL_REST_PORT` 必须是 `1..65535` 且不能相同，`REQUEST_BODY_LIMIT_BYTES` 必须是非负整数，布尔项必须使用 Go 可解析的布尔值。空值仍使用默认值；`REQUEST_BODY_LIMIT_BYTES=0` 表示不限制请求体大小。非法值会导致启动失败，不会静默回退到默认值。
+
 设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 Cloudflare API Shield mTLS 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方 dev/2.8.0 已移除 `/vision/*` route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
 启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。

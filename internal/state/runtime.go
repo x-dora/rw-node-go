@@ -75,13 +75,13 @@ func (s *RuntimeState) SetXrayStarted(version *string, currentConfig map[string]
 	defer s.mu.Unlock()
 	s.XrayRunning = true
 	s.XrayInternalStatusCached = true
-	s.XrayVersion = version
-	s.CurrentConfig = currentConfig
-	s.LastHashes = hashes
+	s.XrayVersion = cloneStringPtr(version)
+	s.CurrentConfig = cloneMap(currentConfig)
+	s.LastHashes = cloneHashes(hashes)
 	s.HasLastHashes = true
 	s.KnownInboundTag = map[string]struct{}{}
 	s.InboundProtocols = map[string]string{}
-	for _, inbound := range hashes.Inbounds {
+	for _, inbound := range s.LastHashes.Inbounds {
 		if inbound.Tag != "" {
 			s.KnownInboundTag[inbound.Tag] = struct{}{}
 		}
@@ -104,23 +104,11 @@ func (s *RuntimeState) Snapshot() Snapshot {
 	return Snapshot{
 		XrayRunning:              s.XrayRunning,
 		XrayInternalStatusCached: s.XrayInternalStatusCached,
-		XrayVersion:              s.XrayVersion,
+		XrayVersion:              cloneStringPtr(s.XrayVersion),
 		NodeVersion:              s.NodeVersion,
 		CurrentConfig:            cloneMap(s.CurrentConfig),
-		LastHashes:               s.LastHashes,
+		LastHashes:               cloneHashes(s.LastHashes),
 	}
-}
-
-func (s *RuntimeState) ShouldRestart(force bool, hashes Hashes, coreRunning bool) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if force || !coreRunning {
-		return true
-	}
-	if !s.HasLastHashes {
-		return true
-	}
-	return !sameHashes(s.LastHashes, hashes)
 }
 
 func (s *RuntimeState) RestartDecision(force bool, hashes Hashes, coreRunning bool) RestartDecision {
@@ -219,9 +207,44 @@ func sameHashes(a, b Hashes) bool {
 }
 
 func cloneMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
 	output := make(map[string]any, len(input))
 	for key, value := range input {
-		output[key] = value
+		output[key] = cloneValue(value)
 	}
 	return output
+}
+
+func cloneValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneMap(typed)
+	case []any:
+		output := make([]any, len(typed))
+		for i, item := range typed {
+			output[i] = cloneValue(item)
+		}
+		return output
+	default:
+		return value
+	}
+}
+
+func cloneHashes(input Hashes) Hashes {
+	output := Hashes{
+		EmptyConfig: input.EmptyConfig,
+		Inbounds:    make([]InboundHash, len(input.Inbounds)),
+	}
+	copy(output.Inbounds, input.Inbounds)
+	return output
+}
+
+func cloneStringPtr(input *string) *string {
+	if input == nil {
+		return nil
+	}
+	value := *input
+	return &value
 }
