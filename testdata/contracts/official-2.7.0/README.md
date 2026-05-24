@@ -6,7 +6,9 @@
 tmp/remnawave-node/libs/contract
 ```
 
-`panel-api.json` 保存 Go contract 测试需要的少量请求和响应样例。`upstream-contract.sha256.json` 保存官方 `remnawave/node 2.7.0` 的 Panel-facing contract 文件路径和 SHA-256，用于后续检查上游 contract 是否漂移。
+本地路径对应官方 [`remnawave/node` contract 入口](https://github.com/remnawave/node/tree/2.7.0/libs/contract)，当前历史 baseline 目标是 [`2.7.0`](https://github.com/remnawave/node/tree/2.7.0)。
+
+[`panel-api.json`](panel-api.json) 保存 Go contract 测试需要的少量请求和响应样例。[`upstream-contract.sha256.json`](upstream-contract.sha256.json) 保存官方 [`remnawave/node 2.7.0`](https://github.com/remnawave/node/tree/2.7.0) 的 Panel-facing contract 文件路径和 SHA-256，用于后续检查上游 contract 是否漂移。
 
 hash baseline 覆盖：
 

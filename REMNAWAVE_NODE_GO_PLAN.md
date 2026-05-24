@@ -2,17 +2,11 @@
 
 > 历史设计备忘：本文档保留早期外部 Xray 进程、内部 gRPC API、plugin 和可选内嵌模式的完整讨论，不再作为当前实现规范。当前协作规则、运行边界、contract 要求和功能状态以 `AGENTS.md`、`README.md`、`docs/*.md` 和实际代码为准。本文中关于外部 `xray` 进程、内部 gRPC、nftables 或未来能力的旧设想不应作为当前实现依据。
 
-本文档整理一个用 Go 自研 Remnawave Node 兼容实现的技术方案。目标不是简单复刻已有的 `hteppl/remnawave-node-go`，而是以官方 `remnawave/node` 当前协议和行为为基准，做一个可维护、可测试、可长期跟随上游变化的轻量节点实现。
+本文档整理一个用 Go 自研 Remnawave Node 兼容实现的技术方案。目标是以官方 `remnawave/node` 当前协议和行为为基准，做一个可维护、可测试、可长期跟随上游变化的轻量节点实现。
 
 ## 1. 背景与目标
 
 RW-Node 当前是官方 `remnawave/node` 的轻量部署和打包方案，本仓库本身不包含 Node.js 应用源码。官方节点是 TypeScript/NestJS 应用，负责接收 Remnawave Panel 的节点控制请求，并管理本机 Xray-core。
-
-社区已有 Go 版本 `hteppl/remnawave-node-go`，但它目前存在几个问题：
-
-- 官方 Remnawave Node 已更新到 `2.7.0`，Go 版 README 中也说明 `v1.3.0+` 才计划兼容 Remnawave `2.7.0+`，正式兼容版尚未稳定。
-- Go 版缺少 2.7.0 新增的插件、metadata、system stats 等完整行为。
-- Go 版采用内嵌 `xray-core` 的路线，镜像和内存收益明显，但会增加对 Xray 内部 API 的耦合。
 
 自研目标：
 
@@ -1294,6 +1288,5 @@ MVP 暂不要求：
 ## 19. 参考资料
 
 - 官方 Node 仓库：`https://github.com/remnawave/node`
-- 社区 Go 版：`https://github.com/hteppl/remnawave-node-go`
 - Remnawave Node 文档：`https://docs.rw/docs/install/remnawave-node/`
 - Xray-core：`https://github.com/XTLS/Xray-core`

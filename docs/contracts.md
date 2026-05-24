@@ -1,10 +1,10 @@
 # Contract 说明
 
-兼容性来源以官方 `remnawave/node` dev/2.8.0 面向 Panel 的 contract 和实际实现为准。Go 侧公开类型放在 `internal/contracts`，HTTP route 注册放在 `internal/httpapi/router.go`。
+兼容性来源以官方 [`remnawave/node`](https://github.com/remnawave/node) [`dev/2.8.0`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5) 面向 Panel 的 contract 和实际实现为准。Go 侧公开类型放在 [`internal/contracts`](../internal/contracts)，HTTP route 注册放在 [`internal/httpapi/router.go`](../internal/httpapi/router.go)。
 
-`tmp/remnawave-node` 用作官方仓库参考，当前对齐目标是 dev 提交 `a5acdeb28840e21c2622a6362dc6824b6e70eea5`。必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。`tmp/remnawave-node-go` 只作为内嵌 `xray-core` 结构参考。
+`tmp/remnawave-node` 用作官方仓库参考，当前对齐目标是 dev 提交 [`a5acdeb28840e21c2622a6362dc6824b6e70eea5`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5)。必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。
 
-本仓库的 `nodeVersion` 固定为 `2.8.0`，与 `VERSION` 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
+本仓库的 `nodeVersion` 固定为 `2.8.0`，与 [`VERSION`](../VERSION) 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
 
 当前已从官方 dev/2.8.0 contract 手工整理小型 golden manifest：
 
@@ -61,6 +61,8 @@ Golden fixture 目录：
 testdata/contracts/official-2.8.0
 ```
 
+对应仓库路径见 [`testdata/contracts/official-2.8.0`](../testdata/contracts/official-2.8.0)。
+
 当前 contract 测试已覆盖：
 
 - HTTP method 和 path。
@@ -76,13 +78,15 @@ Go 侧请求解析保持兼容解析，不复刻官方 zod 全量强校验；只
 
 ## 官方 Contract Drift 检查
 
-本仓库保存官方 `remnawave/node` dev/2.8.0 的 contract hash baseline：
+本仓库保存官方 [`remnawave/node`](https://github.com/remnawave/node) dev/2.8.0 的 contract hash baseline：
 
 ```text
 testdata/contracts/official-2.8.0/upstream-contract.sha256.json
 ```
 
-该 baseline 只保存 `libs/contract` 中 Panel-facing contract 相关 TypeScript 文件的路径和 SHA-256，不保存官方源码正文。检查范围包括：
+对应仓库文件见 [`testdata/contracts/official-2.8.0/upstream-contract.sha256.json`](../testdata/contracts/official-2.8.0/upstream-contract.sha256.json)。
+
+该 baseline 只保存官方 [`libs/contract`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5/libs/contract) 中 Panel-facing contract 相关 TypeScript 文件的路径和 SHA-256，不保存官方源码正文。检查范围包括：
 
 - `libs/contract/api`
 - `libs/contract/commands`
@@ -108,6 +112,6 @@ CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
 CONTRACT_TAG=main mise run contract-diff
 ```
 
-如果检查失败，先查看新增、删除或 hash 变化的文件列表，再对照官方仓库更新 Go contract、route 注册和 golden fixture。
+如果检查失败，先查看新增、删除或 hash 变化的文件列表，再对照 [官方仓库](https://github.com/remnawave/node) 更新 Go contract、route 注册和 golden fixture。
 
 不要把官方 TypeScript contract 包整体复制进仓库。只固化必要的小型请求/响应 JSON fixture，并在 contract 变化时对照官方实现更新。

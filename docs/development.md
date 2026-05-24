@@ -1,6 +1,6 @@
 # 开发说明
 
-本文档记录本项目的本地开发、验证、真实 Panel harness 和发布操作。项目定位和最短运行路径放在 `README.md`；详细功能进度矩阵放在 `docs/roadmap.md`。
+本文档记录本项目的本地开发、验证、真实 Panel harness 和发布操作。项目定位和最短运行路径放在 [`README.md`](../README.md)；详细功能进度矩阵放在 [`docs/roadmap.md`](roadmap.md)。
 
 ## 1. 本地开发
 
@@ -22,7 +22,7 @@ mise run preflight
 
 `mise install` 会安装固定版本的 Go；`mise run lint` 通过当前 Go toolchain 运行固定版本的 `golangci-lint`，CI 和 Preflight 也会执行该检查。需要直接运行 Go 命令时，优先使用 `mise exec -- go ...`，确保本地工具链和 CI 一致。
 
-`mise run build` 通过 `cmd/rw-build` 读取根目录 `VERSION`，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。CI、Docker 和 release workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
+`mise run build` 通过 [`cmd/rw-build`](../cmd/rw-build) 读取根目录 [`VERSION`](../VERSION)，再注入 `ProjectVersion`、`Commit` 和 `BuildDate`。[CI](../.github/workflows/ci.yml)、[Docker](../.github/workflows/docker.yml) 和 [Release](../.github/workflows/release.yml) workflow 也走同一入口，避免本地和发布产物出现不同版本语义。
 
 开发模式可以不设置 `SECRET_KEY`，此时主服务使用 HTTP，便于 route 和 contract 测试：
 
@@ -31,11 +31,11 @@ cp .env.example .env
 mise exec -- go run ./cmd/rw-node-go
 ```
 
-主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 `scripts/panel-integration.sh` 触发。
+主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 [`scripts/panel-integration.sh`](../scripts/panel-integration.sh) 触发。
 
 配置加载会尽早拒绝明显错误的环境变量：`NODE_PORT` 和 `INTERNAL_REST_PORT` 必须是 `1..65535` 且不能相同，`REQUEST_BODY_LIMIT_BYTES` 必须是非负整数，布尔项必须使用 Go 可解析的布尔值。空值仍使用默认值；`REQUEST_BODY_LIMIT_BYTES=0` 表示不限制请求体大小。非法值会导致启动失败，不会静默回退到默认值。
 
-设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 Cloudflare API Shield mTLS 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方 dev/2.8.0 已移除 `/vision/*` route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
+设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/) 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方 [`dev/2.8.0`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5) 已移除 `/vision/*` route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
 启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。
 
@@ -58,7 +58,7 @@ flowchart LR
 - 从 stub 进入真实 Xray 行为时，应补 integration test 或明确记录无法在 CI 中验证的原因。
 - TLS client auth/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
 - contract golden 应只保存必要 fixture，避免复制大段上游源码。
-- 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以官方仓库为准，并同步修正文档中的错误假设。
+- 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以 [官方仓库](https://github.com/remnawave/node) 为准，并同步修正文档中的错误假设。
 
 建议验证顺序：
 
@@ -70,7 +70,7 @@ mise run lint
 mise run contract-diff
 ```
 
-`mise run contract-diff` 默认下载官方 `remnawave/node` dev 分支。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
+`mise run contract-diff` 默认下载官方 [`remnawave/node`](https://github.com/remnawave/node) dev 分支。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
 
 ```sh
 CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
@@ -84,11 +84,11 @@ mise run docker-build
 
 ## 3. 真实 Panel harness
 
-真实 Panel 对接联调不是 `go test` 测试，它只能通过 `scripts/panel-integration.sh` 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只能指向专门用于联调的测试节点。
+真实 Panel 对接联调不是 `go test` 测试，它只能通过 [`scripts/panel-integration.sh`](../scripts/panel-integration.sh) 触发。它用于在接近生产的运行方式下启动本地 `rw-node-go`，连接外部 Remnawave Panel，并产出适合人工和 agent 阅读的结构化日志。它会对真实 Panel 节点执行 enable/disable 操作，只能指向专门用于联调的测试节点。
 
-先把根目录 `.env.integration.example` 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。`NODE_TLS_CLIENT_AUTH` 默认是 `mtls`；只有在前置代理已经校验 Panel 客户端证书且源站访问被限制时，才应在联调环境显式改为 `none`。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
+先把根目录 [`.env.integration.example`](../.env.integration.example) 复制为 `.env.integration.local`，填写 `PANEL_BASE_URL`、`PANEL_API_KEY`、`PANEL_NODE_ID` 和 Panel 生成给当前节点的 `SECRET_KEY`。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，`PANEL_NODE_ID` 必须是完整节点 UUID；只有只读的 `node` 命令允许使用能唯一匹配一个节点的 UUID/name/address 片段。`NODE_PORT` 必须和 Panel 上该节点的端口一致，否则 Panel 会连到错误端口。`NODE_TLS_CLIENT_AUTH` 默认是 `mtls`；只有在前置代理已经校验 Panel 客户端证书且源站访问被限制时，才应在联调环境显式改为 `none`。默认 smoke 接口是 `/api/system/metadata`；如需替换，把 `PANEL_SMOKE_PATH` 改成一个低风险、可鉴权的只读接口。
 
-内嵌 `xray-core` 需要 `geoip.dat` 和 `geosite.dat`。本地联调默认从 `runtime/xray/` 读取，也可以通过 `XRAY_ASSET_DIR` 指到其他目录。Release 和 Docker workflow 会按 Xray-core 的方式从 `Loyalsoldier/v2ray-rules-dat` release 分支下载并校验这两个文件；本地手动联调时也应保持文件名不变：
+内嵌 [`xray-core`](https://github.com/XTLS/Xray-core) 需要 `geoip.dat` 和 `geosite.dat`。本地联调默认从 `runtime/xray/` 读取，也可以通过 `XRAY_ASSET_DIR` 指到其他目录。[Release](../.github/workflows/release.yml) 和 [Docker](../.github/workflows/docker.yml) workflow 会按 Xray-core 的方式从 [`Loyalsoldier/v2ray-rules-dat`](https://github.com/Loyalsoldier/v2ray-rules-dat) release 分支下载并校验这两个文件；本地手动联调时也应保持文件名不变：
 
 ```text
 runtime/xray/geoip.dat
@@ -122,7 +122,7 @@ bash scripts/panel-integration.sh extended-smoke
 
 脚本会在日志目录写入 `rw-node-go.pid.json`，其中记录 pid、二进制路径、启动时间和 harness marker。`stop` 只会停止能验证为该 harness 启动的进程；发现旧格式或陈旧 pid 文件时会拒绝发送 SIGTERM，并提示人工确认后删除 pid 文件。
 
-脚本内部会调用 `cmd/panel-integration`。这个 Go 命令是脚本专用 harness，不是公开入口；绕过脚本直接运行该命令会失败并提示改用 `scripts/panel-integration.sh`。普通 `go test ./...` 不会连接真实 Panel。
+脚本内部会调用 [`cmd/panel-integration`](../cmd/panel-integration)。这个 Go 命令是脚本专用 harness，不是公开入口；绕过脚本直接运行该命令会失败并提示改用 [`scripts/panel-integration.sh`](../scripts/panel-integration.sh)。普通 `go test ./...` 不会连接真实 Panel。
 
 <details>
 <summary>联调前检查</summary>
@@ -141,23 +141,23 @@ bash scripts/panel-integration.sh extended-smoke
 
 项目发布版本和 Panel 兼容版本必须分开维护：
 
-- 根目录 `VERSION` 是 `rw-node-go` 自己的发布版本，使用语义化版本；当前项目版本以该文件内容为准。
-- `internal/version.ProjectVersion` 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
-- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.8.0`，只代表兼容官方 `remnawave/node` dev/2.8.0 contract。除非明确跟随上游 contract 升级，否则不要改它。
+- 根目录 [`VERSION`](../VERSION) 是 `rw-node-go` 自己的发布版本，使用语义化版本；当前项目版本以该文件内容为准。
+- [`internal/version.ProjectVersion`](../internal/version/version.go) 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
+- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.8.0`，只代表兼容官方 [`remnawave/node`](https://github.com/remnawave/node) dev/2.8.0 contract。除非明确跟随上游 contract 升级，否则不要改它。
 
-`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 `.mise.toml` 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、非 root 用户信息和 Xray geodata。release 流程仍按 `go.mod` 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
+`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 [`.mise.toml`](../.mise.toml) 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、非 root 用户信息和 Xray geodata。release 流程仍按 [`go.mod`](../go.mod) 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 
 GitHub Actions 发布流程：
 
-- `CI`：push 和 pull request 跑测试与二进制构建。
-- `Docker`：`main` push 构建并推送滚动开发镜像 `ghcr.io/x-dora/rw-node-go:dev`；pull request 和手动触发只构建多架构镜像，不推送，不发布 `latest` 或版本 tag。
-- `Preflight`：手动或 release 调用，执行格式检查、`mise run test`、`mise run lint`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
-- `Scheduled assets update`：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
-- `Release`：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
+- [`CI`](../.github/workflows/ci.yml)：push 和 pull request 跑测试与二进制构建。
+- [`Docker`](../.github/workflows/docker.yml)：`main` push 构建并推送滚动开发镜像 [`ghcr.io/x-dora/rw-node-go:dev`](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)；pull request 和手动触发只构建多架构镜像，不推送，不发布 `latest` 或版本 tag。
+- [`Preflight`](../.github/workflows/preflight.yml)：手动或 release 调用，执行格式检查、`mise run test`、`mise run lint`、`mise run build` 和 `mise run contract-diff`；可选运行真实 Panel live harness。
+- [`Scheduled assets update`](../.github/workflows/scheduled-assets-update.yml)：每天按 Xray-core 的 geodat 流程下载 `geoip.dat` 和 `geosite.dat`，校验上游 sha256，并缓存到 `resources/`。
+- [`Release`](../.github/workflows/release.yml)：`main` 每次 push 先跑 Preflight。若 `VERSION` 没变且对应正式 tag 已存在，会更新滚动 `pre-release` 的 release notes 和 Linux `tar.gz` 资产；若 `VERSION` 变化，会先推 GHCR 镜像，成功后再创建 `v<VERSION>` 正式 release 并上传 Linux `tar.gz` 资产。Release workflow 还提供 `republish_existing_release=true` 的手动恢复入口，只补推已有正式 release 对应的镜像，不会改动 GitHub Release。
 
-CI、Preflight 和 Contract Diff workflow 会缓存 Go module 与 build cache；Release 的二进制构建继续使用 `actions/setup-go` 内置缓存，并以 `go.sum` 作为依赖缓存依据。Docker build 和 geodat 仍使用各自独立的 Actions cache。
+[CI](../.github/workflows/ci.yml)、[Preflight](../.github/workflows/preflight.yml) 和 [Contract Diff](../.github/workflows/contract-diff.yml) workflow 会缓存 Go module 与 build cache；Release 的二进制构建继续使用 `actions/setup-go` 内置缓存，并以 [`go.sum`](../go.sum) 作为依赖缓存依据。Docker build 和 geodat 仍使用各自独立的 Actions cache。
 
-正式发版只需要修改 `VERSION` 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。发布资产包命名为 `rw-node-go-linux-64.tar.gz` 和 `rw-node-go-linux-arm64-v8a.tar.gz`，包内包含 `rw-node-go`、`geoip.dat`、`geosite.dat`、`README.md` 和 `LICENSE`，并附带 `.dgst` 校验文件。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret，但还需要在 GitHub Packages 里给 `ghcr.io/x-dora/rw-node-go` 授予本仓库的写入或继承权限，否则 Docker workflow 的 `dev` 推送或 Release workflow 的正式镜像推送会失败并提示 `write_package` 问题。
+正式发版只需要修改 [`VERSION`](../VERSION) 并推送到 `main`。正式 tag 已存在时 workflow 会失败，不会覆盖历史 release。发布资产包命名为 `rw-node-go-linux-64.tar.gz` 和 `rw-node-go-linux-arm64-v8a.tar.gz`，包内包含 `rw-node-go`、`geoip.dat`、`geosite.dat`、[`README.md`](../README.md) 和 [`LICENSE`](../LICENSE)，并附带 `.dgst` 校验文件。GHCR 推送直接使用 `github.token` 登录，不需要额外的发布 secret，但还需要在 GitHub Packages 里给 [`ghcr.io/x-dora/rw-node-go`](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go) 授予本仓库的写入或继承权限，否则 Docker workflow 的 `dev` 推送或 Release workflow 的正式镜像推送会失败并提示 `write_package` 问题。
 
 本地发布前验证：
 
@@ -187,13 +187,13 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 
 ## 6. 实现规则
 
-- HTTP 层使用 Gin，main route 和 internal route 注册集中在 `internal/httpapi/router.go`。
+- HTTP 层使用 Gin，main route 和 internal route 注册集中在 [`internal/httpapi/router.go`](../internal/httpapi/router.go)。
 - Panel-facing response 使用 `httpapi.WriteEnvelope`。
 - Internal API 可以直接返回 JSON 对象，不套 Panel envelope。
 - `/node/xray/start` 失败后会把 running 和 health cached 标记为 false，但保留上一份内存 config、hash 和版本用于 internal 诊断。
-- 新增公开请求或响应类型放在 `internal/contracts`。
-- 当前唯一 Xray runtime 是内嵌 `xray-core`；不要重新引入外部进程模式、Xray gRPC API、internal mTLS、官方 dev 的 `XTLS_API_SOCKET_PATH` 外部进程控制面或配置落盘主路径。
-- Xray 相关能力优先通过 `internal/xray` 抽象实现。
-- system、conntrack、nftables 能力放在 `internal/system`，权限不足时应稳定降级。
+- 新增公开请求或响应类型放在 [`internal/contracts`](../internal/contracts)。
+- 当前唯一 Xray runtime 是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)；不要重新引入外部进程模式、Xray gRPC API、internal mTLS、官方 dev 的 `XTLS_API_SOCKET_PATH` 外部进程控制面或配置落盘主路径。
+- Xray 相关能力优先通过 [`internal/xray`](../internal/xray) 抽象实现。
+- system、conntrack、nftables 能力放在 [`internal/system`](../internal/system)，权限不足时应稳定降级。
 - plugin 只做 contract adapter；不要保存 plugin runtime state、注入 Xray plugin config、接收 webhook、触发 Xray restart 或执行 nftables。
 - 不新增公开 `pkg` API，除非明确决定把项目的一部分作为 Go library 发布。

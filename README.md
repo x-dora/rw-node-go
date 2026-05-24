@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/x-dora/rw-node-go?include_prereleases&label=release)](https://github.com/x-dora/rw-node-go/releases)
 [![License](https://img.shields.io/github/license/x-dora/rw-node-go)](LICENSE)
 
-`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 `remnawave/node` dev/2.8.0 面向 Panel 的 API contract。当前唯一运行模式是内嵌 `xray-core`：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 [`remnawave/node`](https://github.com/remnawave/node) [`dev/2.8.0`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5) 面向 Panel 的 API contract。当前唯一运行模式是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
 
 这不是外部 `xray` 进程包装器，也不把 Xray 配置作为主路径落盘。Plugin 相关路由只保留 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
 
@@ -37,8 +37,8 @@
 | --- | --- | --- |
 | 主 API | `NODE_PORT` | 面向 Panel 的主服务。设置 `SECRET_KEY` 后走 HTTPS、TLS client auth 和 JWT 校验；未设置时只用于本地 HTTP 开发。 |
 | Internal API | `INTERNAL_REST_PORT` | 仅本机可见的 internal REST API。 |
-| Live Harness | `scripts/panel-integration.sh` | 唯一真实 Panel 联调入口。 |
-| Contract Drift | `mise run contract-diff` | 对照官方 `remnawave/node` dev/2.8.0 的 contract 变化。 |
+| Live Harness | [`scripts/panel-integration.sh`](scripts/panel-integration.sh) | 唯一真实 Panel 联调入口。 |
+| Contract Drift | `mise run contract-diff` | 对照官方 [`remnawave/node`](https://github.com/remnawave/node) [`dev/2.8.0`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5) 的 contract 变化。 |
 
 ## 能力快照
 
@@ -50,7 +50,7 @@
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期。
 - handler、stats 和连接清理的部分接入。
 - Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取，失败时稳定降级为 `false` 或空列表。
-- Docker 构建、CI、release 流程和受控真实 Panel live harness。
+- Docker 构建、[CI](https://github.com/x-dora/rw-node-go/actions/workflows/ci.yml)、[release](https://github.com/x-dora/rw-node-go/releases)、[GHCR 镜像](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)和受控真实 Panel live harness。
 
 </details>
 
@@ -91,7 +91,7 @@ mise exec -- go run ./cmd/rw-node-go
 mise run preflight
 ```
 
-真实 Panel live harness 只通过 `scripts/panel-integration.sh` 触发。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
+真实 Panel live harness 只通过 [`scripts/panel-integration.sh`](scripts/panel-integration.sh) 触发。该流程会启用并禁用真实 Panel 测试节点，只能指向专用测试节点。
 
 <details>
 <summary>推荐的本地验证顺序</summary>
@@ -114,7 +114,7 @@ mise run docker-build
 
 ## 运行配置
 
-裸进程启动时会先读取当前工作目录的 `.env`；`.env` 不存在时按环境变量和默认值启动。`.env.example` 只用于主服务本地配置，真实 Panel live harness 使用独立的 `.env.integration.local`。
+裸进程启动时会先读取当前工作目录的 `.env`；`.env` 不存在时按环境变量和默认值启动。[`.env.example`](.env.example) 只用于主服务本地配置，真实 Panel live harness 使用独立的 `.env.integration.local`。
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -159,7 +159,7 @@ local-only control plane
 
 </details>
 
-设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求。默认 `NODE_TLS_CLIENT_AUTH=mtls`，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=none` 只适用于前置可信代理已完成客户端证书校验的部署，例如 Cloudflare API Shield mTLS；此时 Node 层仍会对所有 Panel-facing route 校验 JWT。官方 dev/2.8.0 已移除 `/vision/*` Panel-facing route，Go 侧同步返回 404。
+设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求。默认 `NODE_TLS_CLIENT_AUTH=mtls`，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=none` 只适用于前置可信代理已完成客户端证书校验的部署，例如 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/)；此时 Node 层仍会对所有 Panel-facing route 校验 JWT。官方 [`dev/2.8.0`](https://github.com/remnawave/node/tree/a5acdeb28840e21c2622a6362dc6824b6e70eea5) 已移除 `/vision/*` Panel-facing route，Go 侧同步返回 404。
 
 不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
 
