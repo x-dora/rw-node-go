@@ -43,6 +43,7 @@ COPY --from=build --chown=10001:10001 --chmod=644 /tmp/geodat/*.dat /usr/local/s
 COPY --from=build --chmod=755 /out/rw-node-go /usr/local/bin/rw-node-go
 
 ENV REQUIRE_SECRET_KEY=true
+ENV LOG_COLOR=always
 ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
 USER 0:0

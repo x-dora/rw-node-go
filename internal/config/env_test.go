@@ -17,6 +17,7 @@ func TestLoadDefaults(t *testing.T) {
 		"SECRET_KEY",
 		"RW_NODE_DIR",
 		"LOG_LEVEL",
+		"LOG_COLOR",
 		"REQUEST_BODY_LIMIT_BYTES",
 		"REQUIRE_SECRET_KEY",
 		"ALLOW_INSECURE_HTTP_TARGET",
@@ -37,6 +38,18 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.RWNodeDir != DefaultRWNodeDir {
 		t.Fatalf("RWNodeDir = %q, want %q", cfg.RWNodeDir, DefaultRWNodeDir)
 	}
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Fatalf("LogLevel = %q, want %q", cfg.LogLevel, DefaultLogLevel)
+	}
+	if cfg.SlogLevel().String() != "INFO" {
+		t.Fatalf("SlogLevel() = %s, want INFO", cfg.SlogLevel())
+	}
+	if cfg.LogColor != DefaultLogColor {
+		t.Fatalf("LogColor = %q, want %q", cfg.LogColor, DefaultLogColor)
+	}
+	if !cfg.LogColorEnabled() {
+		t.Fatalf("LogColorEnabled() = false, want true")
+	}
 	if cfg.TLSClientAuthMode() != DefaultNodeTLSClientAuth {
 		t.Fatalf("TLSClientAuthMode() = %q, want %q", cfg.TLSClientAuthMode(), DefaultNodeTLSClientAuth)
 	}
@@ -51,6 +64,7 @@ func TestLoadReadsDotEnv(t *testing.T) {
 		"SECRET_KEY",
 		"RW_NODE_DIR",
 		"LOG_LEVEL",
+		"LOG_COLOR",
 		"REQUEST_BODY_LIMIT_BYTES",
 		"REQUIRE_SECRET_KEY",
 		"ALLOW_INSECURE_HTTP_TARGET",
@@ -60,6 +74,7 @@ func TestLoadReadsDotEnv(t *testing.T) {
 		"NODE_PORT=3333",
 		"INTERNAL_REST_PORT=62000",
 		"LOG_LEVEL=debug",
+		"LOG_COLOR=never",
 		"SECRET_KEY=dotenv-secret",
 		"NODE_TLS_CLIENT_AUTH=none",
 		"",
@@ -79,6 +94,15 @@ func TestLoadReadsDotEnv(t *testing.T) {
 	if cfg.LogLevel != "debug" {
 		t.Fatalf("LogLevel = %q, want debug", cfg.LogLevel)
 	}
+	if cfg.SlogLevel().String() != "DEBUG" {
+		t.Fatalf("SlogLevel() = %s, want DEBUG", cfg.SlogLevel())
+	}
+	if cfg.LogColor != "never" {
+		t.Fatalf("LogColor = %q, want never", cfg.LogColor)
+	}
+	if cfg.LogColorEnabled() {
+		t.Fatalf("LogColorEnabled() = true, want false")
+	}
 	if cfg.SecretKey != "dotenv-secret" {
 		t.Fatalf("SecretKey was not loaded from .env")
 	}
@@ -90,9 +114,10 @@ func TestLoadReadsDotEnv(t *testing.T) {
 func TestLoadEnvOverridesDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	clearEnv(t, "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
+	clearEnv(t, "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "LOG_COLOR", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
 	t.Setenv("NODE_PORT", "4444")
-	writeFile(t, filepath.Join(dir, ".env"), "NODE_PORT=3333\n")
+	t.Setenv("LOG_COLOR", "never")
+	writeFile(t, filepath.Join(dir, ".env"), "NODE_PORT=3333\nLOG_COLOR=always\n")
 
 	cfg, err := Load()
 	if err != nil {
@@ -102,12 +127,15 @@ func TestLoadEnvOverridesDotEnv(t *testing.T) {
 	if cfg.NodePort != 4444 {
 		t.Fatalf("NodePort = %d, want 4444", cfg.NodePort)
 	}
+	if cfg.LogColor != "never" {
+		t.Fatalf("LogColor = %q, want never", cfg.LogColor)
+	}
 }
 
 func TestLoadRejectsMalformedDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
+	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "LOG_COLOR", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
 	writeFile(t, filepath.Join(dir, ".env"), "NODE_PORT=\"unterminated\n")
 
 	_, err := Load()
@@ -122,7 +150,7 @@ func TestLoadRejectsMalformedDotEnv(t *testing.T) {
 func TestLoadRejectsInvalidNodeTLSClientAuth(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
+	clearEnv(t, "NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR", "LOG_LEVEL", "LOG_COLOR", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY", "ALLOW_INSECURE_HTTP_TARGET", "NODE_TLS_CLIENT_AUTH")
 	writeFile(t, filepath.Join(dir, ".env"), "NODE_TLS_CLIENT_AUTH=disabled\n")
 
 	_, err := Load()
@@ -146,6 +174,9 @@ func TestLoadRejectsInvalidNumericAndBooleanEnv(t *testing.T) {
 		{name: "request body limit is not integer", key: "REQUEST_BODY_LIMIT_BYTES", value: "abc", contains: "REQUEST_BODY_LIMIT_BYTES"},
 		{name: "require secret key is not bool", key: "REQUIRE_SECRET_KEY", value: "sometimes", contains: "REQUIRE_SECRET_KEY"},
 		{name: "allow insecure target is not bool", key: "ALLOW_INSECURE_HTTP_TARGET", value: "sometimes", contains: "ALLOW_INSECURE_HTTP_TARGET"},
+		{name: "log level is invalid", key: "LOG_LEVEL", value: "trace", contains: "LOG_LEVEL"},
+		{name: "log color is auto", key: "LOG_COLOR", value: "auto", contains: "LOG_COLOR"},
+		{name: "log color is off", key: "LOG_COLOR", value: "off", contains: "LOG_COLOR"},
 	}
 
 	for _, tt := range tests {
@@ -158,6 +189,7 @@ func TestLoadRejectsInvalidNumericAndBooleanEnv(t *testing.T) {
 				"SECRET_KEY",
 				"RW_NODE_DIR",
 				"LOG_LEVEL",
+				"LOG_COLOR",
 				"REQUEST_BODY_LIMIT_BYTES",
 				"REQUIRE_SECRET_KEY",
 				"ALLOW_INSECURE_HTTP_TARGET",
@@ -199,6 +231,7 @@ func TestLoadRejectsInvalidPortsAndNegativeBodyLimit(t *testing.T) {
 				"SECRET_KEY",
 				"RW_NODE_DIR",
 				"LOG_LEVEL",
+				"LOG_COLOR",
 				"REQUEST_BODY_LIMIT_BYTES",
 				"REQUIRE_SECRET_KEY",
 				"ALLOW_INSECURE_HTTP_TARGET",
@@ -228,6 +261,7 @@ func TestLoadAllowsUnlimitedRequestBodyLimit(t *testing.T) {
 		"SECRET_KEY",
 		"RW_NODE_DIR",
 		"LOG_LEVEL",
+		"LOG_COLOR",
 		"REQUEST_BODY_LIMIT_BYTES",
 		"REQUIRE_SECRET_KEY",
 		"ALLOW_INSECURE_HTTP_TARGET",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strconv"
@@ -17,6 +18,7 @@ const (
 	DefaultNodePort              = 2222
 	DefaultInternalRESTPort      = 61001
 	DefaultLogLevel              = "info"
+	DefaultLogColor              = "always"
 	DefaultRWNodeDir             = "/opt/rw-node-go"
 	DefaultRequestBodyLimitBytes = int64(1 << 30)
 	DefaultNodeTLSClientAuth     = "mtls"
@@ -28,6 +30,7 @@ type Config struct {
 	SecretKey               string
 	NodeTLSClientAuth       string
 	LogLevel                string
+	LogColor                string
 	RWNodeDir               string
 	RequestBodyLimitBytes   int64
 	RequireSecretKey        bool
@@ -65,7 +68,8 @@ func Load() (Config, error) {
 		InternalRESTPort:        internalRESTPort,
 		SecretKey:               strings.TrimSpace(os.Getenv("SECRET_KEY")),
 		NodeTLSClientAuth:       normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
-		LogLevel:                envString("LOG_LEVEL", DefaultLogLevel),
+		LogLevel:                normalizeLogLevel(envString("LOG_LEVEL", DefaultLogLevel)),
+		LogColor:                normalizeLogColor(envString("LOG_COLOR", DefaultLogColor)),
 		RWNodeDir:               envString("RW_NODE_DIR", DefaultRWNodeDir),
 		RequestBodyLimitBytes:   requestBodyLimitBytes,
 		RequireSecretKey:        requireSecretKey,
@@ -80,6 +84,12 @@ func Load() (Config, error) {
 	}
 	if !validNodeTLSClientAuth(cfg.NodeTLSClientAuth) {
 		return Config{}, fmt.Errorf("NODE_TLS_CLIENT_AUTH must be one of: mtls, optional, none")
+	}
+	if !validLogLevel(cfg.LogLevel) {
+		return Config{}, fmt.Errorf("LOG_LEVEL must be one of: debug, info, warn, error")
+	}
+	if !validLogColor(cfg.LogColor) {
+		return Config{}, fmt.Errorf("LOG_COLOR must be one of: always, never")
 	}
 
 	return cfg, nil
@@ -108,6 +118,23 @@ func (c Config) TLSClientAuthMode() string {
 	return mode
 }
 
+func (c Config) SlogLevel() slog.Level {
+	switch normalizeLogLevel(c.LogLevel) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+func (c Config) LogColorEnabled() bool {
+	return normalizeLogColor(c.LogColor) != "never"
+}
+
 func validNodeTLSClientAuth(value string) bool {
 	switch normalizeNodeTLSClientAuth(value) {
 	case "mtls", "optional", "none":
@@ -118,6 +145,32 @@ func validNodeTLSClientAuth(value string) bool {
 }
 
 func normalizeNodeTLSClientAuth(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func validLogLevel(value string) bool {
+	switch normalizeLogLevel(value) {
+	case "debug", "info", "warn", "error":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeLogLevel(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func validLogColor(value string) bool {
+	switch normalizeLogColor(value) {
+	case "always", "never":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeLogColor(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 

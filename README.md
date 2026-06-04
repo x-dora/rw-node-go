@@ -125,6 +125,7 @@ mise run docker-build
 | `NODE_TLS_CLIENT_AUTH` | `mtls` | 设置 `SECRET_KEY` 后的 TLS 客户端证书策略：`mtls` 要求并校验客户端证书，`optional` 在客户端提交证书时校验，`none` 只保留 HTTPS/JWT。 |
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
 | `LOG_LEVEL` | `info` | 日志级别。 |
+| `LOG_COLOR` | `always` | 日志 ANSI 颜色策略：`always` 默认输出彩色日志，`never` 用于日志采集或落盘时关闭颜色。 |
 | `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |
 | `XRAY_LOCATION_ASSET` | 空 | 主服务实际读取的 Xray geodata 目录；Docker 镜像固定设置为 `/usr/local/share/xray`。 |
 
@@ -132,7 +133,7 @@ mise run docker-build
 
 `fetch-users-ips`、`get-users-ip-list`、用户在线状态和连接清理依赖 Xray OnlineMap 或 Linux conntrack。Docker 生产部署应保留 `network_mode: host` 和 `cap_add: [NET_ADMIN]`；如果自定义 compose 覆盖 `user`，必须确保进程有效 capability 中包含 `CAP_NET_ADMIN`。发布镜像默认以 root 进程运行，以便 `cap_add: NET_ADMIN` 能被 Go 进程和内嵌 Xray 正确识别。
 
-启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。普通主服务读取 `XRAY_LOCATION_ASSET`；真实 Panel live harness 的 `.env.integration.local` 使用 `XRAY_ASSET_DIR`，脚本启动节点时会转换为 `XRAY_LOCATION_ASSET`。日志只展示 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、stats/policy 是否存在、`statsUserOnline` 是否启用、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
+启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。裸进程和 Docker 镜像默认输出 ANSI 彩色日志；日志采集或落盘时可设置 `LOG_COLOR=never` 关闭颜色。普通主服务读取 `XRAY_LOCATION_ASSET`；真实 Panel live harness 的 `.env.integration.local` 使用 `XRAY_ASSET_DIR`，脚本启动节点时会转换为 `XRAY_LOCATION_ASSET`。日志只展示 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、stats/policy 是否存在、`statsUserOnline` 是否启用、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
 
 ## 运行结构
 

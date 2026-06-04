@@ -18,15 +18,18 @@ import (
 )
 
 func main() {
-	logger := slog.New(logview.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-
 	cfg, err := config.Load()
 	if err != nil {
+		logger := slog.New(logview.NewColorTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}, true))
 		logger.Error("load config", "error", err)
 		os.Exit(1)
 	}
+
+	logger := slog.New(logview.NewColorTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: cfg.SlogLevel(),
+	}, cfg.LogColorEnabled()))
 
 	runtimeState := state.NewRuntimeState()
 	controllers := controller.NewRegistry(runtimeState, logger)
