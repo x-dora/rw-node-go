@@ -212,6 +212,7 @@ func (ctrl XrayController) logConfigReceived(config map[string]any) {
 		logview.Field("Routing Rules", routingRulesLen(config)),
 		logview.Field("Stats Enabled", hasMap(config["stats"])),
 		logview.Field("Policy Enabled", hasMap(config["policy"])),
+		logview.Field("Stats User Online Enabled", statsUserOnlineEnabled(config)),
 	))
 }
 
@@ -296,4 +297,21 @@ func routingRulesLen(config map[string]any) int {
 		return 0
 	}
 	return arrayLen(routing["rules"])
+}
+
+func statsUserOnlineEnabled(config map[string]any) bool {
+	policy, ok := config["policy"].(map[string]any)
+	if !ok {
+		return false
+	}
+	levels, ok := policy["levels"].(map[string]any)
+	if !ok {
+		return false
+	}
+	level0, ok := levels["0"].(map[string]any)
+	if !ok {
+		return false
+	}
+	enabled, ok := level0["statsUserOnline"].(bool)
+	return ok && enabled
 }

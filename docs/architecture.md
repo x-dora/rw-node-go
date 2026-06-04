@@ -56,11 +56,11 @@ Internal Gin API
 - `/node/xray/healthcheck` 按官方 Node 行为返回缓存状态：节点 API 可响应时 `isAlive=true`，`xrayInternalStatusCached` 来自 start/stop 或内部健康检查结果。
 - Config builder 只补齐 stats/policy，不注入 Remnawave API inbound、API service、internal mTLS、Vision `BLOCK` outbound 或 plugin webhook。
 
-用户动态管理和 stats 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；读取失败或 feature 不可用时按 contract 稳定降级为 `false` 或空列表。
+用户动态管理和 stats 优先通过内嵌 Xray feature 访问运行时。Stats online status/IP 通过 Xray stats `OnlineMap` 读取；该能力依赖 Linux `CAP_NET_ADMIN` 让 Xray policy 启用 `statsUserOnline`，读取失败、feature 不可用或 capability 不足时按 contract 稳定降级为 `false` 或空列表。
 
 官方 [`dev`](https://github.com/remnawave/node/tree/dev) 把外部进程模式下的 Xray internal API 从 TCP+mTLS 改为 abstract Unix socket。Go 版当前唯一运行模式是内嵌 `xray-core`，因此不新增 `XTLS_API_SOCKET_PATH`，也不恢复外部进程、internal gRPC inbound 或 internal mTLS。
 
-Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 Panel live harness 和容器日志中判断运行状态。配置日志只包含 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash；不输出完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。
+Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 Panel live harness 和容器日志中判断运行状态。配置日志只包含 inbound/outbound/routing rule 数量、stats/policy 是否存在、`statsUserOnline` 是否启用、inbound tag、用户数量和缩短 hash；不输出完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。
 
 ## Internal API 边界
 
@@ -73,6 +73,7 @@ Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 P
 ## 降级和不支持能力
 
 - Handler 和 stats 读取运行时 feature 失败时返回兼容的业务降级响应，不把内部错误暴露为不稳定 JSON 形状。
+- Panel `fetch-users-ips` / `get-users-ip-list` 依赖 Xray OnlineMap；非 Linux 或无 `CAP_NET_ADMIN` 时 `statsUserOnline` 不启用，在线 IP 稳定降级为空。
 - Drop users connections 和 drop IPs 通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。
 - Plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。
 

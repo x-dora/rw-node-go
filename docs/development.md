@@ -97,6 +97,8 @@ runtime/xray/geosite.dat
 
 `runtime/` 是本地私有运行目录，不提交到 git。普通主服务读取 `XRAY_LOCATION_ASSET`；live harness 使用 `XRAY_ASSET_DIR` 配置本地 geodata 目录，并在启动节点时转换为 `XRAY_LOCATION_ASSET`。Docker 镜像内已预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，并设置 `XRAY_LOCATION_ASSET=/usr/local/share/xray`，这也是 Xray 官方常用的 asset 位置。
 
+在线 IP、Panel 的 `fetch-users-ips` / `get-users-ip-list` 和 drop connections 依赖 Linux `CAP_NET_ADMIN`。Docker 生产部署应保留 `network_mode: host` 和 `cap_add: [NET_ADMIN]`；如果自定义 compose 覆盖 `user`，必须确认进程有效 capability 仍包含 `CAP_NET_ADMIN`，否则 Xray start 日志会显示 `Stats User Online Enabled=false`，Panel 活跃用户列表会降级为空。
+
 常用命令：
 
 ```sh
@@ -145,7 +147,7 @@ bash scripts/panel-integration.sh extended-smoke
 - [`internal/version.ProjectVersion`](../internal/version/version.go) 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
 - `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `2.8.0`，只代表兼容官方 [`remnawave/node`](https://github.com/remnawave/node) dev/2.8.0 contract。除非明确跟随上游 contract 升级，否则不要改它。
 
-`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 [`.mise.toml`](../.mise.toml) 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、非 root 用户信息和 Xray geodata。release 流程仍按 [`go.mod`](../go.mod) 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
+`golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 [`.mise.toml`](../.mise.toml) 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、基础用户信息和 Xray geodata，并默认以 root 进程运行，确保 compose 的 `cap_add: NET_ADMIN` 能用于 Xray OnlineMap 和 conntrack 能力检测。release 流程仍按 [`go.mod`](../go.mod) 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 
 GitHub Actions 发布流程：
 

@@ -45,6 +45,6 @@ COPY --from=build --chmod=755 /out/rw-node-go /usr/local/bin/rw-node-go
 ENV REQUIRE_SECRET_KEY=true
 ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
 
-USER 10001:10001
+USER 0:0
 EXPOSE 2222
 ENTRYPOINT ["/usr/local/bin/rw-node-go"]

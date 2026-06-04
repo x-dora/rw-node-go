@@ -49,7 +49,7 @@
 - `SECRET_KEY` 解析、PEM normalize、TLS client auth、JWT RS256、zstd request body。
 - `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期。
 - handler、stats 和连接清理的部分接入。
-- Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取，失败时稳定降级为 `false` 或空列表。
+- Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取；该能力依赖 Linux `CAP_NET_ADMIN`，不可用时稳定降级为 `false` 或空列表。
 - Docker 构建、[CI](https://github.com/x-dora/rw-node-go/actions/workflows/ci.yml)、[release](https://github.com/x-dora/rw-node-go/releases)、[GHCR 镜像](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)和受控真实 Panel live harness。
 
 </details>
@@ -130,7 +130,9 @@ mise run docker-build
 
 `INTERNAL_REST_PORT` 只允许本机访问，不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
-启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。普通主服务读取 `XRAY_LOCATION_ASSET`；真实 Panel live harness 的 `.env.integration.local` 使用 `XRAY_ASSET_DIR`，脚本启动节点时会转换为 `XRAY_LOCATION_ASSET`。日志只展示 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
+`fetch-users-ips`、`get-users-ip-list`、用户在线状态和连接清理依赖 Xray OnlineMap 或 Linux conntrack。Docker 生产部署应保留 `network_mode: host` 和 `cap_add: [NET_ADMIN]`；如果自定义 compose 覆盖 `user`，必须确保进程有效 capability 中包含 `CAP_NET_ADMIN`。发布镜像默认以 root 进程运行，以便 `cap_add: NET_ADMIN` 能被 Go 进程和内嵌 Xray 正确识别。
+
+启动日志会输出脱敏运行摘要，包括项目版本、Panel 兼容版本、构建元信息、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。普通主服务读取 `XRAY_LOCATION_ASSET`；真实 Panel live harness 的 `.env.integration.local` 使用 `XRAY_ASSET_DIR`，脚本启动节点时会转换为 `XRAY_LOCATION_ASSET`。日志只展示 Panel 下发 Xray 配置的结构摘要，例如 inbound/outbound/routing rule 数量、stats/policy 是否存在、`statsUserOnline` 是否启用、inbound tag、用户数量和缩短 hash。不会打印完整 Xray config、`SECRET_KEY`、JWT、公私钥、证书内容、bearer token 或用户凭据。
 
 ## 运行结构
 

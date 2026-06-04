@@ -112,9 +112,47 @@ func TestStartXrayStartsCore(t *testing.T) {
 		t.Fatalf("XrayInternalStatusCached = false, want true")
 	}
 	logs := logBuffer.String()
-	for _, want := range []string{"Xray start request", "Xray config received", "Xray started", "25.1.1"} {
+	for _, want := range []string{"Xray start request", "Xray config received", "Stats User Online Enabled", "Xray started", "25.1.1"} {
 		if !strings.Contains(logs, want) {
 			t.Fatalf("logs missing %q:\n%s", want, logs)
+		}
+	}
+}
+
+func TestStatsUserOnlineEnabledReadsFinalPolicy(t *testing.T) {
+	enabledConfig := map[string]any{
+		"policy": map[string]any{
+			"levels": map[string]any{
+				"0": map[string]any{"statsUserOnline": true},
+			},
+		},
+	}
+	if !statsUserOnlineEnabled(enabledConfig) {
+		t.Fatalf("statsUserOnlineEnabled() = false, want true")
+	}
+
+	for name, config := range map[string]map[string]any{
+		"disabled": {
+			"policy": map[string]any{
+				"levels": map[string]any{
+					"0": map[string]any{"statsUserOnline": false},
+				},
+			},
+		},
+		"missing policy": {},
+		"missing level": {
+			"policy": map[string]any{"levels": map[string]any{}},
+		},
+		"non bool": {
+			"policy": map[string]any{
+				"levels": map[string]any{
+					"0": map[string]any{"statsUserOnline": "true"},
+				},
+			},
+		},
+	} {
+		if statsUserOnlineEnabled(config) {
+			t.Fatalf("%s: statsUserOnlineEnabled() = true, want false", name)
 		}
 	}
 }

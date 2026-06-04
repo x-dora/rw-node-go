@@ -40,7 +40,7 @@
 - [x] system stats 已按官方 dev/2.8.0 响应形状返回宿主机 CPU、memory、uptime、load average、network interface 列表、默认网卡速率、插件计数占位和 Xray sys stats。
 - [~] users、inbound、outbound、combined 流量统计已接入内嵌 Xray stats feature；`get-users-stats` 已按官方行为过滤上下行均为 0 的用户。
 - [~] reset 语义已在内嵌 stats counter 上实现；真实 Panel + Xray 验收仍未完成。
-- [~] user online status、user IP list 和 users IP list 已通过内嵌 Xray stats OnlineMap 接入；OnlineMap 不可用或读取失败时稳定降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。
+- [~] user online status、user IP list 和 users IP list 已通过内嵌 Xray stats OnlineMap 接入；OnlineMap 依赖 Linux `CAP_NET_ADMIN` 启用 `statsUserOnline`，不可用或读取失败时稳定降级为 `false` 或空列表；真实 Panel + Xray 验收仍未完成。
 
 ## M4: Internal API 与连接处理
 
@@ -62,7 +62,7 @@
 ## M6: 发布与跟随上游
 
 - [x] CI test/lint/build。
-- [x] Dockerfile 和 [Docker multi-arch workflow](../.github/workflows/docker.yml)；runtime 镜像使用 `scratch`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，`main` push 会推送滚动开发镜像 [`ghcr.io/x-dora/rw-node-go:dev`](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)。
+- [x] Dockerfile 和 [Docker multi-arch workflow](../.github/workflows/docker.yml)；runtime 镜像使用 `scratch` 并默认以 root 进程运行以承接 `cap_add: NET_ADMIN`，镜像内已按 Xray-core 方式预置 `/usr/local/share/xray/geoip.dat` 和 `/usr/local/share/xray/geosite.dat`，`main` push 会推送滚动开发镜像 [`ghcr.io/x-dora/rw-node-go:dev`](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)。
 - [x] 项目发布版本和 Panel 兼容版本已拆分：项目版本由根目录 `VERSION` 管理，Panel-facing `nodeVersion` 继续默认上报 `2.8.0`。
 - [x] 本地 `mise run build`、CI、Docker 和 release 已统一到同一个构建入口读取 `VERSION` 并注入 `ProjectVersion`。
 - [x] [Release workflow](../.github/workflows/release.yml) 已接入：普通 `main` push 更新滚动 `pre-release` 和 Linux `tar.gz` 资产；`VERSION` 变更后先推 GHCR 多架构镜像，成功后再创建正式 release 并上传 Linux `tar.gz` 资产，支持已有正式 release 的手动镜像补推恢复入口。
