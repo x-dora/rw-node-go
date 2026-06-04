@@ -7,7 +7,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.6
-	github.com/shirou/gopsutil/v4 v4.26.4
+	github.com/shirou/gopsutil/v4 v4.26.5
 	github.com/vishvananda/netlink v1.3.1
 	github.com/xtls/xray-core v1.260327.0
 	golang.org/x/sys v0.42.0
