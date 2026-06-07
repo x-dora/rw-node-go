@@ -36,8 +36,20 @@ type EmbeddedCore struct {
 	startedAt time.Time
 }
 
+var (
+	loadXrayConfig    = xcore.LoadConfig
+	newXrayInstance   = xcore.New
+	startXrayInstance = func(instance *xcore.Instance) error {
+		return instance.Start()
+	}
+	closeXrayInstance = func(instance *xcore.Instance) error {
+		return instance.Close()
+	}
+	xrayCoreVersion = xcore.Version
+)
+
 func NewEmbeddedCore() *EmbeddedCore {
-	return &EmbeddedCore{version: xcore.Version()}
+	return &EmbeddedCore{version: xrayCoreVersion()}
 }
 
 func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
@@ -45,11 +57,11 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 		return fmt.Errorf("xray config is not valid JSON")
 	}
 
-	config, err := xcore.LoadConfig("json", bytes.NewReader(configJSON))
+	config, err := loadXrayConfig("json", bytes.NewReader(configJSON))
 	if err != nil {
 		return fmt.Errorf("load embedded xray config: %w", err)
 	}
-	instance, err := xcore.New(config)
+	instance, err := newXrayInstance(config)
 	if err != nil {
 		return fmt.Errorf("create embedded xray instance: %w", err)
 	}
@@ -60,17 +72,17 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 	c.startedAt = time.Time{}
 	c.mu.Unlock()
 	if old != nil {
-		old.Close()
+		_ = closeXrayInstance(old)
 	}
 
-	if err := instance.Start(); err != nil {
-		instance.Close()
+	if err := startXrayInstance(instance); err != nil {
+		_ = closeXrayInstance(instance)
 		return fmt.Errorf("start embedded xray instance: %w", err)
 	}
 
 	c.mu.Lock()
 	c.instance = instance
-	c.version = xcore.Version()
+	c.version = xrayCoreVersion()
 	c.startedAt = time.Now()
 	c.mu.Unlock()
 	return nil
@@ -85,7 +97,7 @@ func (c *EmbeddedCore) Stop(ctx context.Context) error {
 	if instance == nil {
 		return nil
 	}
-	if err := instance.Close(); err != nil {
+	if err := closeXrayInstance(instance); err != nil {
 		return fmt.Errorf("stop embedded xray instance: %w", err)
 	}
 	return nil
@@ -129,7 +141,7 @@ func (c *EmbeddedCore) Version(ctx context.Context) (string, error) {
 	if c.version != "" {
 		return c.version, nil
 	}
-	return xcore.Version(), nil
+	return xrayCoreVersion(), nil
 }
 
 func (c *EmbeddedCore) Handler() HandlerClient {

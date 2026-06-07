@@ -51,7 +51,7 @@ Internal Gin API
 当前唯一 Xray runtime 是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)。不要重新引入外部 `xray` 进程、Xray 配置落盘主路径、内部 gRPC API inbound 或 internal mTLS：
 
 - `/node/xray/start` 从 Panel 下发的 JSON config 构建内嵌可加载的 Xray config，并启动新的 `xray-core` instance。
-- 重复 start 会关闭旧 instance，再替换为新 instance。
+- 重复 start 会先验证并构造新 instance，再关闭旧 instance 释放监听端口并启动新 instance；如果配置解析或 instance 构造失败，旧 instance 会保留运行。
 - `/node/xray/stop` 会关闭当前内嵌 instance。
 - `/node/xray/healthcheck` 按官方 Node 行为返回缓存状态：节点 API 可响应时 `isAlive=true`，`xrayInternalStatusCached` 来自 start/stop 或内部健康检查结果。
 - Config builder 只补齐 stats/policy，不注入 Remnawave API inbound、API service、internal mTLS、Vision `BLOCK` outbound 或 plugin webhook。

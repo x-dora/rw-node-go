@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,11 +23,29 @@ type XrayController struct {
 	core     xray.Core
 	builder  xray.ConfigBuilder
 	snapshot system.Snapshotter
+
+	startMu         sync.Mutex
+	startProcessing bool
 }
 
-func (ctrl XrayController) Start(c *gin.Context) {
+func (ctrl *XrayController) Start(c *gin.Context) {
 	startedAt := time.Now()
 	masterIP := c.ClientIP()
+	if !ctrl.tryBeginStart() {
+		ctrl.logger.Warn("Request already in progress")
+		errMsg := "Request already in progress"
+		snapshot := ctrl.state.Snapshot()
+		httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
+			IsStarted:       false,
+			Version:         snapshot.XrayVersion,
+			Error:           &errMsg,
+			NodeInformation: contracts.NodeInformation{Version: ptr(snapshot.NodeVersion)},
+			System:          ctrl.systemStats(c.Request.Context()),
+		})
+		return
+	}
+	defer ctrl.endStart()
+
 	var request contracts.StartXrayRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		errMsg := err.Error()
@@ -76,6 +95,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 
 	fullConfig, err := ctrl.builder.Build(request.XrayConfig)
 	if err != nil {
+		ctrl.syncStartFailureState()
 		ctrl.logStartFailure(masterIP, ctrl.state.Snapshot().XrayVersion, err, time.Since(startedAt))
 		ctrl.writeStartError(c, err)
 		return
@@ -84,6 +104,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 
 	configBytes, err := json.MarshalIndent(fullConfig, "", "  ")
 	if err != nil {
+		ctrl.syncStartFailureState()
 		ctrl.logStartFailure(masterIP, ctrl.state.Snapshot().XrayVersion, err, time.Since(startedAt))
 		ctrl.writeStartError(c, err)
 		return
@@ -92,7 +113,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 	if err := ctrl.core.Start(ctx, configBytes); err != nil {
-		ctrl.state.SetXrayRunning(false)
+		ctrl.syncStartFailureState()
 		ctrl.logStartFailure(masterIP, ctrl.state.Snapshot().XrayVersion, err, time.Since(startedAt))
 		ctrl.writeStartError(c, err)
 		return
@@ -117,7 +138,7 @@ func (ctrl XrayController) Start(c *gin.Context) {
 	})
 }
 
-func (ctrl XrayController) Stop(c *gin.Context) {
+func (ctrl *XrayController) Stop(c *gin.Context) {
 	startedAt := time.Now()
 	snapshot := ctrl.state.Snapshot()
 	ctrl.logger.Info("Remnawave requested to stop Xray")
@@ -141,7 +162,7 @@ func (ctrl XrayController) Stop(c *gin.Context) {
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.StopXrayResponse{IsStopped: true})
 }
 
-func (ctrl XrayController) Healthcheck(c *gin.Context) {
+func (ctrl *XrayController) Healthcheck(c *gin.Context) {
 	snapshot := ctrl.state.Snapshot()
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.HealthcheckResponse{
 		IsAlive:                  true,
@@ -151,9 +172,24 @@ func (ctrl XrayController) Healthcheck(c *gin.Context) {
 	})
 }
 
-func (ctrl XrayController) writeStartError(c *gin.Context, err error) {
+func (ctrl *XrayController) tryBeginStart() bool {
+	ctrl.startMu.Lock()
+	defer ctrl.startMu.Unlock()
+	if ctrl.startProcessing {
+		return false
+	}
+	ctrl.startProcessing = true
+	return true
+}
+
+func (ctrl *XrayController) endStart() {
+	ctrl.startMu.Lock()
+	defer ctrl.startMu.Unlock()
+	ctrl.startProcessing = false
+}
+
+func (ctrl *XrayController) writeStartError(c *gin.Context, err error) {
 	errMsg := err.Error()
-	ctrl.state.SetXrayInternalStatusCached(false)
 	snapshot := ctrl.state.Snapshot()
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
 		IsStarted:       false,
@@ -164,7 +200,16 @@ func (ctrl XrayController) writeStartError(c *gin.Context, err error) {
 	})
 }
 
-func (ctrl XrayController) logStartRequest(masterIP string, forceRestart bool, coreRunning bool, hashes state.Hashes) {
+func (ctrl *XrayController) syncStartFailureState() {
+	if ctrl.core != nil && ctrl.core.IsRunning() {
+		ctrl.state.SetXrayRunning(true)
+		ctrl.state.SetXrayInternalStatusCached(true)
+		return
+	}
+	ctrl.state.SetXrayRunning(false)
+}
+
+func (ctrl *XrayController) logStartRequest(masterIP string, forceRestart bool, coreRunning bool, hashes state.Hashes) {
 	logview.InfoTable(ctrl.logger, "Xray start request", logview.Table("Xray start request",
 		logview.Field("Master IP", masterIP),
 		logview.Field("Force Restart", forceRestart),
@@ -176,7 +221,7 @@ func (ctrl XrayController) logStartRequest(masterIP string, forceRestart bool, c
 	logview.InfoTable(ctrl.logger, "Xray start inbound hashes", logview.InboundTable("Xray start inbound hashes", inboundRows(hashes)))
 }
 
-func (ctrl XrayController) logRestartDecision(decision state.RestartDecision) {
+func (ctrl *XrayController) logRestartDecision(decision state.RestartDecision) {
 	switch decision.Reason {
 	case state.RestartReasonForce:
 		ctrl.logger.Warn("Force restart requested")
@@ -205,7 +250,7 @@ func (ctrl XrayController) logRestartDecision(decision state.RestartDecision) {
 	}
 }
 
-func (ctrl XrayController) logConfigReceived(config map[string]any) {
+func (ctrl *XrayController) logConfigReceived(config map[string]any) {
 	logview.InfoTable(ctrl.logger, "Xray config received", logview.Table("Xray config received",
 		logview.Field("Inbounds", arrayLen(config["inbounds"])),
 		logview.Field("Outbounds", arrayLen(config["outbounds"])),
@@ -216,7 +261,7 @@ func (ctrl XrayController) logConfigReceived(config map[string]any) {
 	))
 }
 
-func (ctrl XrayController) logStartSuccess(masterIP string, version *string, decision state.RestartDecision, hashes state.Hashes, duration time.Duration) {
+func (ctrl *XrayController) logStartSuccess(masterIP string, version *string, decision state.RestartDecision, hashes state.Hashes, duration time.Duration) {
 	action := "Started"
 	if decision.Reason != state.RestartReasonCoreNotRunning && decision.Reason != state.RestartReasonNoPreviousHashes {
 		action = "Restarted"
@@ -232,14 +277,15 @@ func (ctrl XrayController) logStartSuccess(masterIP string, version *string, dec
 	))
 }
 
-func (ctrl XrayController) logStartFailure(masterIP string, previousVersion *string, err error, duration time.Duration) {
+func (ctrl *XrayController) logStartFailure(masterIP string, previousVersion *string, err error, duration time.Duration) {
 	if err == nil {
 		return
 	}
+	snapshot := ctrl.state.Snapshot()
 	logview.ErrorTable(ctrl.logger, "Xray failed to start", logview.Table("Xray failed to start",
 		logview.Field("Previous Version", previousVersion),
 		logview.Field("Master IP", masterIP),
-		logview.Field("Internal Status", false),
+		logview.Field("Internal Status", snapshot.XrayInternalStatusCached),
 		logview.Field("Error", logview.RedactText(err.Error())),
 		logview.Field("Duration", duration),
 		logview.Field("Diagnostics", "previous config/hash/version preserved"),
@@ -251,7 +297,7 @@ func ptr(value string) *string {
 	return &value
 }
 
-func (ctrl XrayController) systemStats(ctx context.Context) contracts.SystemStatsPayload {
+func (ctrl *XrayController) systemStats(ctx context.Context) contracts.SystemStatsPayload {
 	if ctrl.snapshot == nil {
 		return system.SnapshotStats()
 	}

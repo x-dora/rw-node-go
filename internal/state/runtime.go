@@ -79,6 +79,7 @@ func (s *RuntimeState) SetXrayStarted(version *string, currentConfig map[string]
 	s.CurrentConfig = cloneMap(currentConfig)
 	s.LastHashes = cloneHashes(hashes)
 	s.HasLastHashes = true
+	s.InboundUsers = map[string]map[string]struct{}{}
 	s.KnownInboundTag = map[string]struct{}{}
 	s.InboundProtocols = map[string]string{}
 	for _, inbound := range s.LastHashes.Inbounds {

@@ -140,3 +140,34 @@ func TestRuntimeStateSnapshotsAreIsolated(t *testing.T) {
 		t.Fatalf("next snapshot version = %v, want 1.2.3", next.XrayVersion)
 	}
 }
+
+func TestRuntimeStateSetXrayStartedClearsInboundUserHashes(t *testing.T) {
+	runtimeState := NewRuntimeState()
+	runtimeState.AddUserToInbound("OLD_INBOUND", "old-hash")
+	runtimeState.SetInboundProtocol("OLD_INBOUND", "vless")
+
+	runtimeState.SetXrayStarted(nil, map[string]any{
+		"inbounds": []any{
+			map[string]any{"tag": "NEW_INBOUND", "protocol": "trojan"},
+		},
+	}, Hashes{
+		EmptyConfig: "new",
+		Inbounds: []InboundHash{{
+			Tag:        "NEW_INBOUND",
+			UsersCount: 1,
+			Hash:       "new-hash",
+		}},
+	})
+	runtimeState.SetInboundProtocolsFromConfig(runtimeState.Snapshot().CurrentConfig)
+
+	if hashes := runtimeState.InboundUserHashes("OLD_INBOUND"); len(hashes) != 0 {
+		t.Fatalf("OLD_INBOUND hashes = %#v, want empty", hashes)
+	}
+	tags := runtimeState.KnownInboundTags()
+	if len(tags) != 1 || tags[0] != "NEW_INBOUND" {
+		t.Fatalf("KnownInboundTags = %#v, want NEW_INBOUND", tags)
+	}
+	if protocol := runtimeState.InboundProtocol("NEW_INBOUND"); protocol != "trojan" {
+		t.Fatalf("NEW_INBOUND protocol = %q, want trojan", protocol)
+	}
+}

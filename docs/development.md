@@ -185,14 +185,14 @@ RUN_PANEL_INTEGRATION=true mise run preflight
 - `Xray config received`：构建后的配置结构摘要，只包含 inbound/outbound/routing rule 数量、stats/policy 是否存在。
 - `Xray started` 或 `Xray failed to start`：版本、Master IP、启动/重启动作、internal status、inbound/user 数量、耗时和错误摘要。
 
-`/node/xray/stop` 会记录 `Remnawave requested to stop Xray` 和 `Xray stopped`，包括停止前 running 状态、版本和耗时。日志不会打印完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。启动失败后仍保留上一份内存 config/hash/version 作为 internal 诊断快照，同时把 running 和 cached health 标记为 false。
+`/node/xray/stop` 会记录 `Remnawave requested to stop Xray` 和 `Xray stopped`，包括停止前 running 状态、版本和耗时。日志不会打印完整 Xray config、clients、password、privateKey、shortId、证书、JWT、bearer token 或 `SECRET_KEY`。启动失败后仍保留上一份内存 config/hash/version 作为 internal 诊断快照，并按真实 core 状态同步 cached health。配置解析或新 instance 构造失败不会关闭旧 instance，cached health 保持在线；进入真实 start 阶段前会先关闭旧 instance 释放监听端口，真实 start 失败后 cached health 标记为 false。
 
 ## 6. 实现规则
 
 - HTTP 层使用 Gin，main route 和 internal route 注册集中在 [`internal/httpapi/router.go`](../internal/httpapi/router.go)。
 - Panel-facing response 使用 `httpapi.WriteEnvelope`。
 - Internal API 可以直接返回 JSON 对象，不套 Panel envelope。
-- `/node/xray/start` 失败后会把 running 和 health cached 标记为 false，但保留上一份内存 config、hash 和版本用于 internal 诊断。
+- `/node/xray/start` 失败后会按真实 core 状态同步 health cached，并保留上一份内存 config、hash 和版本用于 internal 诊断；配置解析或新 instance 构造失败不会关闭旧 instance，真实 start 失败则表示旧 instance 已为释放监听端口而停止。
 - 新增公开请求或响应类型放在 [`internal/contracts`](../internal/contracts)。
 - 当前唯一 Xray runtime 是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)；不要重新引入外部进程模式、Xray gRPC API、internal mTLS、官方 dev 的 `XTLS_API_SOCKET_PATH` 外部进程控制面或配置落盘主路径。
 - Xray 相关能力优先通过 [`internal/xray`](../internal/xray) 抽象实现。
