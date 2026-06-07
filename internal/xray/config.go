@@ -11,14 +11,7 @@ const (
 )
 
 type ConfigBuilder struct {
-	TorrentBlocker  TorrentBlockerInjection
 	StatsUserOnline bool
-}
-
-type TorrentBlockerInjection struct {
-	Enabled         bool
-	IncludeRuleTags []string
-	WebhookURL      string
 }
 
 func (b ConfigBuilder) Build(panelConfig map[string]any) (map[string]any, error) {

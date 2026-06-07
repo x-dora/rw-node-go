@@ -277,19 +277,6 @@ func (ctrl StatsController) systemStats(ctx context.Context) contracts.SystemSta
 	return ctrl.snapshot.SnapshotStats(ctx)
 }
 
-func emptyPluginStats() contracts.PluginStats {
-	return contracts.PluginStats{
-		TorrentBlocker: contracts.TorrentBlockerPluginStats{ReportsCount: 0},
-	}
-}
-
-func emptyCombinedStatsResponse() contracts.CombinedStatsResponse {
-	return contracts.CombinedStatsResponse{
-		Inbounds:  []contracts.InboundTrafficStatsResponse{},
-		Outbounds: []contracts.OutboundTrafficStatsResponse{},
-	}
-}
-
 func writeOfficialStatsError(c *gin.Context, message string, code string) {
 	httpapi.WriteOfficialError(c, http.StatusInternalServerError, message, code)
 }

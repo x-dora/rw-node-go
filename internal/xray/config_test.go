@@ -84,7 +84,7 @@ func TestConfigBuilderCanEnableStatsUserOnline(t *testing.T) {
 }
 
 func TestConfigBuilderDoesNotInjectPluginRuntime(t *testing.T) {
-	config, err := ConfigBuilder{TorrentBlocker: TorrentBlockerInjection{Enabled: true}}.Build(map[string]any{
+	config, err := ConfigBuilder{}.Build(map[string]any{
 		"outbounds": []any{map[string]any{"tag": "DIRECT", "protocol": "freedom"}},
 		"routing": map[string]any{
 			"rules": []any{map[string]any{"ruleTag": "DIRECT_RULE", "outboundTag": "DIRECT"}},

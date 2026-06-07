@@ -25,16 +25,15 @@ const (
 )
 
 type Config struct {
-	NodePort                int
-	InternalRESTPort        int
-	SecretKey               string
-	NodeTLSClientAuth       string
-	LogLevel                string
-	LogColor                string
-	RWNodeDir               string
-	RequestBodyLimitBytes   int64
-	RequireSecretKey        bool
-	AllowInsecureHTTPTarget bool
+	NodePort              int
+	InternalRESTPort      int
+	SecretKey             string
+	NodeTLSClientAuth     string
+	LogLevel              string
+	LogColor              string
+	RWNodeDir             string
+	RequestBodyLimitBytes int64
+	RequireSecretKey      bool
 }
 
 func Load() (Config, error) {
@@ -58,22 +57,16 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	allowInsecureHTTPTarget, err := envBool("ALLOW_INSECURE_HTTP_TARGET", true)
-	if err != nil {
-		return Config{}, err
-	}
-
 	cfg := Config{
-		NodePort:                nodePort,
-		InternalRESTPort:        internalRESTPort,
-		SecretKey:               strings.TrimSpace(os.Getenv("SECRET_KEY")),
-		NodeTLSClientAuth:       normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
-		LogLevel:                normalizeLogLevel(envString("LOG_LEVEL", DefaultLogLevel)),
-		LogColor:                normalizeLogColor(envString("LOG_COLOR", DefaultLogColor)),
-		RWNodeDir:               envString("RW_NODE_DIR", DefaultRWNodeDir),
-		RequestBodyLimitBytes:   requestBodyLimitBytes,
-		RequireSecretKey:        requireSecretKey,
-		AllowInsecureHTTPTarget: allowInsecureHTTPTarget,
+		NodePort:              nodePort,
+		InternalRESTPort:      internalRESTPort,
+		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
+		NodeTLSClientAuth:     normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
+		LogLevel:              normalizeLogLevel(envString("LOG_LEVEL", DefaultLogLevel)),
+		LogColor:              normalizeLogColor(envString("LOG_COLOR", DefaultLogColor)),
+		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
+		RequestBodyLimitBytes: requestBodyLimitBytes,
+		RequireSecretKey:      requireSecretKey,
 	}
 
 	if cfg.NodePort == cfg.InternalRESTPort {

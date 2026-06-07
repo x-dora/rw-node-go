@@ -8,25 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func LimitBody(next http.Handler, limit int64) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if limit > 0 && r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, limit)
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func InternalTokenMiddleware(next http.Handler, token string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token != "" && r.URL.Query().Get("token") != token {
-			closeRequestConnection(w, http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func closeRequestConnection(w http.ResponseWriter, fallbackStatus int) {
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
@@ -77,19 +58,4 @@ func ginRecovery(logger *slog.Logger) gin.HandlerFunc {
 		}()
 		c.Next()
 	}
-}
-
-func Recover(next http.Handler, logger *slog.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				logger.Error("panic in request", "method", r.Method, "path", r.URL.Path, "panic", recovered)
-				WriteHTTPEnvelope(w, http.StatusInternalServerError, map[string]any{
-					"success": false,
-					"error":   "internal server error",
-				})
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
 }
