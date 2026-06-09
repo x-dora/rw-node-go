@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat /tmp/geodat/geoip.dat
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat /tmp/geodat/geosite.dat
 
-FROM --platform=$BUILDPLATFORM alpine:3.23 AS runtime-files
+FROM --platform=$BUILDPLATFORM alpine:3.24 AS runtime-files
 
 RUN apk add --no-cache ca-certificates \
     && addgroup -S -g 10001 rw-node \
