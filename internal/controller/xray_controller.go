@@ -128,7 +128,7 @@ func (ctrl *XrayController) Start(c *gin.Context) {
 	ctrl.state.SetXrayStarted(versionPtr, fullConfig, hashes)
 	ctrl.state.SetInboundProtocolsFromConfig(fullConfig)
 	ctrl.logStartSuccess(masterIP, versionPtr, decision, hashes, time.Since(startedAt))
-	ctrl.logger.Info("Attempt to start XTLS took", "duration", logview.Duration(time.Since(startedAt)))
+	ctrl.logger.Info("Attempt to start XTLS took", "duration", logview.Duration(time.Since(startedAt)), "ip", masterIP)
 	httpapi.WriteEnvelope(c, http.StatusOK, contracts.StartXrayResponse{
 		IsStarted:       true,
 		Version:         versionPtr,
@@ -290,7 +290,7 @@ func (ctrl *XrayController) logStartFailure(masterIP string, previousVersion *st
 		logview.Field("Duration", duration),
 		logview.Field("Diagnostics", "previous config/hash/version preserved"),
 	))
-	ctrl.logger.Info("Attempt to start XTLS took", "duration", logview.Duration(duration))
+	ctrl.logger.Info("Attempt to start XTLS took", "duration", logview.Duration(duration), "ip", masterIP)
 }
 
 func ptr(value string) *string {
