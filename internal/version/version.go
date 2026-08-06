@@ -5,8 +5,8 @@ var (
 	// is overridden at build time from the repository VERSION file.
 	ProjectVersion = "dev"
 	// NodeVersion is the Panel-facing compatibility version. Keep this aligned
-	// with official remnawave/node 2.8.x so Panel accepts the contract shape.
-	NodeVersion = "2.8.0"
+	// with official remnawave/node 3.0.x so Panel accepts the contract shape.
+	NodeVersion = "3.0.0"
 	Commit      = "unknown"
 	BuildDate   = "unknown"
 )

@@ -1,5 +1,5 @@
 {
-  "version": "official-2.8.0",
+  "version": "official-3.0.0",
   "routes": [
     {
       "name": "xray.start",
@@ -41,7 +41,7 @@
           "version": "25.1.1",
           "error": null,
           "nodeInformation": {
-            "version": "2.8.0"
+            "version": "3.0.0"
           },
           "system": {
             "info": {
@@ -94,7 +94,7 @@
           "isAlive": true,
           "xrayInternalStatusCached": false,
           "xrayVersion": null,
-          "nodeVersion": "2.8.0"
+          "nodeVersion": "3.0.0"
         }
       }
     },

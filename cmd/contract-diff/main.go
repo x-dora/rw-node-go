@@ -34,7 +34,7 @@ func run(args []string, stdout io.Writer) error {
 	flags := flag.NewFlagSet("contract-diff", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", "dev"), "official remnawave/node tag or branch ref to check")
-	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-2.8.0/upstream-contract.sha256.json", "baseline manifest path")
+	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-3.0.0/upstream-contract.sha256.json", "baseline manifest path")
 	flags.StringVar(&repo, "repo", "remnawave/node", "GitHub repository in owner/name form")
 	flags.StringVar(&sourceDir, "source-dir", getenvDefault("CONTRACT_SOURCE_DIR", ""), "local remnawave/node checkout to scan instead of downloading a GitHub tarball")
 	flags.BoolVar(&writeBaseline, "write-baseline", false, "write the scanned manifest to -baseline instead of comparing")
