@@ -14,6 +14,8 @@ import (
 	gopsutilnet "github.com/shirou/gopsutil/v4/net"
 )
 
+const routeHeader = "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT\n"
+
 func TestSnapshotStatsMapsProviderData(t *testing.T) {
 	provider := &fakeSystemProvider{
 		hostInfo: &gopsutilhost.InfoStat{
@@ -89,7 +91,7 @@ func TestSnapshotStatsFallsBackOnProviderErrors(t *testing.T) {
 }
 
 func TestDefaultInterfaceFromRoute(t *testing.T) {
-	route := "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT\n" +
+	route := routeHeader +
 		"lo\t0000007F\t00000000\t0001\t0\t0\t0\t000000FF\t0\t0\t0\n" +
 		"eth0\t00000000\t0102A8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n"
 
@@ -103,9 +105,77 @@ func TestDefaultInterfaceFromRoute(t *testing.T) {
 }
 
 func TestDefaultInterfaceFromRouteMissingDefault(t *testing.T) {
-	_, err := defaultInterfaceFromRoute(strings.NewReader("Iface\tDestination\nlo\t0000007F\n"))
+	route := routeHeader +
+		"lo\t0000007F\t00000000\t0001\t0\t0\t0\t000000FF\t0\t0\t0\n"
+
+	_, err := defaultInterfaceFromRoute(strings.NewReader(route))
 	if err == nil {
 		t.Fatalf("defaultInterfaceFromRoute returned nil error")
+	}
+}
+
+func TestDefaultInterfaceFromRoutePrefersLowestMetric(t *testing.T) {
+	route := routeHeader +
+		"eth1\t00000000\t0102A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n" +
+		"eth0\t00000000\t0102A8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n"
+
+	got, err := defaultInterfaceFromRoute(strings.NewReader(route))
+	if err != nil {
+		t.Fatalf("defaultInterfaceFromRoute returned error: %v", err)
+	}
+	if got != "eth0" {
+		t.Fatalf("default interface = %q, want eth0", got)
+	}
+}
+
+func TestDefaultInterfaceFromRouteKeepsFirstOnEqualMetric(t *testing.T) {
+	route := routeHeader +
+		"wg0\t00000000\t00000000\t0001\t0\t0\t0\t00000000\t0\t0\t0\n" +
+		"eth0\t00000000\t0102A8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n"
+
+	got, err := defaultInterfaceFromRoute(strings.NewReader(route))
+	if err != nil {
+		t.Fatalf("defaultInterfaceFromRoute returned error: %v", err)
+	}
+	if got != "wg0" {
+		t.Fatalf("default interface = %q, want wg0", got)
+	}
+}
+
+func TestDefaultInterfaceFromRouteSkipsShortLines(t *testing.T) {
+	truncated := "tun0\t00000000\t00000000\t0001\t0\t0\t0\n"
+
+	t.Run("falls back to a complete line", func(t *testing.T) {
+		route := routeHeader + truncated +
+			"eth0\t00000000\t0102A8C0\t0003\t0\t0\t50\t00000000\t0\t0\t0\n"
+
+		got, err := defaultInterfaceFromRoute(strings.NewReader(route))
+		if err != nil {
+			t.Fatalf("defaultInterfaceFromRoute returned error: %v", err)
+		}
+		if got != "eth0" {
+			t.Fatalf("default interface = %q, want eth0", got)
+		}
+	})
+
+	t.Run("fails when every line is truncated", func(t *testing.T) {
+		if _, err := defaultInterfaceFromRoute(strings.NewReader(routeHeader + truncated)); err == nil {
+			t.Fatalf("defaultInterfaceFromRoute returned nil error")
+		}
+	})
+}
+
+func TestDefaultInterfaceFromRouteTreatsUnparsableMetricAsZero(t *testing.T) {
+	route := routeHeader +
+		"eth0\t00000000\t0102A8C0\t0003\t0\t0\t50\t00000000\t0\t0\t0\n" +
+		"eth1\t00000000\t0102A8C0\t0003\t0\t0\tx\t00000000\t0\t0\t0\n"
+
+	got, err := defaultInterfaceFromRoute(strings.NewReader(route))
+	if err != nil {
+		t.Fatalf("defaultInterfaceFromRoute returned error: %v", err)
+	}
+	if got != "eth1" {
+		t.Fatalf("default interface = %q, want eth1", got)
 	}
 }
 

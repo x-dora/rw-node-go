@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,13 @@ import (
 const (
 	defaultSampleInterval = time.Second
 	procNetRoutePath      = "/proc/net/route"
+	// routeDefaultDestination is the hex-encoded 0.0.0.0 destination that marks a
+	// default route line in /proc/net/route.
+	routeDefaultDestination = "00000000"
+	// routeFieldCount is the number of columns /proc/net/route emits per line.
+	routeFieldCount = 11
+	// routeMetricField is the zero-based index of the Metric column.
+	routeMetricField = 6
 )
 
 type Snapshotter interface {
@@ -298,18 +306,39 @@ func (r defaultInterfaceResolver) DefaultInterface() (string, error) {
 	return defaultInterfaceFromRoute(file)
 }
 
+// defaultInterfaceFromRoute picks the default-route interface with the lowest
+// metric, matching official remnawave/node 3.0.0 network stats behaviour. Hosts
+// with several default routes (extra NICs, WireGuard next to the physical link)
+// would otherwise get whichever line the kernel happened to emit first.
 func defaultInterfaceFromRoute(reader io.Reader) (string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
+	bestInterface := ""
+	bestMetric := 0
 	for _, line := range strings.Split(string(data), "\n")[1:] {
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[1] == "00000000" {
-			return fields[0], nil
+		if len(fields) < routeFieldCount {
+			continue
+		}
+		if fields[1] != routeDefaultDestination {
+			continue
+		}
+		// Unparsable metrics count as 0, following the upstream `Number(x) || 0`.
+		metric, convErr := strconv.Atoi(fields[routeMetricField])
+		if convErr != nil {
+			metric = 0
+		}
+		if bestInterface == "" || metric < bestMetric {
+			bestInterface = fields[0]
+			bestMetric = metric
 		}
 	}
-	return "", errors.New("default route not found")
+	if bestInterface == "" {
+		return "", errors.New("default route not found")
+	}
+	return bestInterface, nil
 }
 
 type systemProvider interface {
