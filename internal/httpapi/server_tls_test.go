@@ -203,6 +203,54 @@ func TestSecureServerCanDisableTLSClientCertificateAuth(t *testing.T) {
 	}
 }
 
+func TestSecureServerRejectsTLS12Client(t *testing.T) {
+	bundle := testkit.NewCertBundle(t)
+	raw, err := json.Marshal(bundle.Payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	cfg := config.Config{
+		SecretKey:             base64.StdEncoding.EncodeToString(raw),
+		InternalRESTPort:      61001,
+		RequestBodyLimitBytes: 1 << 20,
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server, err := NewServer(cfg, Handlers{
+		Xray:     tlsTestHandlers{},
+		Handler:  tlsTestHandlers{},
+		Stats:    tlsTestHandlers{},
+		Plugin:   tlsTestHandlers{},
+		Internal: tlsTestHandlers{},
+	}, logger)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
+
+	ts := httptest.NewUnstartedServer(server.httpServer.Handler)
+	ts.TLS = server.httpServer.TLSConfig
+	ts.StartTLS()
+	defer ts.Close()
+
+	tlsConfig := clientTLSConfig(t, bundle)
+	tlsConfig.MinVersion = tls.VersionTLS12
+	tlsConfig.MaxVersion = tls.VersionTLS12
+
+	client := ts.Client()
+	client.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/node/xray/healthcheck", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testkit.NewRS256Token(t, bundle.JWTPrivateKey))
+
+	resp, err := client.Do(req)
+	if err == nil {
+		defer resp.Body.Close()
+		t.Fatalf("TLS 1.2 client unexpectedly completed handshake, status = %d", resp.StatusCode)
+	}
+}
+
 type tlsTestHandlers struct{}
 
 func (tlsTestHandlers) Start(c *gin.Context)                        { c.Status(http.StatusNoContent) }
@@ -244,7 +292,7 @@ func clientTLSConfig(t *testing.T, bundle testkit.CertBundle) *tls.Config {
 		t.Fatalf("append CA")
 	}
 	return &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      roots,
 	}
@@ -257,7 +305,7 @@ func serverTrustTLSConfig(t *testing.T, bundle testkit.CertBundle) *tls.Config {
 		t.Fatalf("append CA")
 	}
 	return &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 		RootCAs:    roots,
 	}
 }

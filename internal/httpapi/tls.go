@@ -25,7 +25,7 @@ func TLSConfigFromSecretWithClientAuth(payload config.NodePayload, clientAuthMod
 	}
 
 	return &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    clientCAs,
 		ClientAuth:   tlsClientAuth(clientAuthMode),
