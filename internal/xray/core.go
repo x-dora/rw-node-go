@@ -75,9 +75,8 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 		_ = closeXrayInstance(old)
 	}
 
-	if err := startXrayInstance(instance); err != nil {
-		_ = closeXrayInstance(instance)
-		return fmt.Errorf("start embedded xray instance: %w", err)
+	if err := startInstanceWithContext(ctx, instance); err != nil {
+		return err
 	}
 
 	c.mu.Lock()
@@ -86,6 +85,32 @@ func (c *EmbeddedCore) Start(ctx context.Context, configJSON []byte) error {
 	c.startedAt = time.Now()
 	c.mu.Unlock()
 	return nil
+}
+
+// startInstanceWithContext bounds the blocking instance start by ctx so the
+// caller's start timeout is actually honoured.
+func startInstanceWithContext(ctx context.Context, instance *xcore.Instance) error {
+	done := make(chan error, 1)
+	go func() {
+		done <- startXrayInstance(instance)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			_ = closeXrayInstance(instance)
+			return fmt.Errorf("start embedded xray instance: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		// The start call may still be in flight; close only after it returns so
+		// xray-core never sees a concurrent Start/Close on the same instance.
+		go func() {
+			<-done
+			_ = closeXrayInstance(instance)
+		}()
+		return fmt.Errorf("xray core did not become ready in time: %w", ctx.Err())
+	}
 }
 
 func (c *EmbeddedCore) Stop(ctx context.Context) error {

@@ -3,6 +3,7 @@ package xray
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,6 +197,55 @@ func TestEmbeddedCoreStartFailureAfterOldInstanceStoppedStaysStopped(t *testing.
 	}
 	if len(closed) != 2 || closed[0] != oldInstance || closed[1] != newInstance {
 		t.Fatalf("closed instances = %#v, want old then new", closed)
+	}
+}
+
+func TestEmbeddedCoreStartRespectsContextTimeout(t *testing.T) {
+	oldInstance := &xcore.Instance{}
+	newInstance := &xcore.Instance{}
+	core := &EmbeddedCore{instance: oldInstance, startedAt: time.Now().Add(-3 * time.Second)}
+
+	release := make(chan struct{})
+	closed := make(chan *xcore.Instance, 2)
+
+	restore := overrideEmbeddedCoreHooks(t, embeddedCoreHooks{
+		newInstance: newInstance,
+		startFn: func(*xcore.Instance) error {
+			<-release
+			return nil
+		},
+		closeFn: func(instance *xcore.Instance) error {
+			closed <- instance
+			return nil
+		},
+	})
+	defer restore()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	err := core.Start(ctx, []byte(`{}`))
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Start() error = %v, want wrapped deadline exceeded", err)
+	}
+	if !strings.Contains(err.Error(), "xray core did not become ready in time") {
+		t.Fatalf("Start() error = %q, want readiness timeout message", err)
+	}
+	if core.IsRunning() || core.Instance() != nil {
+		t.Fatalf("core is running after timed out start")
+	}
+	if got := <-closed; got != oldInstance {
+		t.Fatalf("first closed instance = %p, want old instance %p", got, oldInstance)
+	}
+
+	close(release)
+	select {
+	case got := <-closed:
+		if got != newInstance {
+			t.Fatalf("second closed instance = %p, want new instance %p", got, newInstance)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for the abandoned instance to be closed")
 	}
 }
 
