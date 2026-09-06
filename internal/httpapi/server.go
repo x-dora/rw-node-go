@@ -40,6 +40,12 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			return nil, err
 		}
 
+		checks, err := config.ValidateNodePayload(payload)
+		logPayloadChecks(logger, checks, err)
+		if err != nil {
+			return nil, err
+		}
+
 		tlsConfig, err = TLSConfigFromSecretWithClientAuth(payload, cfg.TLSClientAuthMode())
 		if err != nil {
 			return nil, err
@@ -76,6 +82,25 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 		logger: logger,
 	}
 	return server, nil
+}
+
+func logPayloadChecks(logger *slog.Logger, checks []config.PayloadCheck, err error) {
+	rows := make([]logview.Row, 0, len(checks))
+	for _, check := range checks {
+		status := "ok"
+		if !check.OK {
+			status = "failed"
+		}
+		rows = append(rows, logview.Field(check.Name, status+" "+check.Detail))
+	}
+	title := "SECRET_KEY payload OK"
+	if err != nil {
+		title = "SECRET_KEY payload INVALID"
+	}
+	logview.InfoTable(logger, title, logview.Table(title, rows...))
+	if err != nil {
+		logger.Error("SECRET_KEY payload validation failed; check the SECRET_KEY value")
+	}
 }
 
 func (s *Server) ListenAndServe() error {
