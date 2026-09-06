@@ -59,8 +59,10 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			TLSConfig:         tlsConfig,
 			ReadHeaderTimeout: 10 * time.Second,
 			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			IdleTimeout:       60 * time.Second,
+			// 60s leaves room for the 45s geocheck timeout (official node has no
+			// write timeout); everything else completes well within 30s.
+			WriteTimeout: 60 * time.Second,
+			IdleTimeout:  60 * time.Second,
 		},
 		internalServer: &http.Server{
 			Addr:              cfg.InternalListenAddress(),

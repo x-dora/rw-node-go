@@ -151,7 +151,8 @@ func isPartialStatsRoute(name string) bool {
 		"stats.get-outbound-stats",
 		"stats.get-all-inbounds-stats",
 		"stats.get-all-outbounds-stats",
-		"stats.get-combined-stats":
+		"stats.get-combined-stats",
+		"stats.get-geocheck":
 		return true
 	default:
 		return false

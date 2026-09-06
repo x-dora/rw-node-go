@@ -42,6 +42,7 @@ type StatsHandlers interface {
 	GetAllInboundsStats(*gin.Context)
 	GetAllOutboundsStats(*gin.Context)
 	GetCombinedStats(*gin.Context)
+	GetGeocheck(*gin.Context)
 }
 
 type PluginHandlers interface {
@@ -102,6 +103,7 @@ func registerRoutes(router gin.IRoutes, handlers Handlers) {
 	router.POST("/node/stats/get-all-inbounds-stats", handlers.Stats.GetAllInboundsStats)
 	router.POST("/node/stats/get-all-outbounds-stats", handlers.Stats.GetAllOutboundsStats)
 	router.POST("/node/stats/get-combined-stats", handlers.Stats.GetCombinedStats)
+	router.POST("/node/stats/get-geocheck", handlers.Stats.GetGeocheck)
 
 	router.POST("/node/plugin/sync", handlers.Plugin.Sync)
 	router.POST("/node/plugin/torrent-blocker/collect", handlers.Plugin.CollectTorrentBlockerReports)

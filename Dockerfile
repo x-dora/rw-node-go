@@ -22,6 +22,23 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat /tmp/geodat/geoip.dat
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat /tmp/geodat/geosite.dat
 
+# geocheck binary for the stats/get-geocheck route, matching the official node image.
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS geocheck
+
+ARG GEOCHECK_VERSION=0.3.0
+ARG GEOCHECK_RELEASE_URL=https://github.com/remnawave/geocheck/releases/download
+ARG TARGETARCH
+
+RUN apk add --no-cache curl \
+    && cd /tmp \
+    && ARCHIVE="geocheck_linux_${TARGETARCH}.tar.gz" \
+    && curl -fsSL -O "${GEOCHECK_RELEASE_URL}/v${GEOCHECK_VERSION}/${ARCHIVE}" \
+    && curl -fsSL -O "${GEOCHECK_RELEASE_URL}/v${GEOCHECK_VERSION}/checksums.txt" \
+    && grep "  ${ARCHIVE}\$" checksums.txt | sha256sum -c - \
+    && tar -xzf "${ARCHIVE}" geocheck \
+    && install -m 0755 geocheck /usr/local/bin/geocheck \
+    && rm -rf /tmp/*
+
 FROM --platform=$BUILDPLATFORM alpine:3.23 AS runtime-files
 
 RUN apk add --no-cache ca-certificates \
@@ -40,6 +57,7 @@ COPY --from=runtime-files /tmp /tmp
 COPY --from=runtime-files --chown=10001:10001 /opt/rw-node-go /opt/rw-node-go
 COPY --from=runtime-files --chown=10001:10001 /usr/local/share/xray /usr/local/share/xray
 COPY --from=build --chown=10001:10001 --chmod=644 /tmp/geodat/*.dat /usr/local/share/xray/
+COPY --from=geocheck --chmod=755 /usr/local/bin/geocheck /usr/local/bin/geocheck
 COPY --from=build --chmod=755 /out/rw-node-go /usr/local/bin/rw-node-go
 
 ENV REQUIRE_SECRET_KEY=true

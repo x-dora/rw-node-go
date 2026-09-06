@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/x-dora/rw-node-go/internal/contracts"
+	"github.com/x-dora/rw-node-go/internal/geocheck"
 	"github.com/x-dora/rw-node-go/internal/httpapi"
 	"github.com/x-dora/rw-node-go/internal/state"
 	"github.com/x-dora/rw-node-go/internal/system"
@@ -21,6 +22,7 @@ type StatsController struct {
 	logger   *slog.Logger
 	core     xray.Core
 	snapshot system.Snapshotter
+	geocheck geocheck.Runner
 }
 
 func (ctrl StatsController) GetSystemStats(c *gin.Context) {
@@ -268,6 +270,29 @@ func (ctrl StatsController) GetCombinedStats(c *gin.Context) {
 		Inbounds:  contractInboundTrafficStatsList(inbounds),
 		Outbounds: contractOutboundTrafficStatsList(outbounds),
 	})
+}
+
+func (ctrl StatsController) GetGeocheck(c *gin.Context) {
+	var request contracts.GetGeocheckRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		writeOfficialStatsError(c, "Failed to get geocheck report", contracts.ErrFailedToGetGeocheck)
+		return
+	}
+	if ctrl.geocheck == nil {
+		writeOfficialStatsError(c, "Failed to get geocheck report", contracts.ErrFailedToGetGeocheck)
+		return
+	}
+
+	report, err := ctrl.geocheck.Run(c.Request.Context(), geocheck.Request{
+		IP:        request.IP,
+		Interface: request.Interface,
+	})
+	if err != nil {
+		ctrl.logger.Warn("get geocheck report", "error", err)
+		writeOfficialStatsError(c, err.Error(), contracts.ErrFailedToGetGeocheck)
+		return
+	}
+	httpapi.WriteEnvelope(c, http.StatusOK, report)
 }
 
 func (ctrl StatsController) systemStats(ctx context.Context) contracts.SystemStatsPayload {

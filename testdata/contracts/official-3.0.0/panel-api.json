@@ -447,6 +447,25 @@
       }
     },
     {
+      "name": "stats.get-geocheck",
+      "method": "POST",
+      "path": "/node/stats/get-geocheck",
+      "status": "partial",
+      "request": {
+        "ip": "203.0.113.1"
+      },
+      "response": {
+        "response": {
+          "image": {
+            "format": "svg",
+            "media_type": "image/svg+xml",
+            "encoding": "base64",
+            "data": "fixture-svg-base64"
+          }
+        }
+      }
+    },
+    {
       "name": "plugin.sync",
       "method": "POST",
       "path": "/node/plugin/sync",

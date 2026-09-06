@@ -272,6 +272,7 @@ func (tlsTestHandlers) GetOutboundStats(c *gin.Context)             { c.Status(h
 func (tlsTestHandlers) GetAllInboundsStats(c *gin.Context)          { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetAllOutboundsStats(c *gin.Context)         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetCombinedStats(c *gin.Context)             { c.Status(http.StatusNoContent) }
+func (tlsTestHandlers) GetGeocheck(c *gin.Context)                  { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) Sync(c *gin.Context)                         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) CollectTorrentBlockerReports(c *gin.Context) { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) BlockIPs(c *gin.Context)                     { c.Status(http.StatusNoContent) }

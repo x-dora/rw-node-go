@@ -57,6 +57,8 @@ func decodeOfficialRequest(t *testing.T, name string, data json.RawMessage) {
 		testkit.MustStrictDecode[contracts.UserIPListRequest](t, data)
 	case "stats.get-inbound-stats", "stats.get-outbound-stats":
 		testkit.MustStrictDecode[contracts.TaggedStatsRequest](t, data)
+	case "stats.get-geocheck":
+		testkit.MustStrictDecode[contracts.GetGeocheckRequest](t, data)
 	case "plugin.sync":
 		testkit.MustStrictDecode[contracts.PluginSyncRequest](t, data)
 	case "plugin.nftables.block-ips":
@@ -134,6 +136,15 @@ func officialResponseValue(t *testing.T, name string) any {
 		return httpapi.Envelope{Response: contracts.CombinedStatsResponse{
 			Inbounds:  []contracts.InboundTrafficStatsResponse{},
 			Outbounds: []contracts.OutboundTrafficStatsResponse{},
+		}}
+	case "stats.get-geocheck":
+		return httpapi.Envelope{Response: contracts.GetGeocheckResponse{
+			Image: contracts.GeocheckImage{
+				Format:    "svg",
+				MediaType: "image/svg+xml",
+				Encoding:  "base64",
+				Data:      "fixture-svg-base64",
+			},
 		}}
 	case "plugin.sync", "plugin.nftables.block-ips", "plugin.nftables.unblock-ips", "plugin.nftables.recreate-tables":
 		return httpapi.Envelope{Response: contracts.AcceptedResponse{Accepted: true}}

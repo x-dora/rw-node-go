@@ -9,6 +9,7 @@ const (
 	ErrFailedToGetInboundsStats  = "A015"
 	ErrFailedToGetOutboundsStats = "A016"
 	ErrFailedToGetCombinedStats  = "A017"
+	ErrFailedToGetGeocheck       = "A018"
 )
 
 type GenericResponse struct {

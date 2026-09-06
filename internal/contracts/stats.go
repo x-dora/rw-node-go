@@ -82,6 +82,22 @@ type UserIPListRequest struct {
 	UserID string `json:"userId"`
 }
 
+type GetGeocheckRequest struct {
+	IP        string `json:"ip,omitempty"`
+	Interface string `json:"interface,omitempty"`
+}
+
+type GetGeocheckResponse struct {
+	Image GeocheckImage `json:"image"`
+}
+
+type GeocheckImage struct {
+	Format    string `json:"format"`
+	MediaType string `json:"media_type"`
+	Encoding  string `json:"encoding"`
+	Data      string `json:"data"`
+}
+
 type UsersStatsResponse struct {
 	Users []UserTrafficStats `json:"users"`
 }
