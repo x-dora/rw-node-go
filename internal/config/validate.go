@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -106,10 +109,16 @@ func verifyKeyMatchesCert(keyPEM string, cert *x509.Certificate) error {
 		switch k := key.(type) {
 		case *rsa.PrivateKey:
 			public = &k.PublicKey
-		case interface{ Public() any }:
+		case *ecdsa.PrivateKey:
+			public = &k.PublicKey
+		case *ed25519.PrivateKey:
 			public = k.Public()
 		default:
-			return fmt.Errorf("node key type %T has no extractable public key", key)
+			if signer, ok := key.(interface{ Public() crypto.PublicKey }); ok {
+				public = signer.Public()
+			} else {
+				return fmt.Errorf("node key type %T has no extractable public key", key)
+			}
 		}
 	} else if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
 		public = &key.PublicKey
