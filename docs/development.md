@@ -35,9 +35,9 @@ mise exec -- go run ./cmd/rw-node-go
 
 配置加载会尽早拒绝明显错误的环境变量：`NODE_PORT` 和 `INTERNAL_REST_PORT` 必须是 `1..65535` 且不能相同，`REQUEST_BODY_LIMIT_BYTES` 必须是非负整数，布尔项必须使用 Go 可解析的布尔值。空值仍使用默认值；`REQUEST_BODY_LIMIT_BYTES=0` 表示不限制请求体大小。非法值会导致启动失败，不会静默回退到默认值。
 
-设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/) 等前置可信代理已经完成客户端证书校验的部署。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方 [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 已移除 `/vision/*` route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
+设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；启动时先做 `SECRET_KEY` 载荷完整性校验（CA 可解析/未过期/自签名、node cert 由该 CA 签发、node key 与 cert 匹配、JWT public key 可解析，对齐官方 3.3.1 行为），校验失败输出逐项报告并中止启动。默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/) 等前置可信代理已经完成客户端证书校验的部署。`SNI_VERIFICATION=true`（默认 `false`）时主 API 握手只放行从 `SECRET_KEY` 派生的 SNI。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方已移除 `/vision/*` route 和 `get-inbound-users`/`get-inbound-users-count` 两条 route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 
-主 API 的 TLS 最低版本是 TLS 1.3，跟随官方 3.0.0 的 `httpsOptions.minVersion = 'TLSv1.3'`。这是破坏性变更：只支持 TLS 1.2 的前置代理、反向代理或探活工具会握手失败，联调前先确认整条链路支持 TLS 1.3。
+主 API 的 TLS 最低版本是 TLS 1.3，跟随官方的 `httpsOptions.minVersion = 'TLSv1.3'`。这是破坏性变更：只支持 TLS 1.2 的前置代理、反向代理或探活工具会握手失败，联调前先确认整条链路支持 TLS 1.3。
 
 启动日志会输出官方风格的脱敏摘要，包含项目版本、Panel 兼容版本、构建元信息、Go runtime、PID、监听地址、TLS/JWT 状态、request body 上限和 Xray geodata 目录。裸进程和 Docker 镜像默认输出 ANSI 彩色日志；日志采集或落盘时可设置 `LOG_COLOR=never` 关闭颜色。该摘要用于确认当前二进制和运行模式，不包含 `SECRET_KEY`、JWT、公私钥、证书或 bearer token。
 
@@ -80,7 +80,7 @@ CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff
 
 ### 官方 node 本地 checkout
 
-对齐 contract、排查行为差异和离线跑 `contract-diff` 都需要一份官方 [`remnawave/node`](https://github.com/remnawave/node) 的本地 checkout，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。
+对齐 contract、排查行为差异和离线跑 `contract-diff` 都需要一份官方 [`remnawave/node`](https://github.com/remnawave/node) 的本地 checkout，当前对齐目标是 tag [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1)（commit `44912631321664dbd5822e9bf8d96766ccff7c93`）。
 
 路径是每台机器自己的选择，不写进本仓库跟踪文档。把它固定下来的方式任选一种：
 
@@ -93,7 +93,7 @@ CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff
 git -c core.autocrlf=false clone https://github.com/remnawave/node.git <目标路径>
 cd <目标路径>
 git config core.autocrlf false
-git checkout 3.0.0
+git checkout 3.4.1
 ```
 
 `core.autocrlf false` 必须在 `checkout` 之前生效。先 checkout 再改配置会把已转换的文件留在工作区，而且 Git 归一化后认为文件干净，`git checkout -- .` 和 `git checkout-index --force` 都不会修复。
@@ -105,7 +105,7 @@ git status --short          # 应该没有输出
 CONTRACT_SOURCE_DIR=<目标路径> mise run contract-diff
 ```
 
-正常结果是 `contract unchanged: baseline 3.0.0, checked 3.0.0, scanned 37 files`。参考 checkout 只读，不要修改其内容，也不要把它复制进本项目。
+正常结果是 `contract unchanged: baseline 3.4.1, checked dev, scanned 37 files`（本地 checkout 模式下 `checked` 的显示标签来自 `-tag` 默认值 `dev`，实际比对的是 checkout 工作区的 37 个文件）。参考 checkout 只读，不要修改其内容，也不要把它复制进本项目。
 
 涉及 Docker 的改动再运行：
 
@@ -176,7 +176,7 @@ bash scripts/panel-integration.sh extended-smoke
 
 - 根目录 [`VERSION`](../VERSION) 是 `rw-node-go` 自己的发布版本，使用语义化版本；当前项目版本以该文件内容为准。
 - [`internal/version.ProjectVersion`](../internal/version/version.go) 由 `VERSION` 通过构建参数注入，用于日志、release 和镜像元信息。
-- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `3.0.0`，只代表兼容官方 [`remnawave/node`](https://github.com/remnawave/node) 3.0.0 contract。除非明确跟随上游 contract 升级，否则不要改它。
+- `internal/version.NodeVersion` 是 Panel-facing `nodeVersion`，默认固定为 `3.4.1`，只代表兼容官方 [`remnawave/node`](https://github.com/remnawave/node) 3.4.1 contract。除非明确跟随上游 contract 升级，否则不要改它。
 
 `golang:1.26.2-alpine` 是 Docker build 使用的固定基础镜像，和 [`.mise.toml`](../.mise.toml) 的 Go 版本对齐；最终 runtime 镜像使用 `scratch`，只包含静态 `rw-node-go` 二进制、CA 证书、基础用户信息和 Xray geodata，并默认以 root 进程运行，确保 compose 的 `cap_add: NET_ADMIN` 能用于 Xray OnlineMap 和 conntrack 能力检测。release 流程仍按 [`go.mod`](../go.mod) 选择 Go 工具链，但构建元信息注入逻辑与本地、CI、Docker 保持一致。
 

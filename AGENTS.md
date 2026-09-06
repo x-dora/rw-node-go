@@ -1,23 +1,24 @@
 # Agent 协作说明
 
-本仓库是 Remnawave Node 兼容服务的 Go 实现，目标 contract 是官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 面向 Panel 的 API。协作时优先保持公开接口稳定，再逐步把 stub 替换为真实运行时能力。
+本仓库是 Remnawave Node 兼容服务的 Go 实现，目标 contract 是官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1) 面向 Panel 的 API。协作时优先保持公开接口稳定，再逐步把 stub 替换为真实运行时能力。
 
 详细功能进度只在 [`docs/roadmap.md`](docs/roadmap.md) 维护；本文件只记录协作规则和不可违背的工程约束。
 
 ## 当前阶段
 
 - 当前唯一运行模式是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)；不要重新引入外部 `xray` 进程、Xray 配置落盘、内部 gRPC API inbound 或 internal mTLS。
-- Panel-facing contract 必须稳定：路由路径、HTTP method、JSON 字段名和 response envelope 变更前必须对照官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)。
+- Panel-facing contract 必须稳定：路由路径、HTTP method、JSON 字段名和 response envelope 变更前必须对照官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1)。
 - Handler、stats 和连接清理已部分接入内嵌 Xray feature 或系统能力；真实 Panel + Xray 的完整验收仍在推进。
 - Stats online status/IP 已通过内嵌 Xray stats `OnlineMap` 接入；不可用或读取失败时稳定降级为 `false` 或空列表。
+- `get-geocheck` 依赖镜像内置的官方 `geocheck` 二进制；二进制缺失或执行失败时稳定降级为 `A018` 错误。start 时按 Panel 下发的 `xrayConfig.geodata.assets` 下载 geodata 资产（失败落空 stub，不阻断启动）。
 - 真实 Panel live harness 只能通过 [`scripts/panel-integration.sh`](scripts/panel-integration.sh) 触发。`run`、`enable` 和 `disable` 会修改真实 Panel 节点状态，必须使用完整节点 UUID，只能指向测试节点，并在结束或失败清理时 disable 节点和停止本地进程。
-- 项目自身发布版本由根目录 [`VERSION`](VERSION) 管理；Panel-facing `nodeVersion` 是兼容性版本，默认上报官方 3.0.0 的 `3.0.0`。
+- 项目自身发布版本由根目录 [`VERSION`](VERSION) 管理；Panel-facing `nodeVersion` 是兼容性版本，默认上报官方 3.4.1 的 `3.4.1`。
 - Plugin 功能不做真实实现；只保留 Panel-facing contract adapter，不能保存插件状态、注入 Xray 配置、接收 webhook、触发 Xray restart 或执行 nftables。官方 3.0.0 新增的 pre-start plugin（stale socket 清理）同样不实现。
-- 与官方 3.0.0 的 deliberate divergence 记录在 [`docs/contracts.md`](docs/contracts.md) 和 [`docs/architecture.md`](docs/architecture.md)：缺少 `DISABLE_HASHED_SET_CHECK`、internal REST 用 loopback TCP 而非 abstract unix socket、pre-start plugin 不实现。改动这三处行为前先更新文档。
+- 与官方 3.4.1 的 deliberate divergence 记录在 [`docs/contracts.md`](docs/contracts.md) 和 [`docs/architecture.md`](docs/architecture.md)：缺少 `DISABLE_HASHED_SET_CHECK`、internal REST 用 loopback TCP 而非 abstract unix socket、pre-start plugin 不实现、`geodata.core` 换 xray 二进制不实现（内嵌 core 运行时不可替换）、instance lock 重复实例告警不实现、`internals.integrations` 接受但忽略。改动这些行为前先更新文档。
 
 ## 必须参考
 
-- 官方 [`remnawave/node`](https://github.com/remnawave/node) 仓库需要一份本地 checkout 作为参考，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现；`libs/contract` 是官方 [`3.0.0 contract`](https://github.com/remnawave/node/tree/3.0.0/libs/contract) 入口。
+- 官方 [`remnawave/node`](https://github.com/remnawave/node) 仓库需要一份本地 checkout 作为参考，当前对齐目标是 tag [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1)（commit `44912631321664dbd5822e9bf8d96766ccff7c93`）。必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现；`libs/contract` 是官方 [`3.4.1 contract`](https://github.com/remnawave/node/tree/3.4.1/libs/contract) 入口。
 - 本地 checkout 的实际路径是本机配置，不写进跟踪文档。用 `CONTRACT_SOURCE_DIR` 指定，或从未跟踪的 `CLAUDE.local.md` 读取；获取和校验方式见 [`docs/development.md`](docs/development.md)。
 - 不要修改本地参考仓库的内容，也不要把它复制进本项目。
 - [`REMNAWAVE_NODE_GO_PLAN.md`](REMNAWAVE_NODE_GO_PLAN.md) 是历史设计备忘，不是当前实现规范。
@@ -31,7 +32,7 @@
 - 优先标准库和必要的小依赖；新增依赖要有明确理由。
 - 不要打印 `SECRET_KEY`、JWT、节点私钥、客户端证书或 bearer token。
 - `INTERNAL_REST_PORT` 只允许本机访问，不要在 Docker 示例里暴露。
-- `NODE_TLS_CLIENT_AUTH` 默认必须保持 `mtls`；只有前置可信代理已完成客户端证书校验且源站访问被限制时，才允许显式设为 `none`。主 API TLS 最低版本是 TLS 1.3，跟随官方 3.0.0 的 `httpsOptions.minVersion`，不要下调。Go 侧所有已注册 Panel-facing route 都必须校验 JWT。官方 3.0.0 已移除 `/vision/*` public contract，Go 侧不得重新注册这些 route，除非明确记录 deliberate divergence。
+- `NODE_TLS_CLIENT_AUTH` 默认必须保持 `mtls`；只有前置可信代理已完成客户端证书校验且源站访问被限制时，才允许显式设为 `none`。主 API TLS 最低版本是 TLS 1.3，跟随官方 3.4.1 的 `httpsOptions.minVersion`，不要下调。`SNI_VERIFICATION` 默认保持 `false`，与官方一致；开启后仅放行从 SECRET_KEY 派生的 SNI。Go 侧所有已注册 Panel-facing route 都必须校验 JWT。官方已移除 `/vision/*` public contract 和 `get-inbound-users`/`get-inbound-users-count` 两条 route，Go 侧不得重新注册这些 route，除非明确记录 deliberate divergence。
 - 不做无关重构，不移动公开 API 边界，不把参考仓库结构复制进本项目。
 
 ## 测试要求

@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/x-dora/rw-node-go?include_prereleases&label=release)](https://github.com/x-dora/rw-node-go/releases)
 [![License](https://img.shields.io/github/license/x-dora/rw-node-go)](LICENSE)
 
-`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 面向 Panel 的 API contract。当前唯一运行模式是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
+`rw-node-go` 是 Remnawave Node 兼容服务的 Go 实现，目标是对齐官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1) 面向 Panel 的 API contract。当前唯一运行模式是内嵌 [`xray-core`](https://github.com/XTLS/Xray-core)：Go 进程直接接收 Panel 下发的 Xray JSON config，并在同一进程内启动、停止和管理 Xray instance。
 
 这不是外部 `xray` 进程包装器，也不把 Xray 配置作为主路径落盘。Plugin 相关路由只保留 Panel-facing contract adapter，避免 Panel 调用时返回 404，但不会产生官方 plugin side effects。
 
@@ -38,7 +38,7 @@
 | 主 API | `NODE_PORT` | 面向 Panel 的主服务。设置 `SECRET_KEY` 后走 HTTPS、TLS client auth 和 JWT 校验；未设置时只用于本地 HTTP 开发。 |
 | Internal API | `INTERNAL_REST_PORT` | 仅本机可见的 internal REST API。 |
 | Live Harness | [`scripts/panel-integration.sh`](scripts/panel-integration.sh) | 唯一真实 Panel 联调入口。 |
-| Contract Drift | `mise run contract-diff` | 对照官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 的 contract 变化。 |
+| Contract Drift | `mise run contract-diff` | 对照官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.4.1`](https://github.com/remnawave/node/tree/3.4.1) 的 contract 变化。 |
 
 ## 能力快照
 
@@ -46,9 +46,10 @@
 <summary>当前能力</summary>
 
 - Gin HTTP 层、公开路由注册、contract struct、response envelope。
-- `SECRET_KEY` 解析、PEM normalize、TLS client auth、JWT RS256、zstd request body。
-- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期。
-- handler、stats 和连接清理的部分接入。
+- `SECRET_KEY` 解码与载荷完整性校验（CA/证书/密钥链）、PEM normalize、TLS client auth、可选 SNI 派生门控（`SNI_VERIFICATION`，默认关闭）、JWT RS256、zstd request body。
+- `/node/xray/start`、`/node/xray/stop`、`/node/xray/healthcheck` 的内嵌 Xray 生命周期，start 时按 Panel 下发 `geodata.assets` 下载 geodata 资产。
+- handler、stats 和连接清理的部分接入，包括 `add-user` 重新注册时的旧连接清理。
+- `get-geocheck` 通过镜像内置的官方 `geocheck` 二进制生成 SVG 报告（缺失时降级为官方错误码 `A018`）。
 - Stats online status/IP 通过内嵌 Xray stats `OnlineMap` 读取；该能力依赖 Linux `CAP_NET_ADMIN`，不可用时稳定降级为 `false` 或空列表。
 - Docker 构建、[CI](https://github.com/x-dora/rw-node-go/actions/workflows/ci.yml)、[release](https://github.com/x-dora/rw-node-go/releases)、[GHCR 镜像](https://github.com/x-dora/rw-node-go/pkgs/container/rw-node-go)和受控真实 Panel live harness。
 
@@ -60,8 +61,9 @@
 - 外部 `xray` 进程模式。
 - Xray 配置落盘主路径。
 - 内部 gRPC API inbound。
-- plugin 运行时能力和状态持久化。
+- plugin 运行时能力和状态持久化（`internals.integrations` 接受但忽略）。
 - nftables 真执行。
+- `geodata.core` 换 xray 二进制（内嵌 core 运行时不可替换）。
 
 </details>
 
@@ -123,6 +125,7 @@ mise run docker-build
 | `SECRET_KEY` | 空 | 官方 Node 使用的 base64 JSON 密钥包；设置后启用 HTTPS、TLS client auth 和 JWT。 |
 | `REQUIRE_SECRET_KEY` | `false` | 裸进程默认允许本地开发 HTTP；Docker 镜像默认设为 `true`。 |
 | `NODE_TLS_CLIENT_AUTH` | `mtls` | 设置 `SECRET_KEY` 后的 TLS 客户端证书策略：`mtls` 要求并校验客户端证书，`optional` 在客户端提交证书时校验，`none` 只保留 HTTPS/JWT。 |
+| `SNI_VERIFICATION` | `false` | 开启后主 API 握手只放行从 `SECRET_KEY` 派生的 SNI（官方同名开关，默认关闭）。 |
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
 | `LOG_LEVEL` | `info` | 日志级别。 |
 | `LOG_COLOR` | `always` | 日志 ANSI 颜色策略：`always` 默认输出彩色日志，`never` 用于日志采集或落盘时关闭颜色。 |
@@ -162,9 +165,9 @@ local-only control plane
 
 </details>
 
-设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求。默认 `NODE_TLS_CLIENT_AUTH=mtls`，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=none` 只适用于前置可信代理已完成客户端证书校验的部署，例如 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/)；此时 Node 层仍会对所有 Panel-facing route 校验 JWT。官方 [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 已移除 `/vision/*` Panel-facing route，Go 侧同步返回 404。
+设置 `SECRET_KEY` 后，主 API 通过 TLS server config、TLS client auth 和 JWT public key 校验 Panel 请求；启动时会先做 `SECRET_KEY` 载荷完整性校验（CA/证书/密钥链），失败直接中止启动。默认 `NODE_TLS_CLIENT_AUTH=mtls`，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=none` 只适用于前置可信代理已完成客户端证书校验的部署，例如 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/)；此时 Node 层仍会对所有 Panel-facing route 校验 JWT。官方已移除 `/vision/*` Panel-facing route 和 `get-inbound-users`/`get-inbound-users-count` 两条 route，Go 侧同步返回 404。
 
-主 API 的 TLS 最低版本是 **TLS 1.3**，跟随官方 3.0.0 的 `httpsOptions.minVersion = 'TLSv1.3'`。这是破坏性变更：只支持 TLS 1.2 的前置代理、反向代理或探活工具会在握手阶段失败，需要先升级到支持 TLS 1.3 的版本。
+主 API 的 TLS 最低版本是 **TLS 1.3**，跟随官方的 `httpsOptions.minVersion = 'TLSv1.3'`。这是破坏性变更：只支持 TLS 1.2 的前置代理、反向代理或探活工具会在握手阶段失败，需要先升级到支持 TLS 1.3 的版本。
 
 不设置 `SECRET_KEY` 时，主 API 以本地 HTTP 模式启动，只用于开发和 contract 测试。Docker 镜像默认要求 `SECRET_KEY`。
 
