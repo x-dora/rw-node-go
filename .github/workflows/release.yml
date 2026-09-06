@@ -23,7 +23,7 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/x-dora/rw-node-go
-  NODE_VERSION: "3.0.0"
+  NODE_VERSION: "3.4.1"
   PRERELEASE_TAG: pre-release
 
 jobs:

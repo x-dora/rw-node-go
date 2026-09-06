@@ -1,11 +1,11 @@
 {
   "source": "github.com/remnawave/node",
-  "tag": "3.0.0",
-  "generatedAt": "2026-08-06T04:17:42.0840832Z",
+  "tag": "3.4.1",
+  "generatedAt": "2026-09-06T06:27:07.1928777Z",
   "files": [
     {
       "path": "libs/contract/api/controllers/handler.ts",
-      "sha256": "aae61fff29afd3cb4a009ba3bc37fd3a1123f361264852e7f570e2781d0d6d18"
+      "sha256": "793b5997235347f51825fd2fe13e2a1d9e32ba8114c2ab75403b976c938c1a9b"
     },
     {
       "path": "libs/contract/api/controllers/plugin.ts",
@@ -13,7 +13,7 @@
     },
     {
       "path": "libs/contract/api/controllers/stats.ts",
-      "sha256": "2deb0d1b35fe9dd251fdc35c0224fc676173686402c180b28696ca015d61acb0"
+      "sha256": "9826e6b586a741efe0720791f9689f077abcfff702b1b30f4d4a1bc1568abd86"
     },
     {
       "path": "libs/contract/api/controllers/xray.ts",
@@ -21,7 +21,7 @@
     },
     {
       "path": "libs/contract/api/routes.ts",
-      "sha256": "4e4370345ad1c581656da37a97a99cb2476c11a3e9e0998e36a765f77d4e1230"
+      "sha256": "06237333f00da8151b9a994d04bc29ef92fd16cecbe8e6c3987d5941959613eb"
     },
     {
       "path": "libs/contract/commands/handler/add-user.command.ts",
@@ -38,14 +38,6 @@
     {
       "path": "libs/contract/commands/handler/drop-users-connections.command.ts",
       "sha256": "07158f5e53b05943f34c299e86db0d51d635f3b305ea7be6cb95d0a824a99df5"
-    },
-    {
-      "path": "libs/contract/commands/handler/get-inbound-users-count.command.ts",
-      "sha256": "1cc15573811fa37c43e9f87ede955ad8232b9ceeed27aa3e7b8f14352975cac8"
-    },
-    {
-      "path": "libs/contract/commands/handler/get-inbound-users.command.ts",
-      "sha256": "ac194f82632b95d1da99d86027181584c0e24949dc4b335e9643246becb01f88"
     },
     {
       "path": "libs/contract/commands/handler/remove-user.command.ts",
@@ -88,6 +80,10 @@
       "sha256": "f29d198121b807dac4f18edb535d12db3ca7754544252ad64d813967dd14906a"
     },
     {
+      "path": "libs/contract/commands/stats/get-geocheck.command.ts",
+      "sha256": "451ec5c554d8d4025c50cd0fc7773045b4233b7e7cb344ce2d95d8001958e85b"
+    },
+    {
       "path": "libs/contract/commands/stats/get-inbound-stats.command.ts",
       "sha256": "148e479301ac620c4d8a2d8991fdbf5cd4180eedac70e7e8f37ca6cf8d4e6211"
     },
@@ -121,7 +117,7 @@
     },
     {
       "path": "libs/contract/commands/xray/start.command.ts",
-      "sha256": "0a8b284f93032db5e6cf44bc54ee48680025261c71579daf0e3488e1080e7a4a"
+      "sha256": "07de641e7ad2b22a8b93ee0665a722133ddbb7736af7e14235e828afbfb3a352"
     },
     {
       "path": "libs/contract/commands/xray/stop.command.ts",
@@ -129,7 +125,7 @@
     },
     {
       "path": "libs/contract/constants/errors/errors.ts",
-      "sha256": "468fffca59ff1313072aebf95b1158060ff365bb3df115b5796a09a4bbbf1aa1"
+      "sha256": "eb691950d98514ad6518d5c145efdb06a7caef3558d7587c6920197dd64282fc"
     },
     {
       "path": "libs/contract/constants/errors/known-errors.ts",
@@ -138,6 +134,10 @@
     {
       "path": "libs/contract/constants/xray/stats.ts",
       "sha256": "283615d8cc2edb50df868a753cd11d710a33630c7fe24a4368f8938bfba9ec64"
+    },
+    {
+      "path": "libs/contract/models/node-metadata.schema.ts",
+      "sha256": "c10146dcfcfdf3266c07ebad495e216f9b4f0b58cf17027ae0b9fb90b536bd06"
     },
     {
       "path": "libs/contract/models/node-system.schema.ts",

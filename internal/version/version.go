@@ -6,7 +6,7 @@ var (
 	ProjectVersion = "dev"
 	// NodeVersion is the Panel-facing compatibility version. Keep this aligned
 	// with official remnawave/node 3.0.x so Panel accepts the contract shape.
-	NodeVersion = "3.0.0"
+	NodeVersion = "3.4.1"
 	Commit      = "unknown"
 	BuildDate   = "unknown"
 )
