@@ -188,9 +188,9 @@ func formatExecError(ctx context.Context, target string, timeout time.Duration, 
 }
 
 type limitedBuffer struct {
-	buf       bytes.Buffer
-	max       int
-	tooLarge  bool
+	buf      bytes.Buffer
+	max      int
+	tooLarge bool
 }
 
 func (b *limitedBuffer) Write(p []byte) (int, error) {

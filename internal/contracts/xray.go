@@ -14,8 +14,8 @@ type StartInternals struct {
 	// Integrations mirrors the official integrations record (optional since
 	// 3.2.0). Accepted and ignored; plugin features stay adapter-only.
 	Integrations map[string]json.RawMessage `json:"integrations,omitempty"`
-	ForceRestart bool                        `json:"forceRestart"`
-	Hashes       Hashes                      `json:"hashes"`
+	ForceRestart bool                       `json:"forceRestart"`
+	Hashes       Hashes                     `json:"hashes"`
 }
 
 // NodeMetadata mirrors the official NodeMetadataSchema.
