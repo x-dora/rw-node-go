@@ -1,13 +1,30 @@
 package contracts
 
+import "encoding/json"
+
 type StartXrayRequest struct {
 	Internals  StartInternals `json:"internals"`
 	XrayConfig map[string]any `json:"xrayConfig"`
 }
 
 type StartInternals struct {
-	ForceRestart bool   `json:"forceRestart"`
-	Hashes       Hashes `json:"hashes"`
+	// Metadata mirrors the official NodeMetadataSchema (optional since 3.3.0).
+	// Accepted and currently unused by the embedded-core runtime.
+	Metadata *NodeMetadata `json:"metadata,omitempty"`
+	// Integrations mirrors the official integrations record (optional since
+	// 3.2.0). Accepted and ignored; plugin features stay adapter-only.
+	Integrations map[string]json.RawMessage `json:"integrations,omitempty"`
+	ForceRestart bool                        `json:"forceRestart"`
+	Hashes       Hashes                      `json:"hashes"`
+}
+
+// NodeMetadata mirrors the official NodeMetadataSchema.
+type NodeMetadata struct {
+	Name        string   `json:"name"`
+	UUID        string   `json:"uuid"`
+	ID          int      `json:"id"`
+	Tags        []string `json:"tags"`
+	CountryCode string   `json:"countryCode"`
 }
 
 type Hashes struct {

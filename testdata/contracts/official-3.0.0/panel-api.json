@@ -8,6 +8,16 @@
       "status": "partial",
       "request": {
         "internals": {
+          "metadata": {
+            "name": "fixture-node",
+            "uuid": "55555555-5555-4555-8555-555555555555",
+            "id": 1,
+            "tags": ["fixture"],
+            "countryCode": "XX"
+          },
+          "integrations": {
+            "torrent-blocker": {}
+          },
           "forceRestart": false,
           "hashes": {
             "emptyConfig": "empty-config-hash",
