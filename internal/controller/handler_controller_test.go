@@ -251,6 +251,60 @@ func TestHandlerDropUsersConnectionsDegradesWhenUserIPLookupFails(t *testing.T) 
 	}
 }
 
+func TestHandlerAddUserDropsStaleConnectionIPsOnReRegistration(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	stats := &recordingStatsClient{
+		userIPs: []xray.IPLastSeen{
+			{IP: "203.0.113.10", LastSeen: 1710000000},
+			{IP: "2001:db8::10", LastSeen: 1710000000},
+		},
+	}
+	dropper := &recordingConnectionDropper{}
+	ctrl := HandlerController{
+		state:   state.NewRuntimeState(),
+		logger:  slog.Default(),
+		core:    &fakeCore{started: true, handler: &recordingHandlerClient{}, stats: stats},
+		dropper: dropper,
+	}
+
+	rec := runHandlerRequest(t, ctrl.AddUser, `{
+		"data":[{"type":"vless","tag":"VLESS_INBOUND","username":"user-1","uuid":"11111111-1111-4111-8111-111111111111"}],
+		"hashData":{"vlessUuid":"11111111-1111-4111-8111-111111111111","prevVlessUuid":"22222222-2222-4222-8222-222222222222"}
+	}`)
+
+	assertGenericSuccess(t, rec.Body.String(), true)
+	if !stats.userIPsReset {
+		t.Fatalf("UserIPList reset = false, want true")
+	}
+	if got := dropper.ips; len(got) != 2 || got[0] != "203.0.113.10" || got[1] != "2001:db8::10" {
+		t.Fatalf("dropper ips = %#v", got)
+	}
+}
+
+func TestHandlerAddUserSkipsConnectionDropWithoutPrevVlessUUID(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	stats := &recordingStatsClient{
+		userIPs: []xray.IPLastSeen{{IP: "203.0.113.10", LastSeen: 1710000000}},
+	}
+	dropper := &recordingConnectionDropper{}
+	ctrl := HandlerController{
+		state:   state.NewRuntimeState(),
+		logger:  slog.Default(),
+		core:    &fakeCore{started: true, handler: &recordingHandlerClient{}, stats: stats},
+		dropper: dropper,
+	}
+
+	rec := runHandlerRequest(t, ctrl.AddUser, `{
+		"data":[{"type":"vless","tag":"VLESS_INBOUND","username":"user-1","uuid":"11111111-1111-4111-8111-111111111111"}],
+		"hashData":{"vlessUuid":"11111111-1111-4111-8111-111111111111"}
+	}`)
+
+	assertGenericSuccess(t, rec.Body.String(), true)
+	if len(dropper.ips) != 0 {
+		t.Fatalf("dropper ips = %#v, want empty", dropper.ips)
+	}
+}
+
 func runHandlerRequest(t *testing.T, handler gin.HandlerFunc, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()

@@ -57,9 +57,21 @@ func (ctrl HandlerController) AddUser(c *gin.Context) {
 	if request.HashData.PrevVlessUUID != nil && *request.HashData.PrevVlessUUID != "" {
 		removeHash = *request.HashData.PrevVlessUUID
 	}
+	// Official 3.4.x behavior: on re-registration capture the user's current
+	// IPs before removal, then drop those connections so stale sessions with
+	// the previous UUID do not survive the swap.
+	var reconnectIPs []string
+	if request.HashData.PrevVlessUUID != nil && *request.HashData.PrevVlessUUID != "" {
+		reconnectIPs = ctrl.currentUserIPs(ctx, username)
+	}
 	for _, tag := range ctrl.state.KnownInboundTags() {
 		ctrl.removeUser(ctx, client, tag, username)
 		ctrl.state.RemoveUserFromInbound(tag, removeHash)
+	}
+	for _, ip := range reconnectIPs {
+		if err := ctrl.dropConnectionIP(ctx, ip); err != nil {
+			ctrl.logger.Warn("drop re-registered user connection IP", "ip", ip, "error", err)
+		}
 	}
 
 	success, firstErr := false, error(nil)
@@ -275,6 +287,24 @@ func (ctrl HandlerController) dropConnectionIP(ctx context.Context, ip string) e
 		return err
 	}
 	return nil
+}
+
+func (ctrl HandlerController) currentUserIPs(ctx context.Context, username string) []string {
+	client, err := ctrl.statsClient()
+	if err != nil {
+		ctrl.logger.Debug("xray stats client unavailable for user IP lookup", "error", err)
+		return nil
+	}
+	ips, err := client.UserIPList(ctx, username, true)
+	if err != nil {
+		ctrl.logger.Debug("get user IPs for re-registration drop", "error", redactedError(err))
+		return nil
+	}
+	output := make([]string, 0, len(ips))
+	for _, item := range ips {
+		output = append(output, item.IP)
+	}
+	return output
 }
 
 func (ctrl HandlerController) removeUser(ctx context.Context, client xray.HandlerClient, tag string, username string) error {
