@@ -10,10 +10,6 @@ import (
 )
 
 func StartupSummary(cfg config.Config, nodeVersion string) string {
-	assetDir := os.Getenv("XRAY_LOCATION_ASSET")
-	if assetDir == "" {
-		assetDir = os.Getenv("XRAY_ASSET_DIR")
-	}
 	return Table("rw-node-go starting",
 		Field("Project Version", version.ProjectVersion),
 		Field("Panel Node Version", nodeVersion),
@@ -29,7 +25,7 @@ func StartupSummary(cfg config.Config, nodeVersion string) string {
 		Field("TLS Client Auth", cfg.TLSClientAuthMode()),
 		Field("JWT Enabled", cfg.SecretKey != ""),
 		Field("Request Body Limit", cfg.RequestBodyLimitBytes),
-		Field("XRAY_LOCATION_ASSET", assetDir),
+		Field("XRAY_LOCATION_ASSET", config.XrayAssetDir()),
 	)
 }
 

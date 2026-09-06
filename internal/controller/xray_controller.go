@@ -102,6 +102,10 @@ func (ctrl *XrayController) Start(c *gin.Context) {
 	}
 	ctrl.logConfigReceived(fullConfig)
 
+	// Official 3.1.0+ behavior: provision geodata assets before (re)starting
+	// the core. Failures are logged and degrade to empty stub files.
+	xray.PrepareGeodata(c.Request.Context(), fullConfig, ctrl.logger)
+
 	configBytes, err := json.MarshalIndent(fullConfig, "", "  ")
 	if err != nil {
 		ctrl.syncStartFailureState()
