@@ -46,7 +46,7 @@ func NewServer(cfg config.Config, handlers Handlers, logger *slog.Logger) (*Serv
 			return nil, err
 		}
 
-		tlsConfig, err = TLSConfigFromSecretWithClientAuth(payload, cfg.TLSClientAuthMode())
+		tlsConfig, err = TLSConfigFromSecretWithOptions(payload, cfg.TLSClientAuthMode(), cfg.SNIVerification)
 		if err != nil {
 			return nil, err
 		}

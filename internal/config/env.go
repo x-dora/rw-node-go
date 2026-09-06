@@ -29,6 +29,7 @@ type Config struct {
 	InternalRESTPort      int
 	SecretKey             string
 	NodeTLSClientAuth     string
+	SNIVerification       bool
 	LogLevel              string
 	LogColor              string
 	RWNodeDir             string
@@ -57,11 +58,16 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	sniVerification, err := envBool("SNI_VERIFICATION", false)
+	if err != nil {
+		return Config{}, err
+	}
 	cfg := Config{
 		NodePort:              nodePort,
 		InternalRESTPort:      internalRESTPort,
 		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
 		NodeTLSClientAuth:     normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
+		SNIVerification:       sniVerification,
 		LogLevel:              normalizeLogLevel(envString("LOG_LEVEL", DefaultLogLevel)),
 		LogColor:              normalizeLogColor(envString("LOG_COLOR", DefaultLogColor)),
 		RWNodeDir:             envString("RW_NODE_DIR", DefaultRWNodeDir),
