@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -108,7 +109,7 @@ func (r *ExecRunner) Run(ctx context.Context, request Request) (json.RawMessage,
 
 	binaryPath := r.BinaryPath
 	if binaryPath == "" {
-		binaryPath = DefaultBinaryPath
+		binaryPath = envBinaryPath()
 	}
 	timeout := r.Timeout
 	if timeout <= 0 {
@@ -161,6 +162,16 @@ func (r *ExecRunner) end() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.isRunning = false
+}
+
+// envBinaryPath resolves the GEOCHECK_BINARY_PATH override so deployments
+// outside the official image layout (bare-metal installs) can point at the
+// binary without a /usr/local/bin symlink.
+func envBinaryPath() string {
+	if value := strings.TrimSpace(os.Getenv("GEOCHECK_BINARY_PATH")); value != "" {
+		return value
+	}
+	return DefaultBinaryPath
 }
 
 func execOutput(ctx context.Context, path string, args []string, maxOutput int) ([]byte, error) {

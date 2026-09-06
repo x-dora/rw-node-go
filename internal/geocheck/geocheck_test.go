@@ -30,6 +30,48 @@ func TestRunnerReturnsRawReport(t *testing.T) {
 	}
 }
 
+func TestRunnerUsesEnvBinaryPath(t *testing.T) {
+	t.Setenv("GEOCHECK_BINARY_PATH", "/opt/rw-node/bin/geocheck")
+	runner := &ExecRunner{execCommand: func(ctx context.Context, path string, args []string, maxOutput int) ([]byte, error) {
+		if path != "/opt/rw-node/bin/geocheck" {
+			t.Fatalf("path = %q, want /opt/rw-node/bin/geocheck", path)
+		}
+		return []byte(`{"image":{"data":"abc"}}`), nil
+	}}
+
+	if _, err := runner.Run(context.Background(), Request{}); err != nil {
+		t.Fatalf("Run err = %v", err)
+	}
+}
+
+func TestRunnerEnvBinaryPathBlankFallsBackToDefault(t *testing.T) {
+	t.Setenv("GEOCHECK_BINARY_PATH", "   ")
+	runner := &ExecRunner{execCommand: func(ctx context.Context, path string, args []string, maxOutput int) ([]byte, error) {
+		if path != DefaultBinaryPath {
+			t.Fatalf("path = %q, want %q", path, DefaultBinaryPath)
+		}
+		return []byte(`{"image":{"data":"abc"}}`), nil
+	}}
+
+	if _, err := runner.Run(context.Background(), Request{}); err != nil {
+		t.Fatalf("Run err = %v", err)
+	}
+}
+
+func TestRunnerFieldBinaryPathOverridesEnv(t *testing.T) {
+	t.Setenv("GEOCHECK_BINARY_PATH", "/opt/rw-node/bin/geocheck")
+	runner := &ExecRunner{BinaryPath: "/custom/geocheck", execCommand: func(ctx context.Context, path string, args []string, maxOutput int) ([]byte, error) {
+		if path != "/custom/geocheck" {
+			t.Fatalf("path = %q, want /custom/geocheck", path)
+		}
+		return []byte(`{"image":{"data":"abc"}}`), nil
+	}}
+
+	if _, err := runner.Run(context.Background(), Request{}); err != nil {
+		t.Fatalf("Run err = %v", err)
+	}
+}
+
 func TestRunnerPassesInterfaceWhenIPMissing(t *testing.T) {
 	runner := &ExecRunner{execCommand: func(ctx context.Context, path string, args []string, maxOutput int) ([]byte, error) {
 		if len(args) != 5 || args[0] != "--interface" || args[1] != "eth0" {
