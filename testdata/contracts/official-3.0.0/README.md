@@ -3,7 +3,7 @@
 本目录用于存放从以下位置提取的小型 JSON golden fixture：
 
 ```text
-tmp/remnawave-node/libs/contract
+$CONTRACT_SOURCE_DIR/libs/contract
 ```
 
 本地路径对应官方 [`remnawave/node` 3.0.0 contract 入口](https://github.com/remnawave/node/tree/3.0.0/libs/contract)，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。
@@ -35,7 +35,7 @@ CONTRACT_TAG=main mise run contract-diff
 重新生成 baseline 时，先人工确认 Go contract、route 和 golden fixture 已按官方变化更新，再运行：
 
 ```sh
-mise exec -- go run ./cmd/contract-diff -tag 3.0.0 -source-dir tmp/remnawave-node -baseline testdata/contracts/official-3.0.0/upstream-contract.sha256.json -write-baseline
+mise exec -- go run ./cmd/contract-diff -tag 3.0.0 -source-dir "$CONTRACT_SOURCE_DIR" -baseline testdata/contracts/official-3.0.0/upstream-contract.sha256.json -write-baseline
 ```
 
 不要把官方 TypeScript contract 包整体复制进仓库。这里只保存必要的小型 JSON fixture 和 hash baseline。

@@ -2,7 +2,7 @@
 
 兼容性来源以官方 [`remnawave/node`](https://github.com/remnawave/node) [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 面向 Panel 的 contract 和实际实现为准。Go 侧公开类型放在 [`internal/contracts`](../internal/contracts)，HTTP route 注册放在 [`internal/httpapi/router.go`](../internal/httpapi/router.go)。
 
-`tmp/remnawave-node` 用作官方仓库参考，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。
+官方仓库的本地 checkout（tag `3.0.0`，commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）用 `CONTRACT_SOURCE_DIR` 指向，路径属于本机配置。必要时应参考其 contract、controller、service、Xray 配置生成和错误处理实现。
 
 本仓库的 `nodeVersion` 固定为 `3.0.0`，与 [`VERSION`](../VERSION) 无关；`VERSION` 只表示 `rw-node-go` 自己的发布版本。
 
@@ -110,7 +110,7 @@ mise run contract-diff
 网络不可用但本地已有官方 checkout 时，显式指定本地源码目录：
 
 ```sh
-CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
+CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff
 ```
 
 临时检查其他官方 tag 或 branch ref 时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：

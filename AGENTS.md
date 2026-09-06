@@ -17,10 +17,10 @@
 
 ## 必须参考
 
-- `tmp/remnawave-node` 是官方仓库参考，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`），必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现。
-- `tmp/remnawave-node/libs/contract` 是官方 [`3.0.0 contract`](https://github.com/remnawave/node/tree/3.0.0/libs/contract) 入口。
+- 官方 [`remnawave/node`](https://github.com/remnawave/node) 仓库需要一份本地 checkout 作为参考，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。必要时必须参考其 contract、controller、service、Xray 配置生成和错误处理实现；`libs/contract` 是官方 [`3.0.0 contract`](https://github.com/remnawave/node/tree/3.0.0/libs/contract) 入口。
+- 本地 checkout 的实际路径是本机配置，不写进跟踪文档。用 `CONTRACT_SOURCE_DIR` 指定，或从未跟踪的 `CLAUDE.local.md` 读取；获取和校验方式见 [`docs/development.md`](docs/development.md)。
+- 不要修改本地参考仓库的内容，也不要把它复制进本项目。
 - [`REMNAWAVE_NODE_GO_PLAN.md`](REMNAWAVE_NODE_GO_PLAN.md) 是历史设计备忘，不是当前实现规范。
-- 不要修改 `tmp/` 下的参考仓库。
 
 ## 工程约束
 
@@ -56,6 +56,7 @@
 - 文档更新时优先对照当前代码、[`VERSION`](VERSION)、[`.mise.toml`](.mise.toml)、`.env*.example`、[`scripts/`](scripts/) 和 [`.github/workflows/`](.github/workflows/) 的实际行为，避免写入会随版本或 workflow 漂移的硬编码状态。
 - 修改 GitHub Actions、release 流程、镜像发布或恢复入口时，必须同步验证 release 顺序、GHCR 权限说明和相关文档，不能只改 workflow 不改说明。
 - 不在 README 或 AGENTS 里写临时准备步骤、参考仓库拉取命令或忽略规则。
+- `CLAUDE.md` 是指向 [`AGENTS.md`](AGENTS.md) 的符号链接，只改 `AGENTS.md`。不要用复制覆盖 `CLAUDE.md`，那会断开链接让两份内容分叉。Windows 上重建链接需要开发者模式，仓库已设 `core.symlinks true`。
 
 ## Git 提交
 

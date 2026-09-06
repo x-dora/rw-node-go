@@ -60,7 +60,7 @@ flowchart LR
 - 从 stub 进入真实 Xray 行为时，应补 integration test 或明确记录无法在 CI 中验证的原因。
 - TLS client auth/JWT/zstd、response envelope、router、config builder 和 embedded core 属于基础能力，修改时必须跑完整测试。
 - contract golden 应只保存必要 fixture，避免复制大段上游源码。
-- 计划文档和官方 `tmp/remnawave-node` 实现冲突时，以 [官方仓库](https://github.com/remnawave/node) 为准，并同步修正文档中的错误假设。
+- 计划文档和官方 `remnawave/node` 实现冲突时，以 [官方仓库](https://github.com/remnawave/node) 为准，并同步修正文档中的错误假设。
 
 建议验证顺序：
 
@@ -75,8 +75,37 @@ mise run contract-diff
 `mise run contract-diff` 默认下载官方 [`remnawave/node`](https://github.com/remnawave/node) dev 分支。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
 
 ```sh
-CONTRACT_SOURCE_DIR=tmp/remnawave-node mise run contract-diff
+CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff
 ```
+
+### 官方 node 本地 checkout
+
+对齐 contract、排查行为差异和离线跑 `contract-diff` 都需要一份官方 [`remnawave/node`](https://github.com/remnawave/node) 的本地 checkout，当前对齐目标是 tag [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0)（commit `46fc5d2d736ff60f6c6a9a56e2661acb95d3f559`）。
+
+路径是每台机器自己的选择，不写进本仓库跟踪文档。把它固定下来的方式任选一种：
+
+- 在 shell 或 `.env` 之外的环境里导出 `CONTRACT_SOURCE_DIR`；
+- 写进未跟踪的 `CLAUDE.local.md`，让 agent 每次会话都能读到实际路径。
+
+获取 checkout 时必须禁用行尾转换。`upstream-contract.sha256.json` 的 hash 按官方仓库原始 LF 内容计算，如果 Git 的 `core.autocrlf` 把工作区写成 CRLF，`contract-diff` 会把 37 个文件全部报成漂移：
+
+```sh
+git -c core.autocrlf=false clone https://github.com/remnawave/node.git <目标路径>
+cd <目标路径>
+git config core.autocrlf false
+git checkout 3.0.0
+```
+
+`core.autocrlf false` 必须在 `checkout` 之前生效。先 checkout 再改配置会把已转换的文件留在工作区，而且 Git 归一化后认为文件干净，`git checkout -- .` 和 `git checkout-index --force` 都不会修复。
+
+校验 checkout 是否可用：
+
+```sh
+git status --short          # 应该没有输出
+CONTRACT_SOURCE_DIR=<目标路径> mise run contract-diff
+```
+
+正常结果是 `contract unchanged: baseline 3.0.0, checked 3.0.0, scanned 37 files`。参考 checkout 只读，不要修改其内容，也不要把它复制进本项目。
 
 涉及 Docker 的改动再运行：
 
