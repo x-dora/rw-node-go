@@ -77,7 +77,7 @@ Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 P
 
 `INTERNAL_REST_PORT` 只监听 `127.0.0.1`，不属于 Panel-facing contract，也不走 Panel mTLS/JWT。不要通过 Docker publish、防火墙、FRP 或 PaaS 入站暴露到公网。
 
-- `GET /internal/get-config`：返回当前内存 Xray config；没有 config 时返回 `{}`。
+- `GET /internal/get-config`：返回当前内存 Xray config；没有 config 时返回 `{}`。当 `SECRET_KEY` 可解码时会额外在响应顶层注入 `panelSni`（HKDF 派生的 Panel SNI），供本机 front proxy（如 Caddy inbound watcher）在 `SNI_VERIFICATION` 开启时使用；该字段是注入的工具信息，不是 Panel 下发 Xray config 的一部分，派生失败时不注入。
 
 官方 [`3.0.0`](https://github.com/remnawave/node/tree/3.0.0) 已移除 `/vision/block-ip` 和 `/vision/unblock-ip` public contract；官方 3.4.1 已移除 `/node/handler/get-inbound-users` 和 `/node/handler/get-inbound-users-count`。Go 侧访问这些路径会按未注册 route 返回 404。
 
@@ -86,7 +86,7 @@ Xray start/restart/stop 会输出官方风格的脱敏表格摘要，便于在 P
 - Handler 和 stats 读取运行时 feature 失败时返回兼容的业务降级响应，不把内部错误暴露为不稳定 JSON 形状。
 - Panel `fetch-users-ips` / `get-users-ip-list` 依赖 Xray OnlineMap；非 Linux 或无 `CAP_NET_ADMIN` 时 `statsUserOnline` 不启用，在线 IP 稳定降级为空。
 - Drop users connections 和 drop IPs 通过 Linux conntrack best-effort 清理连接；非 Linux、无 `CAP_NET_ADMIN` 或 conntrack netlink 不可用时稳定降级为 no-op。`add-user` 带 `prevVlessUuid` 重新注册时，同样 best-effort 地对用户当前 IP 执行连接清理（对齐官方 3.4.1）。
-- `get-geocheck` 依赖镜像内置的官方 `geocheck` 二进制（Dockerfile 下载 v0.3.0 到 `/usr/local/bin/geocheck`）；二进制缺失、执行失败、输出超限或已有运行中请求时返回官方错误码 `A018`，单飞互斥、45s 超时。
+- `get-geocheck` 依赖镜像内置的官方 `geocheck` 二进制（Dockerfile 下载 v0.3.0 到 `/usr/local/bin/geocheck`）；裸机部署可用 `GEOCHECK_BINARY_PATH` 覆盖二进制路径（`ExecRunner.BinaryPath` 字段 > env > 默认路径）。二进制缺失、执行失败、输出超限或已有运行中请求时返回官方错误码 `A018`，单飞互斥、45s 超时。
 - Plugin routes 只做 contract adapter，不保存状态、不注入配置、不接收 webhook、不触发 Xray restart、不执行 nftables、不产生 torrent reports。官方 3.0.0 新增的 pre-start plugin（按 glob 清理 stale unix socket）同样不实现：内嵌 core 不产生需要清理的 socket 文件。
 
 ## 响应格式
