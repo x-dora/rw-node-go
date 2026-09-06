@@ -45,8 +45,6 @@ func decodeOfficialRequest(t *testing.T, name string, data json.RawMessage) {
 		testkit.MustStrictDecode[contracts.RemoveUserRequest](t, data)
 	case "handler.remove-users":
 		testkit.MustStrictDecode[contracts.RemoveUsersRequest](t, data)
-	case "handler.get-inbound-users", "handler.get-inbound-users-count":
-		testkit.MustStrictDecode[contracts.InboundTagRequest](t, data)
 	case "handler.drop-users-connections":
 		testkit.MustStrictDecode[contracts.DropUsersConnectionsRequest](t, data)
 	case "handler.drop-ips":
@@ -95,10 +93,6 @@ func officialResponseValue(t *testing.T, name string) any {
 		}}
 	case "handler.add-user", "handler.add-users", "handler.remove-user", "handler.remove-users":
 		return httpapi.Envelope{Response: contracts.SuccessResponse()}
-	case "handler.get-inbound-users":
-		return httpapi.Envelope{Response: contracts.InboundUsersResponse{Users: []contracts.InboundUser{}}}
-	case "handler.get-inbound-users-count":
-		return httpapi.Envelope{Response: contracts.InboundUsersCountResponse{Count: 0}}
 	case "handler.drop-users-connections", "handler.drop-ips":
 		return httpapi.Envelope{Response: contracts.SimpleSuccess()}
 	case "stats.get-system-stats":

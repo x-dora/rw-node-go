@@ -245,34 +245,6 @@
       }
     },
     {
-      "name": "handler.get-inbound-users",
-      "method": "POST",
-      "path": "/node/handler/get-inbound-users",
-      "status": "stub",
-      "request": {
-        "tag": "VLESS_INBOUND"
-      },
-      "response": {
-        "response": {
-          "users": []
-        }
-      }
-    },
-    {
-      "name": "handler.get-inbound-users-count",
-      "method": "POST",
-      "path": "/node/handler/get-inbound-users-count",
-      "status": "stub",
-      "request": {
-        "tag": "VLESS_INBOUND"
-      },
-      "response": {
-        "response": {
-          "count": 0
-        }
-      }
-    },
-    {
       "name": "handler.drop-users-connections",
       "method": "POST",
       "path": "/node/handler/drop-users-connections",

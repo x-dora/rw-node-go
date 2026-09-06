@@ -29,12 +29,6 @@ type UserSpec struct {
 	Key        string
 }
 
-type InboundUser struct {
-	Username string
-	Level    int
-	Protocol UserProtocol
-}
-
 func BuildProtocolUser(spec UserSpec) (*protocol.User, error) {
 	if spec.Username == "" {
 		return nil, fmt.Errorf("xray user username is empty")

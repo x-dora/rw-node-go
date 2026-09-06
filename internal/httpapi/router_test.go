@@ -92,6 +92,26 @@ func TestOfficialDevRemovedVisionRoutes(t *testing.T) {
 	}
 }
 
+func TestOfficial314RemovedInboundUsersRoutes(t *testing.T) {
+	router := newTestRouter(t)
+	engine, ok := router.(interface {
+		Routes() gin.RoutesInfo
+	})
+	if !ok {
+		t.Fatalf("router does not expose gin routes")
+	}
+	registered := map[string]bool{}
+	for _, route := range engine.Routes() {
+		registered[route.Method+" "+route.Path] = true
+	}
+
+	for _, route := range []string{"POST /node/handler/get-inbound-users", "POST /node/handler/get-inbound-users-count"} {
+		if registered[route] {
+			t.Fatalf("%s is still registered although official 3.4.x removed it", route)
+		}
+	}
+}
+
 func TestStubResponsesMatchOfficialEmptyShape(t *testing.T) {
 	fixture := testkit.LoadPanelAPIFixture(t)
 	router := newTestRouter(t)
@@ -245,14 +265,6 @@ func (routerFakeHandler) AddUser(ctx context.Context, spec xray.UserSpec) error 
 
 func (routerFakeHandler) RemoveUser(ctx context.Context, tag string, username string) error {
 	return nil
-}
-
-func (routerFakeHandler) GetInboundUsers(ctx context.Context, tag string) ([]xray.InboundUser, error) {
-	return []xray.InboundUser{}, nil
-}
-
-func (routerFakeHandler) GetInboundUsersCount(ctx context.Context, tag string) (int, error) {
-	return 0, nil
 }
 
 type routerFakeStats struct{}

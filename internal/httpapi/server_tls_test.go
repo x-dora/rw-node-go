@@ -260,8 +260,6 @@ func (tlsTestHandlers) AddUser(c *gin.Context)                      { c.Status(h
 func (tlsTestHandlers) AddUsers(c *gin.Context)                     { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) RemoveUser(c *gin.Context)                   { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) RemoveUsers(c *gin.Context)                  { c.Status(http.StatusNoContent) }
-func (tlsTestHandlers) GetInboundUsers(c *gin.Context)              { c.Status(http.StatusNoContent) }
-func (tlsTestHandlers) GetInboundUsersCount(c *gin.Context)         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) DropUsersConnections(c *gin.Context)         { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) DropIPs(c *gin.Context)                      { c.Status(http.StatusNoContent) }
 func (tlsTestHandlers) GetSystemStats(c *gin.Context)               { c.Status(http.StatusNoContent) }

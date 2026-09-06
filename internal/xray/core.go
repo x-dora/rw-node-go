@@ -184,8 +184,6 @@ func (c *EmbeddedCore) Routing() RoutingClient {
 type HandlerClient interface {
 	AddUser(ctx context.Context, spec UserSpec) error
 	RemoveUser(ctx context.Context, tag string, username string) error
-	GetInboundUsers(ctx context.Context, tag string) ([]InboundUser, error)
-	GetInboundUsersCount(ctx context.Context, tag string) (int, error)
 }
 
 type StatsClient interface {
@@ -270,33 +268,6 @@ func (c *embeddedHandlerClient) RemoveUser(ctx context.Context, tag string, user
 		return fmt.Errorf("xray handler remove user from inbound %q: %w", tag, err)
 	}
 	return nil
-}
-
-func (c *embeddedHandlerClient) GetInboundUsers(ctx context.Context, tag string) ([]InboundUser, error) {
-	manager, err := c.manager(tag)
-	if err != nil {
-		return nil, err
-	}
-	users := manager.GetUsers(ctx)
-	output := make([]InboundUser, 0, len(users))
-	for _, user := range users {
-		if user == nil {
-			continue
-		}
-		output = append(output, InboundUser{
-			Username: user.Email,
-			Level:    int(user.Level),
-		})
-	}
-	return output, nil
-}
-
-func (c *embeddedHandlerClient) GetInboundUsersCount(ctx context.Context, tag string) (int, error) {
-	manager, err := c.manager(tag)
-	if err != nil {
-		return 0, err
-	}
-	return int(manager.GetUsersCount(ctx)), nil
 }
 
 func (c *embeddedStatsClient) Ping(ctx context.Context) error {

@@ -65,28 +65,10 @@ type RemoveUsersItem struct {
 	HashUUID string `json:"hashUuid"`
 }
 
-type InboundTagRequest struct {
-	Tag string `json:"tag"`
-}
-
 type DropUsersConnectionsRequest struct {
 	UserIDs []string `json:"userIds"`
 }
 
 type DropIPsRequest struct {
 	IPs []string `json:"ips"`
-}
-
-type InboundUsersResponse struct {
-	Users []InboundUser `json:"users"`
-}
-
-type InboundUsersCountResponse struct {
-	Count int `json:"count"`
-}
-
-type InboundUser struct {
-	Username string `json:"username"`
-	Level    int    `json:"level"`
-	Protocol string `json:"protocol"`
 }

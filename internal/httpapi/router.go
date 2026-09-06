@@ -27,8 +27,6 @@ type HandlerHandlers interface {
 	AddUsers(*gin.Context)
 	RemoveUser(*gin.Context)
 	RemoveUsers(*gin.Context)
-	GetInboundUsers(*gin.Context)
-	GetInboundUsersCount(*gin.Context)
 	DropUsersConnections(*gin.Context)
 	DropIPs(*gin.Context)
 }
@@ -91,8 +89,6 @@ func registerRoutes(router gin.IRoutes, handlers Handlers) {
 	router.POST("/node/handler/add-users", handlers.Handler.AddUsers)
 	router.POST("/node/handler/remove-user", handlers.Handler.RemoveUser)
 	router.POST("/node/handler/remove-users", handlers.Handler.RemoveUsers)
-	router.POST("/node/handler/get-inbound-users", handlers.Handler.GetInboundUsers)
-	router.POST("/node/handler/get-inbound-users-count", handlers.Handler.GetInboundUsersCount)
 	router.POST("/node/handler/drop-users-connections", handlers.Handler.DropUsersConnections)
 	router.POST("/node/handler/drop-ips", handlers.Handler.DropIPs)
 
