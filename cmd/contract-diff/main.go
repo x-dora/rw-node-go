@@ -33,7 +33,7 @@ func run(args []string, stdout io.Writer) error {
 
 	flags := flag.NewFlagSet("contract-diff", flag.ContinueOnError)
 	flags.SetOutput(stdout)
-	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", "dev"), "official remnawave/node tag or branch ref to check")
+	flags.StringVar(&tag, "tag", getenvDefault("CONTRACT_TAG", ""), "official remnawave/node tag or branch ref to check; defaults to the tag recorded in the baseline manifest, or \"dev\" when writing a new baseline")
 	flags.StringVar(&baselinePath, "baseline", "testdata/contracts/official-3.4.1/upstream-contract.sha256.json", "baseline manifest path")
 	flags.StringVar(&repo, "repo", "remnawave/node", "GitHub repository in owner/name form")
 	flags.StringVar(&sourceDir, "source-dir", getenvDefault("CONTRACT_SOURCE_DIR", ""), "local remnawave/node checkout to scan instead of downloading a GitHub tarball")
@@ -42,14 +42,30 @@ func run(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	if tag == "" {
-		return fmt.Errorf("-tag must not be empty")
-	}
 	if baselinePath == "" {
 		return fmt.Errorf("-baseline must not be empty")
 	}
 	if repo == "" {
 		return fmt.Errorf("-repo must not be empty")
+	}
+
+	// 校验模式默认比对 baseline 自己声明的官方版本：发布前置要抓的是
+	// 「committed baseline 与它声称对齐的 tag 是否仍然一致」，而不是上游
+	// dev 分支的最新漂移——后者由 contract-diff.yml 显式传 tag 单独监控，
+	// 否则任何上游 dev 提交都会阻断与本仓库无关的发布。
+	var baseline contractdiff.Manifest
+	if !writeBaseline {
+		var err error
+		baseline, err = contractdiff.LoadManifest(baselinePath)
+		if err != nil {
+			return err
+		}
+		if tag == "" {
+			tag = baseline.Tag
+		}
+	}
+	if tag == "" {
+		tag = "dev"
 	}
 
 	var root string
@@ -78,11 +94,6 @@ func run(args []string, stdout io.Writer) error {
 		}
 		fmt.Fprintf(stdout, "wrote contract baseline %s for %s %s (%d files)\n", baselinePath, source, tag, len(current.Files))
 		return nil
-	}
-
-	baseline, err := contractdiff.LoadManifest(baselinePath)
-	if err != nil {
-		return err
 	}
 
 	diff := contractdiff.Compare(baseline, current)

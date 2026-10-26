@@ -72,7 +72,7 @@ mise run lint
 mise run contract-diff
 ```
 
-`mise run contract-diff` 默认下载官方 [`remnawave/node`](https://github.com/remnawave/node) dev 分支。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
+`mise run contract-diff` 默认比对 baseline manifest 自己声明的官方版本（当前 `testdata/contracts/official-3.4.1/` 里记的 `3.4.1`），用于确认 committed baseline 与它声称对齐的 tag 仍然一致。这不等于盯上游最新漂移：那要显式传 `CONTRACT_TAG`，或用独立的 `contract-diff.yml` 工作流。网络不可用但本地已有官方 checkout 时，可以显式指定本地源码目录：
 
 ```sh
 CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff

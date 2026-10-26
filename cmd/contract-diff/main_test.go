@@ -104,3 +104,58 @@ func writeFixtureContract(t *testing.T, root string, rel string, data string) {
 		t.Fatalf("write %q: %v", path, err)
 	}
 }
+
+func TestRunChecksBaselineTagByDefault(t *testing.T) {
+	root := t.TempDir()
+	writeFixtureContract(t, root, "libs/contract/api/routes.ts", "routes")
+	writeFixtureContract(t, root, "libs/contract/commands/handler/add-user.command.ts", "add")
+	writeFixtureContract(t, root, "libs/contract/constants/errors/errors.ts", "errors")
+	writeFixtureContract(t, root, "libs/contract/constants/xray/stats.ts", "stats")
+	writeFixtureContract(t, root, "libs/contract/models/xray-webhook.schema.ts", "webhook")
+
+	baseline := filepath.Join(t.TempDir(), "baseline.json")
+	if err := run([]string{
+		"-tag", "3.4.1",
+		"-source-dir", root,
+		"-baseline", baseline,
+		"-write-baseline",
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("write baseline: %v", err)
+	}
+
+	// 不传 -tag 时应当跟随 baseline 自己声明的官方版本，而不是上游 dev。
+	var output bytes.Buffer
+	if err := run([]string{"-source-dir", root, "-baseline", baseline}, &output); err != nil {
+		t.Fatalf("check baseline: %v", err)
+	}
+	if !strings.Contains(output.String(), "baseline 3.4.1, checked 3.4.1") {
+		t.Fatalf("unexpected check output: %s", output.String())
+	}
+}
+
+func TestRunExplicitTagOverridesBaselineTag(t *testing.T) {
+	root := t.TempDir()
+	writeFixtureContract(t, root, "libs/contract/api/routes.ts", "routes")
+	writeFixtureContract(t, root, "libs/contract/commands/handler/add-user.command.ts", "add")
+	writeFixtureContract(t, root, "libs/contract/constants/errors/errors.ts", "errors")
+	writeFixtureContract(t, root, "libs/contract/constants/xray/stats.ts", "stats")
+	writeFixtureContract(t, root, "libs/contract/models/xray-webhook.schema.ts", "webhook")
+
+	baseline := filepath.Join(t.TempDir(), "baseline.json")
+	if err := run([]string{
+		"-tag", "3.4.1",
+		"-source-dir", root,
+		"-baseline", baseline,
+		"-write-baseline",
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("write baseline: %v", err)
+	}
+
+	var output bytes.Buffer
+	if err := run([]string{"-tag", "dev", "-source-dir", root, "-baseline", baseline}, &output); err != nil {
+		t.Fatalf("check baseline: %v", err)
+	}
+	if !strings.Contains(output.String(), "checked dev") {
+		t.Fatalf("explicit tag was ignored: %s", output.String())
+	}
+}

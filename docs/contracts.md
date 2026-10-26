@@ -106,11 +106,13 @@ testdata/contracts/official-3.4.1/upstream-contract.sha256.json
 - `libs/contract/constants/xray`
 - `libs/contract/models`
 
-本地检查当前基线。默认检查官方 `dev` 分支：
+本地检查当前基线。默认比对 baseline manifest 里记录的官方版本（当前为 `3.4.1`）：
 
 ```sh
 mise run contract-diff
 ```
+
+发布前的前置检查用的就是这个默认行为：它验证 committed baseline 与它声称对齐的 tag 仍然一致，因此不会被上游 `dev` 分支上尚未纳入评估的改动阻断。盯上游最新漂移是另一件事，见下面的 `CONTRACT_TAG`。
 
 网络不可用但本地已有官方 checkout 时，显式指定本地源码目录：
 
@@ -118,11 +120,14 @@ mise run contract-diff
 CONTRACT_SOURCE_DIR=<官方 node 本地 checkout 路径> mise run contract-diff
 ```
 
-临时检查其他官方 tag 或 branch ref 时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：
+临时检查其他官方 tag 或 branch ref（包括盯上游 `dev` 的最新漂移）时指定 `CONTRACT_TAG`；这只改变本次检查目标，不会自动更新 baseline：
 
 ```sh
+CONTRACT_TAG=dev mise run contract-diff
 CONTRACT_TAG=main mise run contract-diff
 ```
+
+上游漂移一旦确认要跟随，必须同时更新 baseline manifest、Go contract、route 注册、golden fixture 和 `NODE_VERSION`，不能只改其中一项。
 
 如果检查失败，先查看新增、删除或 hash 变化的文件列表，再对照 [官方仓库](https://github.com/remnawave/node) 更新 Go contract、route 注册和 golden fixture。
 
