@@ -35,3 +35,19 @@ func TestListenSummary(t *testing.T) {
 		}
 	}
 }
+
+func TestStartupSummaryShowsHysteriaOverrideOnlyWhenSet(t *testing.T) {
+	without := StartupSummary(config.Config{NodePort: 2222, InternalRESTPort: 61001}, "3.4.1")
+	if strings.Contains(without, "Hysteria Listen Port") {
+		t.Fatalf("unset override leaked into summary:\n%s", without)
+	}
+
+	with := StartupSummary(config.Config{
+		NodePort:           2222,
+		InternalRESTPort:   61001,
+		HysteriaListenPort: 3066,
+	}, "3.4.1")
+	if !strings.Contains(with, "Hysteria Listen Port") || !strings.Contains(with, "3066") {
+		t.Fatalf("override missing from summary:\n%s", with)
+	}
+}

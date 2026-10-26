@@ -127,6 +127,7 @@ mise run docker-build
 | `NODE_TLS_CLIENT_AUTH` | `mtls` | 设置 `SECRET_KEY` 后的 TLS 客户端证书策略：`mtls` 要求并校验客户端证书，`optional` 在客户端提交证书时校验，`none` 只保留 HTTPS/JWT。 |
 | `SNI_VERIFICATION` | `false` | 开启后主 API 握手只放行从 `SECRET_KEY` 派生的 SNI（官方同名开关，默认关闭）。 |
 | `RW_NODE_DIR` | `/opt/rw-node-go` | 节点运行目录预留入口。 |
+| `HYSTERIA_LISTEN_PORT` | 空（用面板下发的端口） | 覆盖所有 `hysteria` inbound 的监听端口。单端口 PaaS 上设为对外端口，就能让 hy2 复用同一个端口号——QUIC 走 UDP，与占用同名 TCP 端口的前置分流器不冲突。`0` 或未设置表示不覆盖。 |
 | `LOG_LEVEL` | `info` | 日志级别。 |
 | `LOG_COLOR` | `always` | 日志 ANSI 颜色策略：`always` 默认输出彩色日志，`never` 用于日志采集或落盘时关闭颜色。 |
 | `REQUEST_BODY_LIMIT_BYTES` | `1073741824` | request body 上限，默认 1 GiB。 |

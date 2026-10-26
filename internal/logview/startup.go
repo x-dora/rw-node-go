@@ -10,7 +10,7 @@ import (
 )
 
 func StartupSummary(cfg config.Config, nodeVersion string) string {
-	return Table("rw-node-go starting",
+	fields := []Row{
 		Field("Project Version", version.ProjectVersion),
 		Field("Panel Node Version", nodeVersion),
 		Field("Commit", version.Commit),
@@ -26,7 +26,13 @@ func StartupSummary(cfg config.Config, nodeVersion string) string {
 		Field("JWT Enabled", cfg.SecretKey != ""),
 		Field("Request Body Limit", cfg.RequestBodyLimitBytes),
 		Field("XRAY_LOCATION_ASSET", config.XrayAssetDir()),
-	)
+	}
+	// 只在真的覆盖时打出来，避免裸 VPS 的启动摘要凭空多一行。
+	if cfg.HysteriaListenPort > 0 {
+		fields = append(fields,
+			Field("Hysteria Listen Port", fmt.Sprintf("%d (overrides panel inbound)", cfg.HysteriaListenPort)))
+	}
+	return Table("rw-node-go starting", fields...)
 }
 
 func ListenSummary(title string, addr string, protocol string) string {

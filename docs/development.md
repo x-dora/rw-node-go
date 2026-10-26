@@ -33,7 +33,7 @@ mise exec -- go run ./cmd/rw-node-go
 
 主服务启动时会自动读取当前工作目录的 `.env`，但不会覆盖已经存在的系统环境变量。`.env` 只用于普通本地启动；真实 Panel harness 继续使用 `.env.integration.local`，并且只能通过 [`scripts/panel-integration.sh`](../scripts/panel-integration.sh) 触发。
 
-配置加载会尽早拒绝明显错误的环境变量：`NODE_PORT` 和 `INTERNAL_REST_PORT` 必须是 `1..65535` 且不能相同，`REQUEST_BODY_LIMIT_BYTES` 必须是非负整数，布尔项必须使用 Go 可解析的布尔值。空值仍使用默认值；`REQUEST_BODY_LIMIT_BYTES=0` 表示不限制请求体大小。非法值会导致启动失败，不会静默回退到默认值。
+配置加载会尽早拒绝明显错误的环境变量：`NODE_PORT` 和 `INTERNAL_REST_PORT` 必须是 `1..65535` 且不能相同，`REQUEST_BODY_LIMIT_BYTES` 必须是非负整数，布尔项必须使用 Go 可解析的布尔值。空值仍使用默认值；`REQUEST_BODY_LIMIT_BYTES=0` 表示不限制请求体大小。非法值会导致启动失败，不会静默回退到默认值。`HYSTERIA_LISTEN_PORT` 可以缺省或显式写 `0`（都表示不覆盖面板端口），一旦给出就必须落在 `1..65535`；它只改写 `protocol` 为 `hysteria` 的 inbound，其余 inbound 的端口不受影响。
 
 设置 `SECRET_KEY` 后会启用 HTTPS、TLS client auth 和 JWT RS256 校验；启动时先做 `SECRET_KEY` 载荷完整性校验（CA 可解析/未过期/自签名、node cert 由该 CA 签发、node key 与 cert 匹配、JWT public key 可解析，对齐官方 3.3.1 行为），校验失败输出逐项报告并中止启动。默认 `NODE_TLS_CLIENT_AUTH=mtls` 要求并验证客户端证书，保持官方 mTLS 行为。`NODE_TLS_CLIENT_AUTH=optional` 会在客户端提交证书时校验，`NODE_TLS_CLIENT_AUTH=none` 只保留 HTTPS/JWT，适用于 [Cloudflare API Shield mTLS](https://developers.cloudflare.com/api-shield/security/mtls/) 等前置可信代理已经完成客户端证书校验的部署。`SNI_VERIFICATION=true`（默认 `false`）时主 API 握手只放行从 `SECRET_KEY` 派生的 SNI。Go 侧所有已注册的 Panel-facing route 都强制校验 Bearer JWT。官方已移除 `/vision/*` route 和 `get-inbound-users`/`get-inbound-users-count` 两条 route，Go 侧同步返回 404。`SECRET_KEY` 内容不得写入日志、测试输出或文档示例。
 

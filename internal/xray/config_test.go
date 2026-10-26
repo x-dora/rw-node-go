@@ -114,3 +114,69 @@ func TestConfigBuilderRejectsTagConflict(t *testing.T) {
 		t.Fatalf("Build() error = nil, want conflict")
 	}
 }
+
+func TestConfigBuilderOverridesHysteriaListenPort(t *testing.T) {
+	input := map[string]any{
+		"inbounds": []any{
+			map[string]any{"tag": "VLESS_TCP_REALITY", "protocol": "vless", "port": float64(8443)},
+			map[string]any{"tag": "Hysteria", "protocol": "hysteria", "port": float64(30000)},
+		},
+	}
+
+	config, err := ConfigBuilder{HysteriaListenPort: 3066}.Build(input)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	ports := map[string]any{}
+	for _, item := range ensureArray(config["inbounds"]) {
+		inbound := item.(map[string]any)
+		ports[inbound["tag"].(string)] = inbound["port"]
+	}
+	if got := ports["Hysteria"]; got != 3066 {
+		t.Fatalf("hysteria port = %#v, want 3066", got)
+	}
+	if got := ports["VLESS_TCP_REALITY"]; got != float64(8443) {
+		t.Fatalf("non-hysteria port was rewritten: %#v", got)
+	}
+	if got := input["inbounds"].([]any)[1].(map[string]any)["port"]; got != float64(30000) {
+		t.Fatalf("input config was mutated: %#v", got)
+	}
+}
+
+func TestConfigBuilderKeepsHysteriaPortWhenUnset(t *testing.T) {
+	input := map[string]any{
+		"inbounds": []any{
+			map[string]any{"tag": "Hysteria", "protocol": "hysteria", "port": float64(30000)},
+		},
+	}
+
+	for _, port := range []int{0, -1} {
+		config, err := ConfigBuilder{HysteriaListenPort: port}.Build(input)
+		if err != nil {
+			t.Fatalf("Build(port=%d) error = %v", port, err)
+		}
+		got := ensureArray(config["inbounds"])[0].(map[string]any)["port"]
+		if got != float64(30000) {
+			t.Fatalf("port=%d: hysteria port = %#v, want unchanged 30000", port, got)
+		}
+	}
+}
+
+func TestConfigBuilderIgnoresInboundWithoutHysteria(t *testing.T) {
+	input := map[string]any{
+		"inbounds": []any{
+			map[string]any{"tag": "VLESS_WS_RAW", "protocol": "vless", "port": float64(8880)},
+			"not-a-map",
+		},
+	}
+
+	config, err := ConfigBuilder{HysteriaListenPort: 3066}.Build(input)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	got := ensureArray(config["inbounds"])[0].(map[string]any)["port"]
+	if got != float64(8880) {
+		t.Fatalf("vless port = %#v, want unchanged 8880", got)
+	}
+}

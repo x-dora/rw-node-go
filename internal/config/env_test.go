@@ -367,3 +367,51 @@ func writeFile(t *testing.T, path, contents string) {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }
+
+func TestLoadHysteriaListenPort(t *testing.T) {
+	envNames := []string{
+		"NODE_PORT", "INTERNAL_REST_PORT", "SECRET_KEY", "RW_NODE_DIR",
+		"LOG_LEVEL", "LOG_COLOR", "REQUEST_BODY_LIMIT_BYTES", "REQUIRE_SECRET_KEY",
+		"NODE_TLS_CLIENT_AUTH", "HYSTERIA_LISTEN_PORT",
+	}
+
+	tests := []struct {
+		name    string
+		value   *string
+		want    int
+		wantErr string
+	}{
+		{name: "unset leaves override off", value: nil, want: 0},
+		{name: "zero disables override", value: ptrString("0"), want: 0},
+		{name: "explicit port", value: ptrString("3066"), want: 3066},
+		{name: "non numeric", value: ptrString("hy2"), wantErr: "HYSTERIA_LISTEN_PORT"},
+		{name: "below range", value: ptrString("0x"), wantErr: "HYSTERIA_LISTEN_PORT"},
+		{name: "above range", value: ptrString("65536"), wantErr: "HYSTERIA_LISTEN_PORT"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chdir(t, t.TempDir())
+			clearEnv(t, envNames...)
+			if tt.value != nil {
+				t.Setenv("HYSTERIA_LISTEN_PORT", *tt.value)
+			}
+
+			cfg, err := Load()
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("Load() error = %v, want containing %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if cfg.HysteriaListenPort != tt.want {
+				t.Fatalf("HysteriaListenPort = %d, want %d", cfg.HysteriaListenPort, tt.want)
+			}
+		})
+	}
+}
+
+func ptrString(value string) *string { return &value }

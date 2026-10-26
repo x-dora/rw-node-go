@@ -22,9 +22,12 @@ type Registry struct {
 	Snapshot system.Snapshotter
 }
 
-func NewRegistry(runtimeState *state.RuntimeState, logger *slog.Logger) Registry {
+func NewRegistry(runtimeState *state.RuntimeState, logger *slog.Logger, cfg config.Config) Registry {
 	core := xray.NewEmbeddedCore()
-	builder := xray.ConfigBuilder{StatsUserOnline: system.HasNetAdmin()}
+	builder := xray.ConfigBuilder{
+		StatsUserOnline:    system.HasNetAdmin(),
+		HysteriaListenPort: cfg.HysteriaListenPort,
+	}
 	return NewRegistryWithXrayAndSnapshotter(runtimeState, logger, core, builder, system.NewSnapshotter())
 }
 

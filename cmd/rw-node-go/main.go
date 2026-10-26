@@ -32,7 +32,7 @@ func main() {
 	}, cfg.LogColorEnabled()))
 
 	runtimeState := state.NewRuntimeState()
-	controllers := controller.NewRegistry(runtimeState, logger)
+	controllers := controller.NewRegistry(runtimeState, logger, cfg)
 	defer func() {
 		if controllers.Snapshot != nil {
 			if err := controllers.Snapshot.Close(); err != nil {

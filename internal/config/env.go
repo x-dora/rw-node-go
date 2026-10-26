@@ -25,8 +25,12 @@ const (
 )
 
 type Config struct {
-	NodePort              int
-	InternalRESTPort      int
+	NodePort         int
+	InternalRESTPort int
+	// HysteriaListenPort 覆盖面板下发的 hysteria inbound 端口，0 表示不覆盖。
+	// 单端口 PaaS 上把它设成对外端口，就能让 hysteria 直接监听 UDP，
+	// 与监听同名 TCP 端口的 rw-node-front 共存。
+	HysteriaListenPort    int
 	SecretKey             string
 	NodeTLSClientAuth     string
 	SNIVerification       bool
@@ -50,6 +54,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	hysteriaListenPort, err := envOptionalPort("HYSTERIA_LISTEN_PORT")
+	if err != nil {
+		return Config{}, err
+	}
 	requestBodyLimitBytes, err := envNonNegativeInt64("REQUEST_BODY_LIMIT_BYTES", DefaultRequestBodyLimitBytes)
 	if err != nil {
 		return Config{}, err
@@ -65,6 +73,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		NodePort:              nodePort,
 		InternalRESTPort:      internalRESTPort,
+		HysteriaListenPort:    hysteriaListenPort,
 		SecretKey:             strings.TrimSpace(os.Getenv("SECRET_KEY")),
 		NodeTLSClientAuth:     normalizeNodeTLSClientAuth(envString("NODE_TLS_CLIENT_AUTH", DefaultNodeTLSClientAuth)),
 		SNIVerification:       sniVerification,
@@ -267,6 +276,16 @@ func envPort(key string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s must be between 1 and 65535", key)
 	}
 	return parsed, nil
+}
+
+// envOptionalPort 读一个「可以缺省」的端口：未设置或显式 0 都返回 0，
+// 表示调用方不该覆盖任何东西。envPort 本身拒绝 0，所以需要这个变体。
+func envOptionalPort(key string) (int, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" || value == "0" {
+		return 0, nil
+	}
+	return envPort(key, 0)
 }
 
 func envNonNegativeInt64(key string, fallback int64) (int64, error) {
